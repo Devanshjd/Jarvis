@@ -1,0 +1,17 @@
+# J.A.R.V.I.S — Dependencies
+# ═══════════════════════════
+
+# ── Core (Required) ──────────
+anthropic          # Claude AI API
+pillow             # Screen capture & image processing
+keyboard           # Global hotkeys
+pystray            # System tray icon
+pyautogui          # Mouse/keyboard automation
+
+# ── Voice System ─────────────
+pyttsx3            # Text-to-Speech (JARVIS voice)
+SpeechRecognition  # Speech-to-Text (voice commands)
+pyaudio            # Microphone input (required by SpeechRecognition)
+
+# ── System Monitoring ────────
+psutil             # CPU, RAM, disk, battery stats

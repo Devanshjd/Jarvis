@@ -183,8 +183,8 @@ class JarvisApp:
         cmd_bar = tk.Frame(parent, bg=COLORS["bg"], height=32)
         cmd_bar.pack(fill=tk.X, padx=16, pady=(4, 0))
 
-        cmds = ["/plan day", "/code", "/research", "/analyze",
-                "/debug", "/clear", "/voice"]
+        cmds = ["/weather", "/news", "/crypto", "/wiki",
+                "/quote", "/joke", "/clear", "/voice"]
         for cmd in cmds:
             btn = tk.Button(
                 cmd_bar, text=cmd, font=FONTS["label_md"],
@@ -316,12 +316,22 @@ class JarvisApp:
         except Exception as e:
             print(f"Automation plugin: {e}")
 
+        try:
+            from plugins.web_intel.web_plugin import WebIntelPlugin
+            self.plugin_manager.load_plugin(WebIntelPlugin)
+        except Exception as e:
+            print(f"Web Intel plugin: {e}")
+
     # ══════════════════════════════════════════════════════════════
     # MESSAGING
     # ══════════════════════════════════════════════════════════════
 
     def send_message(self, text: str):
         text = self.plugin_manager.process_message(text)
+
+        # Plugin handled it entirely
+        if text == "__handled__":
+            return
 
         # Commands
         if text.startswith("/"):
@@ -368,6 +378,8 @@ class JarvisApp:
         self.chat.add_message("assistant", reply)
         self.chat_input.set_enabled(True)
         self._update_stats()
+        # Speak the response if voice is on
+        print(f"[DEBUG] _on_reply called, voice_enabled={self.voice_enabled}")
         self.plugin_manager.on_response(reply)
 
     def _on_error(self, error: str):

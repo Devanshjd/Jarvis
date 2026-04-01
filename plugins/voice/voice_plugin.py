@@ -93,70 +93,73 @@ class VoicePlugin(PluginBase):
     def speak(self, text: str):
         """Queue text to be spoken."""
         if not HAS_TTS:
+            print("[DEBUG] TTS not available")
             return
         clean = self._clean_for_speech(text)
         if clean:
+            print(f"[DEBUG] Queuing TTS: {clean[:60]}...")
             self._tts_queue.put(clean)
+        else:
+            print("[DEBUG] Clean text was empty, nothing to speak")
 
     def _tts_worker(self):
         """
         Background thread that owns the pyttsx3 engine.
-        Engine is created AND used only in this thread (Windows COM safe).
+        Creates a FRESH engine for each utterance to avoid Windows COM issues.
         """
+        import pythoncom
+        pythoncom.CoInitialize()
+
+        voice_config = self.jarvis.config.get("voice", {})
+        rate = voice_config.get("tts_rate", 175)
+
+        # Find preferred voice ID once
         try:
-            engine = pyttsx3.init()
-
-            # Configure voice
-            voice_config = self.jarvis.config.get("voice", {})
-            rate = voice_config.get("tts_rate", 175)
-            engine.setProperty("rate", rate)
-            engine.setProperty("volume", 0.9)
-
-            # Find best voice (prefer male/David)
-            voices = engine.getProperty("voices")
+            test_engine = pyttsx3.init()
+            voices = test_engine.getProperty("voices")
             preferred = ["david", "james", "daniel", "george", "british", "male"]
-            best = None
+            self._voice_id = None
             for voice in voices:
-                name_lower = voice.name.lower()
                 for kw in preferred:
-                    if kw in name_lower:
-                        best = voice
+                    if kw in voice.name.lower():
+                        self._voice_id = voice.id
+                        print(f"JARVIS voice: {voice.name}")
                         break
-                if best:
+                if self._voice_id:
                     break
-            if best:
-                engine.setProperty("voice", best.id)
-                print(f"JARVIS voice: {best.name}")
-            elif voices:
-                engine.setProperty("voice", voices[0].id)
+            if not self._voice_id and voices:
+                self._voice_id = voices[0].id
+            test_engine.stop()
+            del test_engine
+        except Exception as e:
+            print(f"TTS voice detection error: {e}")
+            self._voice_id = None
 
-            self._tts_ready.set()  # Signal that engine is ready
+        self._tts_ready.set()
 
-            # Process queue
-            while not self._stop_event.is_set():
+        # Process queue — fresh engine per utterance
+        while not self._stop_event.is_set():
+            try:
+                text = self._tts_queue.get(timeout=0.5)
+                if text is None:
+                    break
+                print(f"[DEBUG] TTS worker speaking: {text[:50]}...")
                 try:
-                    text = self._tts_queue.get(timeout=0.5)
-                    if text is None:  # Poison pill
-                        break
+                    engine = pyttsx3.init()
+                    engine.setProperty("rate", rate)
+                    engine.setProperty("volume", 0.9)
+                    if self._voice_id:
+                        engine.setProperty("voice", self._voice_id)
                     engine.say(text)
                     engine.runAndWait()
-                except queue.Empty:
-                    continue
+                    engine.stop()
+                    del engine
                 except Exception as e:
                     print(f"TTS speak error: {e}")
-                    # Try to reinitialize
-                    try:
-                        engine = pyttsx3.init()
-                        engine.setProperty("rate", rate)
-                        engine.setProperty("volume", 0.9)
-                        if best:
-                            engine.setProperty("voice", best.id)
-                    except Exception:
-                        break
+            except queue.Empty:
+                continue
 
-        except Exception as e:
-            print(f"TTS engine init error: {e}")
-            self._tts_ready.set()  # Unblock even on failure
+        pythoncom.CoUninitialize()
 
     def _clean_for_speech(self, text: str) -> str:
         """Clean text for natural speech output."""
@@ -283,7 +286,9 @@ class VoicePlugin(PluginBase):
 
     def on_response(self, response: str):
         """Speak AI responses when voice is enabled."""
+        print(f"[DEBUG] VoicePlugin.on_response called, is_enabled={self.is_enabled}")
         if self.is_enabled:
+            print(f"[DEBUG] Speaking: {response[:50]}...")
             self.speak(response)
 
     def get_status(self) -> dict:

@@ -1,18 +1,33 @@
 """
 J.A.R.V.I.S — AI Brain
-Claude API engine handling all AI interactions.
+Provider-agnostic reasoning layer.
+
+Supports multiple backends:
+    - Anthropic (cloud) — Claude models
+    - Ollama (local)    — Llama, Mistral, Qwen, etc.
+    - LM Studio (local) — Any GGUF model
+    - OpenAI (cloud)    — GPT models
+
+Switch providers via config or /provider command.
 """
 
-import time
 import threading
 
-try:
-    import anthropic
-    HAS_ANTHROPIC = True
-except ImportError:
-    HAS_ANTHROPIC = False
+from core.providers.base import BaseProvider
+from core.providers.anthropic_provider import AnthropicProvider
+from core.providers.ollama_provider import OllamaProvider
+from core.providers.lmstudio_provider import LMStudioProvider
+from core.providers.openai_provider import OpenAIProvider
 
-# Operational modes and their system prompts
+# ── Provider Registry ─────────────────────────────────────────
+PROVIDERS = {
+    "anthropic": AnthropicProvider,
+    "ollama": OllamaProvider,
+    "lmstudio": LMStudioProvider,
+    "openai": OpenAIProvider,
+}
+
+# ── JARVIS Identity & Modes ──────────────────────────────────
 JARVIS_IDENTITY = (
     "You are J.A.R.V.I.S (Just A Rather Very Intelligent System) — a fully operational "
     "AI assistant built by your operator. You run as a desktop application with these capabilities:\n"
@@ -33,41 +48,15 @@ JARVIS_IDENTITY = (
 )
 
 MODES = {
-    "General": (
-        JARVIS_IDENTITY + "\n\nMode: General — help with anything."
-    ),
-    "Code/Dev": (
-        JARVIS_IDENTITY + "\n\nMode: Developer — elite software architect. "
-        "Write complete working code. Be thorough."
-    ),
-    "Research": (
-        JARVIS_IDENTITY + "\n\nMode: Research — world-class analyst. "
-        "Synthesize info deeply, structured analysis, cite facts."
-    ),
-    "Projects": (
-        JARVIS_IDENTITY + "\n\nMode: Project Manager — roadmaps, architecture, execution."
-    ),
-    "Analysis": (
-        JARVIS_IDENTITY + "\n\nMode: Analysis — rigorous pros/cons, risk assessment, scenario planning."
-    ),
-    "Screen": (
-        JARVIS_IDENTITY + "\n\nMode: Screen Analysis — describe what you see on screen, "
-        "identify the active application, understand what they are working on, "
-        "and proactively suggest how you can help. Be specific and practical."
-    ),
-    "File Edit": (
-        JARVIS_IDENTITY + "\n\nMode: File Edit — help read, analyze, edit, improve, "
-        "or rewrite file content. Return full edited versions when asked."
-    ),
-    "Advisor": (
-        JARVIS_IDENTITY + "\n\nMode: Life Advisor — trusted, wise, empathetic. "
-        "Help with personal decisions, career, goals. Honest but kind."
-    ),
-    "Cyber": (
-        JARVIS_IDENTITY + "\n\nMode: Cybersecurity — elite security analyst. "
-        "Network security, threat analysis, vulnerability assessment, "
-        "incident response, and security hardening."
-    ),
+    "General":   JARVIS_IDENTITY + "\n\nMode: General — help with anything.",
+    "Code/Dev":  JARVIS_IDENTITY + "\n\nMode: Developer — elite software architect. Write complete working code. Be thorough.",
+    "Research":  JARVIS_IDENTITY + "\n\nMode: Research — world-class analyst. Synthesize info deeply, structured analysis, cite facts.",
+    "Projects":  JARVIS_IDENTITY + "\n\nMode: Project Manager — roadmaps, architecture, execution.",
+    "Analysis":  JARVIS_IDENTITY + "\n\nMode: Analysis — rigorous pros/cons, risk assessment, scenario planning.",
+    "Screen":    JARVIS_IDENTITY + "\n\nMode: Screen Analysis — describe what you see on screen, identify the active application, understand what they are working on, and proactively suggest how you can help. Be specific and practical.",
+    "File Edit": JARVIS_IDENTITY + "\n\nMode: File Edit — help read, analyze, edit, improve, or rewrite file content. Return full edited versions when asked.",
+    "Advisor":   JARVIS_IDENTITY + "\n\nMode: Life Advisor — trusted, wise, empathetic. Help with personal decisions, career, goals. Honest but kind.",
+    "Cyber":     JARVIS_IDENTITY + "\n\nMode: Cybersecurity — elite security analyst. Network security, threat analysis, vulnerability assessment, incident response, and security hardening.",
 }
 
 MODE_LABELS = {
@@ -78,32 +67,60 @@ MODE_LABELS = {
 
 
 class Brain:
-    """JARVIS AI engine — handles all Claude API communication."""
+    """
+    JARVIS AI engine — provider-agnostic.
+    Routes all AI calls through the active provider.
+    """
 
     def __init__(self, config: dict):
         self.config = config
         self.history = []
         self.mode = "General"
         self.msg_count = 0
+        self.provider: BaseProvider = self._create_provider()
+
+    def _create_provider(self) -> BaseProvider:
+        """Create the active provider from config."""
+        provider_name = self.config.get("provider", "anthropic").lower()
+        provider_class = PROVIDERS.get(provider_name, AnthropicProvider)
+        return provider_class(self.config)
+
+    def switch_provider(self, provider_name: str) -> str:
+        """Switch to a different AI provider at runtime."""
+        provider_name = provider_name.lower().strip()
+        if provider_name not in PROVIDERS:
+            available = ", ".join(PROVIDERS.keys())
+            return f"Unknown provider '{provider_name}'. Available: {available}"
+
+        self.config["provider"] = provider_name
+        self.provider = self._create_provider()
+
+        if not self.provider.is_available():
+            info = self.provider.get_info()
+            if info.get("local"):
+                return (
+                    f"Switched to {info['name']}, but it's not running.\n"
+                    f"Start it first, then try again."
+                )
+            return f"Switched to {info['name']}, but it's not configured."
+
+        info = self.provider.get_info()
+        return f"Switched to {info['name']} — model: {info['model']}"
+
+    def get_provider_info(self) -> dict:
+        """Get info about the current provider."""
+        return self.provider.get_info()
 
     @property
     def api_key(self) -> str:
+        """Backward compat — returns API key if cloud provider."""
         return self.config.get("api_key", "")
-
-    @property
-    def model(self) -> str:
-        return self.config.get("model", "claude-sonnet-4-20250514")
-
-    @property
-    def max_tokens(self) -> int:
-        return self.config.get("max_tokens", 2048)
 
     def set_mode(self, mode: str):
         if mode in MODES:
             self.mode = mode
 
     def build_system_prompt(self, memory_context: str = "", notes: str = "") -> str:
-        """Build the full system prompt with mode + context."""
         prompt = MODES[self.mode]
         if memory_context:
             prompt += f"\n\n{memory_context}"
@@ -127,100 +144,65 @@ class Brain:
         self.history = []
 
     def chat(self, system_prompt: str, callback, error_callback):
-        """
-        Send current history to Claude API in a background thread.
-        callback(reply, latency_ms) on success.
-        error_callback(error_str) on failure.
-        """
-        if not HAS_ANTHROPIC:
-            error_callback("Anthropic package not installed. Run: pip install anthropic")
-            return
-        if not self.api_key:
-            error_callback("No API key configured. Add your Anthropic API key in Settings.")
-            return
-        if not self.api_key.startswith("sk-ant-"):
-            error_callback(
-                "Invalid API key format. Your key should start with 'sk-ant-'.\n"
-                "Get a valid key at: console.anthropic.com/settings/keys"
-            )
+        """Send current history to the active provider in a background thread."""
+        if not self.provider.is_available():
+            info = self.provider.get_info()
+            if info.get("local"):
+                error_callback(
+                    f"{info['name']} is not running.\n"
+                    f"Start it and try again, or switch provider with /provider anthropic"
+                )
+            else:
+                error_callback(
+                    f"{info['name']} is not configured.\n"
+                    "Add your API key in Settings."
+                )
             return
 
         def _run():
             try:
-                client = anthropic.Anthropic(api_key=self.api_key)
-                t0 = time.time()
-                msg = client.messages.create(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    system=system_prompt,
+                reply, latency = self.provider.chat(
                     messages=self.history,
+                    system_prompt=system_prompt,
+                    max_tokens=self.config.get("max_tokens", 2048),
                 )
-                latency = int((time.time() - t0) * 1000)
-                reply = msg.content[0].text
                 self.add_assistant_message(reply)
                 self.msg_count += 1
                 callback(reply, latency)
-            except anthropic.AuthenticationError:
-                error_callback(
-                    "API key is invalid or expired.\n"
-                    "Please update your key at: console.anthropic.com/settings/keys"
-                )
-            except anthropic.RateLimitError:
-                error_callback("Rate limit reached. Please wait a moment and try again.")
-            except anthropic.APIConnectionError:
-                error_callback("Cannot connect to Anthropic API. Check your internet connection.")
-            except Exception as e:
+            except ConnectionError as e:
                 error_callback(str(e))
+            except Exception as e:
+                error_callback(f"Unexpected error: {e}")
 
         threading.Thread(target=_run, daemon=True).start()
 
     def chat_with_image(self, system_prompt: str, image_b64: str,
                         prompt_text: str, callback, error_callback):
-        """Send an image (screenshot) to Claude Vision."""
-        if not HAS_ANTHROPIC:
-            error_callback("Anthropic package not installed.")
+        """Send an image to the active provider (vision)."""
+        if not self.provider.supports_vision:
+            info = self.provider.get_info()
+            error_callback(
+                f"{info['name']} ({info['model']}) doesn't support vision.\n"
+                "Switch to Anthropic or Ollama+llava for screen scanning."
+            )
             return
-        if not self.api_key:
-            error_callback("No API key configured.")
-            return
-        if not self.api_key.startswith("sk-ant-"):
-            error_callback("Invalid API key. Key should start with 'sk-ant-'.")
+
+        if not self.provider.is_available():
+            error_callback("Provider not available.")
             return
 
         def _run():
             try:
-                client = anthropic.Anthropic(api_key=self.api_key)
-                t0 = time.time()
-                msg = client.messages.create(
-                    model=self.model,
-                    max_tokens=1500,
-                    system=system_prompt,
-                    messages=[{
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/png",
-                                    "data": image_b64,
-                                },
-                            },
-                            {"type": "text", "text": prompt_text},
-                        ],
-                    }],
+                reply, latency = self.provider.chat_with_image(
+                    system_prompt=system_prompt,
+                    image_b64=image_b64,
+                    prompt_text=prompt_text,
                 )
-                latency = int((time.time() - t0) * 1000)
-                reply = msg.content[0].text
                 self.add_assistant_message(reply)
                 callback(reply, latency)
-            except anthropic.AuthenticationError:
-                error_callback("API key is invalid or expired. Update at console.anthropic.com")
-            except anthropic.RateLimitError:
-                error_callback("Rate limit reached. Wait a moment and try again.")
-            except anthropic.APIConnectionError:
-                error_callback("Cannot connect to API. Check your internet.")
-            except Exception as e:
+            except ConnectionError as e:
                 error_callback(str(e))
+            except Exception as e:
+                error_callback(f"Vision error: {e}")
 
         threading.Thread(target=_run, daemon=True).start()

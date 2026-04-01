@@ -232,13 +232,18 @@ class JarvisApp:
                 fg=COLORS.get(color_key), bg=COLORS["bg2"],
             ).pack(side=tk.LEFT, padx=2)
 
-        # Model
-        model = self.config.get("model", "claude-sonnet-4-20250514")
-        short_model = model.split("-20")[0] if "-20" in model else model
-        tk.Label(
-            sb, text=f"  ●  {short_model}", font=FONTS["label"],
-            fg=COLORS["text_dim"], bg=COLORS["bg2"],
-        ).pack(side=tk.LEFT, padx=2)
+        # Provider + Model display
+        info = self.brain.get_provider_info()
+        model_name = info["model"].split("-20")[0] if "-20" in info["model"] else info["model"]
+        provider_text = f"{info['name']} · {model_name}"
+        if info.get("local"):
+            provider_text += " (local)"
+
+        self.provider_label = tk.Label(
+            sb, text=f"  ●  {provider_text}", font=FONTS["label"],
+            fg=COLORS["primary_dim"], bg=COLORS["bg2"],
+        )
+        self.provider_label.pack(side=tk.LEFT, padx=2)
 
         # Right: session time
         self.session_label = tk.Label(
@@ -392,6 +397,26 @@ class JarvisApp:
     # ══════════════════════════════════════════════════════════════
 
     def _handle_quick_cmd(self, cmd: str):
+        # Provider switching: /provider ollama
+        if cmd.startswith("/provider"):
+            parts = cmd.split(None, 1)
+            if len(parts) > 1:
+                result = self.brain.switch_provider(parts[1])
+                from core.config import save_config
+                save_config(self.config)
+                self.chat.add_message("system", result)
+                self._update_provider_display()
+            else:
+                info = self.brain.get_provider_info()
+                available = ", ".join(["anthropic", "ollama", "lmstudio", "openai"])
+                self.chat.add_message("assistant",
+                    f"Current provider: {info['name']} ({info['model']})\n"
+                    f"Local: {'Yes' if info.get('local') else 'No'}\n"
+                    f"Vision: {'Yes' if info.get('vision') else 'No'}\n\n"
+                    f"Switch with: /provider <{available}>"
+                )
+            return
+
         cmd_map = {
             "/plan day": "Plan my day and help me prioritize my tasks",
             "/code": "Help me write code for: ",
@@ -655,6 +680,15 @@ class JarvisApp:
     # ══════════════════════════════════════════════════════════════
     # STATS & TICK
     # ══════════════════════════════════════════════════════════════
+
+    def _update_provider_display(self):
+        """Update status bar with current provider info."""
+        info = self.brain.get_provider_info()
+        model_name = info["model"].split("-20")[0] if "-20" in info["model"] else info["model"]
+        text = f"  ●  {info['name']} · {model_name}"
+        if info.get("local"):
+            text += " (local)"
+        self.provider_label.config(text=text)
 
     def _refresh_all(self):
         self.sidebar.refresh_memories(self.memory.memories)

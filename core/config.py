@@ -20,8 +20,26 @@ DEFAULT_CONFIG = {
         "wake_word": "jarvis",
         "listen_timeout": 5,
     },
+    # Provider system — swap AI backends freely
+    "provider": "anthropic",       # anthropic, ollama, lmstudio, openai
     "model": "claude-sonnet-4-20250514",
     "max_tokens": 2048,
+    # Ollama (local)
+    "ollama": {
+        "base_url": "http://localhost:11434",
+        "model": "llama3.2",
+    },
+    # LM Studio (local)
+    "lmstudio": {
+        "base_url": "http://localhost:1234",
+        "model": "local-model",
+    },
+    # OpenAI (cloud)
+    "openai": {
+        "api_key": "",
+        "model": "gpt-4o-mini",
+        "base_url": "https://api.openai.com",
+    },
     "theme": "stark",
 }
 

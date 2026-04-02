@@ -122,12 +122,12 @@ class AutomationPlugin(PluginBase):
             # Try exact match first, then partial
             if app_name in APP_MAP:
                 self._open_app(app_name)
-                return None
+                return "__handled__"
             # Try matching known app names within the phrase
             for known_app in sorted(APP_MAP.keys(), key=len, reverse=True):
                 if known_app in app_name:
                     self._open_app(known_app)
-                    return None
+                    return "__handled__"
 
         return None  # Pass through to AI
 

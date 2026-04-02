@@ -235,15 +235,20 @@ class VoicePlugin(PluginBase):
 
     def _wake_word_loop(self):
         wake_word = self.jarvis.config.get("voice", {}).get("wake_word", "jarvis").lower()
+        print(f"[JARVIS] Wake word loop started — listening for '{wake_word}'")
 
         while self.wake_word_active and not self._stop_event.is_set():
             try:
                 with sr.Microphone() as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
-                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=6)
+                    # timeout=5: wait up to 5s for speech to begin
+                    # phrase_time_limit=10: allow up to 10s of continuous speech
+                    audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=10)
 
                 try:
                     text = self.recognizer.recognize_google(audio).lower()
+                    print(f"[JARVIS] Heard: '{text}'")
+
                     if wake_word in text:
                         # Auto-enable TTS so JARVIS speaks the response back
                         if not self.is_enabled:
@@ -252,29 +257,43 @@ class VoicePlugin(PluginBase):
                             self.jarvis.root.after(0, lambda: self.jarvis.voice_btn.config(
                                 text="🎤 On", fg="#00ff88"))
 
+                        # Extract command after wake word
                         parts = text.split(wake_word, 1)
-                        command = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+                        after = parts[1].strip() if len(parts) > 1 else ""
 
-                        if command:
-                            # "JARVIS open Chrome" → process immediately
+                        # Remove filler words at the start
+                        for filler in ["can you", "could you", "please", "hey", "yo"]:
+                            if after.startswith(filler):
+                                after = after[len(filler):].strip()
+
+                        if after:
+                            print(f"[JARVIS] Wake command: '{after}'")
                             self.jarvis.root.after(0,
-                                lambda c=command: self._handle_wake_command(c))
+                                lambda c=after: self._handle_wake_command(c))
                         else:
                             # Just "JARVIS" → acknowledge and listen for follow-up
+                            print("[JARVIS] Wake word only — listening for command...")
                             self.speak("Yes, sir?")
                             self.jarvis.root.after(0, self._listen_for_command)
-                except (sr.UnknownValueError, sr.RequestError):
-                    pass
+                except sr.UnknownValueError:
+                    pass  # No speech detected, loop again
+                except sr.RequestError as e:
+                    print(f"[JARVIS] Google STT error: {e}")
 
             except sr.WaitTimeoutError:
                 continue
-            except Exception:
+            except Exception as e:
+                print(f"[JARVIS] Wake loop error: {e}")
                 import time
                 time.sleep(1)
 
     def _handle_wake_command(self, command: str):
         self.jarvis.chat.add_message("voice", f'Heard: "{command}"')
-        self.jarvis.send_message(command)
+        try:
+            self.jarvis.send_message(command)
+        except Exception as e:
+            print(f"[JARVIS] Wake command error: {e}")
+            self.jarvis.chat.add_message("system", f"Error processing command: {e}")
 
     def _listen_for_command(self):
         self.listen_once(

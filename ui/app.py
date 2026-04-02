@@ -18,6 +18,8 @@ from core.brain import Brain, MODES, MODE_LABELS
 from core.plugin_manager import PluginManager
 from core.agent import Agent
 from core.learner import UserLearner
+from core.cognitive import CognitiveCore
+from core.orchestrator import TaskOrchestrator
 from ui.themes import COLORS, FONTS
 from ui.components import ArcReactor, StatusDot
 from ui.chat import ChatDisplay, ChatInput
@@ -46,11 +48,13 @@ class JarvisApp:
         self.brain = Brain(self.config)
         self.plugin_manager = PluginManager(self)
 
-        # ── Agent + Learner ──
+        # ── Agent + Learner + Cognitive Core + Orchestrator ──
         self.agent = Agent(self)
         self.agent_mode = True  # Use agent loop; set False to bypass
         self.learner = UserLearner(self.config)
         self.learner.on_session_start()
+        self.cognitive = CognitiveCore(self.config)
+        self.orchestrator = TaskOrchestrator(self)
 
         # ── State ──
         self.attached_file = None
@@ -283,6 +287,10 @@ class JarvisApp:
 
         if self.agent_mode:
             msgs.append(("system", "Agent mode: ACTIVE — planner + executor online"))
+            cog_stats = self.cognitive.get_stats()
+            if cog_stats.get("total_knowledge", 0) > 0:
+                msgs.append(("system",
+                    f"Cognitive core: {cog_stats['total_knowledge']} knowledge entries loaded"))
 
         def show_msg(index=0):
             if index < len(msgs):
@@ -411,8 +419,24 @@ class JarvisApp:
         self.chat.add_message("thinking", "Processing...")
 
         if self.agent_mode:
-            # ── Agent Loop ── plan → safety → execute → respond
-            self.agent.process_message(
+            # ── Smart Orchestrator ── classify → route → execute → learn
+            # Extract knowledge from user message
+            self.cognitive.extract_knowledge(text, "")
+
+            # Try local reasoning first (zero API cost)
+            local_answer = self.cognitive.local_reason(text)
+            if local_answer:
+                self.root.after(0, lambda: self._on_reply(local_answer, 0))
+                return
+
+            # Try cache lookup
+            cached = self.cognitive.cache_lookup(text)
+            if cached:
+                self.root.after(0, lambda: self._on_reply(cached, 0))
+                return
+
+            # Full orchestrator pipeline
+            self.orchestrator.execute(
                 text,
                 on_reply=lambda r, l: self.root.after(0, self._on_reply, r, l),
                 on_error=lambda e: self.root.after(0, self._on_error, e),
@@ -434,6 +458,19 @@ class JarvisApp:
         self.chat.add_message("assistant", reply)
         self.chat_input.set_enabled(True)
         self._update_stats()
+
+        # Feed response back to cognitive core for learning
+        try:
+            self.cognitive.cache_store(
+                self.brain.history[-2]["content"] if len(self.brain.history) >= 2 else "",
+                reply,
+            )
+            # Extract knowledge from both user message and AI response
+            user_msg = self.brain.history[-2]["content"] if len(self.brain.history) >= 2 else ""
+            self.cognitive.extract_knowledge(user_msg, reply)
+        except Exception:
+            pass  # Non-critical
+
         # Speak the response if voice is on
         print(f"[DEBUG] _on_reply called, voice_enabled={self.voice_enabled}")
         self.plugin_manager.on_response(reply)
@@ -489,6 +526,30 @@ class JarvisApp:
             self.agent_mode = not self.agent_mode
             status = "ON — AI agent loop active" if self.agent_mode else "OFF — direct LLM chat"
             self.chat.add_message("system", f"Agent mode: {status}")
+            return
+        if cmd == "/brain":
+            stats = self.cognitive.get_stats()
+            knowledge = self.cognitive.export_knowledge()
+            self.chat.add_message("assistant",
+                f"Cognitive Core Status\n"
+                f"{'=' * 40}\n"
+                f"Knowledge entries: {stats.get('total_knowledge', 0)}\n"
+                f"Cache entries: {stats.get('cache_entries', 0)}\n"
+                f"Cache hits: {stats.get('cache_hits', 0)}\n"
+                f"Cache misses: {stats.get('cache_misses', 0)}\n"
+                f"Hit rate: {stats.get('hit_rate', 0):.1f}%\n"
+                f"Skills learned: {stats.get('total_skills', 0)}\n"
+                f"Interactions: {stats.get('interactions', 0)}\n"
+                f"\n{knowledge[:1500] if knowledge else 'No knowledge learned yet.'}"
+            )
+            return
+        if cmd == "/forget":
+            parts = cmd.split(None, 1)
+            if len(parts) > 1:
+                count = self.cognitive.forget(parts[1])
+                self.chat.add_message("system", f"Forgot {count} entries about '{parts[1]}'")
+            else:
+                self.chat.add_message("system", "Usage: /forget <topic>")
             return
 
         text = cmd_map.get(cmd, cmd)

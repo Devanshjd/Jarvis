@@ -1,6 +1,6 @@
 """
-J.A.R.V.I.S — Cybersecurity Plugin
-Network analysis, security auditing, and threat intelligence.
+J.A.R.V.I.S — Cybersecurity Plugin v2.0
+Network analysis, security auditing, threat intelligence, and proactive defense.
 
 Commands:
     /portscan <host>       — Scan common ports on a target
@@ -15,10 +15,17 @@ Commands:
     /wifi                  — List nearby WiFi networks (Windows)
     /processes             — List running processes with network access
     /threat <ip>           — Threat intelligence lookup for an IP
+    /urlscan <url>         — Scan URL for phishing/malware
+    /filescan <path>       — Scan file hash for malware
+    /audit                 — Full system security audit
+    /phish                 — Analyze pasted email for phishing
+    /netmon                — Toggle real-time network monitor
+    /seclog                — View security action log
 
 All tools are for DEFENSIVE / EDUCATIONAL purposes only.
 """
 
+import os
 import socket
 import struct
 import threading
@@ -31,6 +38,8 @@ import urllib.parse
 import urllib.error
 import hashlib
 import string
+import time
+from datetime import datetime
 
 from core.plugin_manager import PluginBase
 
@@ -66,14 +75,21 @@ def _bg(func, jarvis, *args):
 
 class CyberPlugin(PluginBase):
     name = "cyber"
-    description = "Cybersecurity — network scanning, password audit, threat intel"
-    version = "1.0"
+    description = "Cybersecurity — scanning, auditing, threat intel, proactive defense"
+    version = "2.0"
+
+    def __init__(self, jarvis):
+        super().__init__(jarvis)
+        self._netmon_active = False
+        self._netmon_thread = None
+        self._known_connections = set()
+        self._security_log = []
 
     def activate(self):
         pass
 
     def deactivate(self):
-        pass
+        self._netmon_active = False
 
     def on_command(self, command: str, args: str) -> bool:
         cmd = command.lower()
@@ -124,6 +140,28 @@ class CyberPlugin(PluginBase):
         if cmd == "/threat":
             self._show("Checking threat intelligence...")
             _bg(self.threat_lookup, self.jarvis, args)
+            return True
+        if cmd == "/urlscan":
+            self._show("Scanning URL for threats...")
+            _bg(self.url_scan, self.jarvis, args)
+            return True
+        if cmd == "/filescan":
+            self._show("Scanning file...")
+            _bg(self.file_scan, self.jarvis, args)
+            return True
+        if cmd == "/audit":
+            self._show("Running full security audit...")
+            _bg(self.security_audit, self.jarvis)
+            return True
+        if cmd == "/phish":
+            self._show("Analyzing for phishing indicators...")
+            _bg(self.phishing_detect, self.jarvis, args)
+            return True
+        if cmd == "/netmon":
+            self._toggle_netmon()
+            return True
+        if cmd == "/seclog":
+            self._show_security_log()
             return True
         return False
 
@@ -791,6 +829,618 @@ class CyberPlugin(PluginBase):
         return result
 
     # ══════════════════════════════════════════════════════════════
+    # URL SAFETY SCANNER (Phishing Detection)
+    # ══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def url_scan(jarvis, url: str) -> str:
+        if not url:
+            return "Usage: /urlscan <url>\nExample: /urlscan https://suspicious-site.com"
+
+        url = url.strip()
+        if not url.startswith("http"):
+            url = "https://" + url
+
+        result = f"URL Safety Scan\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  URL: {url}\n\n"
+        risk_score = 0
+        warnings = []
+
+        # 1. Parse URL for suspicious patterns
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # Check for IP address instead of domain
+        if re.match(r"^\d+\.\d+\.\d+\.\d+", domain):
+            risk_score += 30
+            warnings.append("Uses IP address instead of domain name")
+
+        # Check for excessive subdomains (phishing tactic)
+        parts = domain.split(".")
+        if len(parts) > 4:
+            risk_score += 20
+            warnings.append(f"Excessive subdomains ({len(parts)} levels)")
+
+        # Check for lookalike domains
+        lookalikes = {
+            "paypa1": "paypal", "g00gle": "google", "micros0ft": "microsoft",
+            "amaz0n": "amazon", "faceb00k": "facebook", "app1e": "apple",
+            "netfl1x": "netflix", "1nstagram": "instagram",
+        }
+        for fake, real in lookalikes.items():
+            if fake in domain:
+                risk_score += 50
+                warnings.append(f"Lookalike domain — mimics {real}")
+
+        # Check for suspicious TLDs
+        sus_tlds = [".xyz", ".top", ".club", ".work", ".buzz", ".tk", ".ml", ".ga", ".cf"]
+        for tld in sus_tlds:
+            if domain.endswith(tld):
+                risk_score += 15
+                warnings.append(f"Suspicious TLD: {tld}")
+
+        # Check for URL obfuscation
+        if "@" in url:
+            risk_score += 40
+            warnings.append("Contains @ symbol — possible URL obfuscation")
+        if url.count("/") > 8:
+            risk_score += 10
+            warnings.append("Deeply nested path — possible phishing redirect")
+        if re.search(r"%[0-9a-fA-F]{2}", url):
+            encoded_count = len(re.findall(r"%[0-9a-fA-F]{2}", url))
+            if encoded_count > 3:
+                risk_score += 15
+                warnings.append(f"Heavy URL encoding ({encoded_count} encoded chars)")
+
+        # Check for login/credential keywords in URL
+        cred_words = ["login", "signin", "verify", "secure", "account", "update",
+                       "confirm", "password", "banking", "wallet"]
+        for word in cred_words:
+            if word in url.lower():
+                risk_score += 10
+                warnings.append(f"Contains credential keyword: '{word}'")
+                break
+
+        # 2. Check domain age / DNS
+        try:
+            ip = socket.gethostbyname(parsed.hostname or domain)
+            result += f"  Resolved IP: {ip}\n"
+        except socket.gaierror:
+            risk_score += 25
+            warnings.append("Domain does not resolve — may be dead or new")
+
+        # 3. Check HTTPS
+        if parsed.scheme != "https":
+            risk_score += 20
+            warnings.append("Not using HTTPS — data sent in plaintext")
+
+        # 4. Try to fetch and check response
+        try:
+            req = urllib.request.Request(url, method="HEAD", headers={
+                "User-Agent": "JARVIS-Security/1.0"
+            })
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                status = resp.getcode()
+                final_url = resp.url
+                if final_url != url:
+                    risk_score += 15
+                    warnings.append(f"Redirects to: {final_url[:60]}")
+                result += f"  Status: {status}\n"
+        except urllib.error.HTTPError as e:
+            result += f"  Status: {e.code}\n"
+        except Exception:
+            risk_score += 10
+            warnings.append("Could not reach URL")
+
+        # 5. Google Safe Browsing check (transparency report)
+        try:
+            sb_data = _fetch(
+                f"https://transparencyreport.google.com/safe-browsing/search?url={urllib.parse.quote(url)}"
+            )
+            if isinstance(sb_data, str) and "unsafe" in sb_data.lower():
+                risk_score += 40
+                warnings.append("Flagged by Google Safe Browsing")
+        except Exception:
+            pass
+
+        # Calculate verdict
+        risk_score = min(risk_score, 100)
+        if risk_score >= 70:
+            verdict = "DANGEROUS"
+            emoji = "🔴"
+        elif risk_score >= 40:
+            verdict = "SUSPICIOUS"
+            emoji = "🟡"
+        elif risk_score >= 15:
+            verdict = "CAUTION"
+            emoji = "🟠"
+        else:
+            verdict = "LIKELY SAFE"
+            emoji = "🟢"
+
+        result += f"\n  {emoji} Verdict: {verdict}\n"
+        result += f"  Risk Score: {risk_score}/100\n"
+
+        if warnings:
+            result += "\n  Findings:\n"
+            for w in warnings:
+                result += f"    ⚠ {w}\n"
+        else:
+            result += "\n  No suspicious indicators found.\n"
+
+        return result
+
+    # ══════════════════════════════════════════════════════════════
+    # FILE MALWARE SCANNER
+    # ══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def file_scan(jarvis, path: str) -> str:
+        if not path:
+            return "Usage: /filescan <file path>\nScans file hash against malware databases."
+
+        path = path.strip().strip('"').strip("'")
+
+        if not os.path.exists(path):
+            return f"File not found: {path}"
+
+        result = f"File Security Scan\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        result += f"  File: {os.path.basename(path)}\n"
+
+        # File size
+        size = os.path.getsize(path)
+        if size > 1024 * 1024:
+            result += f"  Size: {size / (1024*1024):.1f} MB\n"
+        else:
+            result += f"  Size: {size / 1024:.1f} KB\n"
+
+        # Extension check
+        ext = os.path.splitext(path)[1].lower()
+        risky_exts = [".exe", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".wsf",
+                      ".scr", ".pif", ".msi", ".dll", ".com", ".hta"]
+        if ext in risky_exts:
+            result += f"  ⚠ Risky file type: {ext}\n"
+
+        # Calculate hashes
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+            md5 = hashlib.md5(data).hexdigest()
+            sha1 = hashlib.sha1(data).hexdigest()
+            sha256 = hashlib.sha256(data).hexdigest()
+
+            result += f"\n  MD5:    {md5}\n"
+            result += f"  SHA-1:  {sha1}\n"
+            result += f"  SHA-256: {sha256}\n"
+        except PermissionError:
+            return f"Permission denied: {path}"
+        except Exception as e:
+            return f"Error reading file: {e}"
+
+        # Check against MalwareBazaar (free, no key)
+        try:
+            post_data = urllib.parse.urlencode({"query": "get_info", "hash": sha256}).encode()
+            req = urllib.request.Request(
+                "https://mb-api.abuse.ch/api/v1/",
+                data=post_data,
+                headers={"User-Agent": "JARVIS-Security/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                mb_data = json.loads(resp.read().decode())
+
+            if mb_data.get("query_status") == "hash_not_found":
+                result += "\n  ✓ Not found in MalwareBazaar database.\n"
+            elif mb_data.get("query_status") == "ok":
+                malware = mb_data.get("data", [{}])[0]
+                result += f"\n  🔴 MALWARE DETECTED!\n"
+                result += f"  Name: {malware.get('signature', 'Unknown')}\n"
+                result += f"  Type: {malware.get('file_type', '?')}\n"
+                result += f"  Tags: {', '.join(malware.get('tags', []))}\n"
+                result += f"  First seen: {malware.get('first_seen', '?')}\n"
+        except Exception:
+            result += "\n  Could not check MalwareBazaar (offline/timeout).\n"
+
+        # Check HaveIBeenPwned-style for passwords in the file
+        if ext in [".txt", ".csv", ".log"]:
+            result += "\n  Tip: For password files, use /hashcrack to check individual entries.\n"
+
+        return result
+
+    # ══════════════════════════════════════════════════════════════
+    # SYSTEM SECURITY AUDIT
+    # ══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def security_audit(jarvis) -> str:
+        if platform.system() != "Windows":
+            return "Security audit currently supports Windows only."
+
+        result = "System Security Audit\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        score = 0
+        total = 0
+
+        # 1. Windows Firewall
+        total += 1
+        try:
+            fw = subprocess.run(
+                'netsh advfirewall show allprofiles state',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            if "ON" in fw.upper():
+                result += "  ✓ Firewall: ENABLED\n"
+                score += 1
+            else:
+                result += "  ✗ Firewall: DISABLED — enable immediately!\n"
+        except Exception:
+            result += "  ? Firewall: Could not check\n"
+
+        # 2. Windows Defender / Antivirus
+        total += 1
+        try:
+            av = subprocess.run(
+                'powershell -c "Get-MpComputerStatus | Select-Object -Property AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated"',
+                shell=True, capture_output=True, text=True, timeout=10,
+            ).stdout
+            if "True" in av:
+                result += "  ✓ Antivirus: ACTIVE\n"
+                score += 1
+                # Check if signatures are recent
+                sig_match = re.search(r"(\d+/\d+/\d+)", av)
+                if sig_match:
+                    result += f"     Last updated: {sig_match.group(1)}\n"
+            else:
+                result += "  ✗ Antivirus: INACTIVE — enable Windows Defender!\n"
+        except Exception:
+            result += "  ? Antivirus: Could not check\n"
+
+        # 3. Windows Update
+        total += 1
+        try:
+            upd = subprocess.run(
+                'powershell -c "(Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn"',
+                shell=True, capture_output=True, text=True, timeout=15,
+            ).stdout.strip()
+            if upd:
+                result += f"  ✓ Last update: {upd}\n"
+                score += 1
+            else:
+                result += "  ? Updates: Could not determine last update\n"
+        except Exception:
+            result += "  ? Updates: Could not check\n"
+
+        # 4. Auto-login check
+        total += 1
+        try:
+            autologin = subprocess.run(
+                'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" /v AutoAdminLogon',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            if "0x1" in autologin:
+                result += "  ✗ Auto-login: ENABLED — security risk!\n"
+            else:
+                result += "  ✓ Auto-login: Disabled\n"
+                score += 1
+        except Exception:
+            result += "  ✓ Auto-login: Disabled\n"
+            score += 1
+
+        # 5. Remote Desktop
+        total += 1
+        try:
+            rdp = subprocess.run(
+                'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            if "0x1" in rdp:
+                result += "  ✓ Remote Desktop: Disabled\n"
+                score += 1
+            else:
+                result += "  ⚠ Remote Desktop: ENABLED — disable if not needed\n"
+        except Exception:
+            result += "  ? Remote Desktop: Could not check\n"
+
+        # 6. UAC (User Account Control)
+        total += 1
+        try:
+            uac = subprocess.run(
+                'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v EnableLUA',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            if "0x1" in uac:
+                result += "  ✓ UAC: Enabled\n"
+                score += 1
+            else:
+                result += "  ✗ UAC: DISABLED — serious security risk!\n"
+        except Exception:
+            result += "  ? UAC: Could not check\n"
+
+        # 7. Open ports check
+        total += 1
+        try:
+            netstat = subprocess.run(
+                'netstat -an | findstr LISTENING',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            listening = len(netstat.strip().split("\n")) if netstat.strip() else 0
+            if listening < 20:
+                result += f"  ✓ Listening ports: {listening} (normal)\n"
+                score += 1
+            else:
+                result += f"  ⚠ Listening ports: {listening} (higher than typical)\n"
+        except Exception:
+            result += "  ? Ports: Could not check\n"
+
+        # 8. Guest account
+        total += 1
+        try:
+            guest = subprocess.run(
+                'net user guest',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+            if "Account active               No" in guest:
+                result += "  ✓ Guest account: Disabled\n"
+                score += 1
+            else:
+                result += "  ⚠ Guest account: ACTIVE — consider disabling\n"
+        except Exception:
+            result += "  ? Guest account: Could not check\n"
+
+        # Grade
+        pct = (score / total * 100) if total > 0 else 0
+        if pct >= 90: grade = "A"
+        elif pct >= 75: grade = "B"
+        elif pct >= 60: grade = "C"
+        elif pct >= 40: grade = "D"
+        else: grade = "F"
+
+        result += f"\n  Security Score: {score}/{total} — Grade: {grade}\n"
+
+        if pct < 75:
+            result += "\n  Recommendations:\n"
+            if score < total:
+                result += "    • Fix all items marked with ✗\n"
+            result += "    • Keep Windows and apps updated\n"
+            result += "    • Use a password manager\n"
+            result += "    • Enable 2FA on all accounts\n"
+
+        return result
+
+    # ══════════════════════════════════════════════════════════════
+    # EMAIL PHISHING DETECTOR
+    # ══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def phishing_detect(jarvis, email_text: str) -> str:
+        if not email_text:
+            return (
+                "Usage: /phish <paste email content>\n"
+                "Or paste the email body and I'll analyze it for phishing."
+            )
+
+        result = "Email Phishing Analysis\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        risk_score = 0
+        findings = []
+
+        text = email_text.lower()
+
+        # 1. Urgency language
+        urgency = ["urgent", "immediately", "act now", "expire", "suspended",
+                    "verify your", "confirm your", "within 24 hours",
+                    "account will be", "action required", "limited time"]
+        found_urgency = [u for u in urgency if u in text]
+        if found_urgency:
+            risk_score += 25
+            findings.append(f"Urgency language: {', '.join(found_urgency[:3])}")
+
+        # 2. Suspicious links
+        urls = re.findall(r"https?://\S+", email_text)
+        for url in urls:
+            parsed = urllib.parse.urlparse(url)
+            domain = parsed.netloc.lower()
+            if re.match(r"^\d+\.\d+\.\d+\.\d+", domain):
+                risk_score += 30
+                findings.append(f"Link uses IP address: {url[:50]}")
+            if "@" in url:
+                risk_score += 30
+                findings.append(f"Link contains @ (obfuscation): {url[:50]}")
+            sus_tlds = [".xyz", ".top", ".club", ".tk", ".ml"]
+            for tld in sus_tlds:
+                if domain.endswith(tld):
+                    risk_score += 15
+                    findings.append(f"Suspicious domain TLD in link: {domain}")
+
+        # 3. Credential requests
+        cred_words = ["password", "credit card", "ssn", "social security",
+                       "bank account", "login credentials", "pin number"]
+        found_creds = [c for c in cred_words if c in text]
+        if found_creds:
+            risk_score += 30
+            findings.append(f"Requests sensitive info: {', '.join(found_creds)}")
+
+        # 4. Sender spoofing indicators
+        spoof_patterns = ["no-reply", "noreply", "support@", "admin@",
+                           "security@", "helpdesk@"]
+        for p in spoof_patterns:
+            if p in text:
+                risk_score += 5
+                findings.append(f"Common spoofed sender pattern: {p}")
+                break
+
+        # 5. Grammar/spelling red flags
+        grammar_flags = ["dear customer", "dear user", "dear sir/madam",
+                          "we have detected", "your account has been",
+                          "click here to", "click the link below"]
+        found_grammar = [g for g in grammar_flags if g in text]
+        if found_grammar:
+            risk_score += 15
+            findings.append(f"Generic phishing phrases: {', '.join(found_grammar[:2])}")
+
+        # 6. Attachment mentions
+        if re.search(r"(?:attached|attachment|download|open the file)", text):
+            risk_score += 10
+            findings.append("References attachments — verify sender before opening")
+
+        # 7. Mismatched branding
+        brands = ["paypal", "amazon", "microsoft", "apple", "google",
+                   "netflix", "bank of america", "wells fargo", "chase"]
+        brand_found = [b for b in brands if b in text]
+        if brand_found and urls:
+            for url in urls:
+                for brand in brand_found:
+                    if brand not in url.lower():
+                        risk_score += 20
+                        findings.append(f"Claims to be {brand.title()} but link goes elsewhere")
+                        break
+
+        # Verdict
+        risk_score = min(risk_score, 100)
+        if risk_score >= 70:
+            verdict = "LIKELY PHISHING"
+            emoji = "🔴"
+        elif risk_score >= 40:
+            verdict = "SUSPICIOUS"
+            emoji = "🟡"
+        elif risk_score >= 15:
+            verdict = "MILD CONCERN"
+            emoji = "🟠"
+        else:
+            verdict = "APPEARS LEGITIMATE"
+            emoji = "🟢"
+
+        result += f"\n  {emoji} Verdict: {verdict}\n"
+        result += f"  Phishing Score: {risk_score}/100\n"
+
+        if findings:
+            result += "\n  Findings:\n"
+            for f in findings:
+                result += f"    ⚠ {f}\n"
+
+        result += "\n  Tips:\n"
+        result += "    • Never click links in suspicious emails\n"
+        result += "    • Go directly to the website instead\n"
+        result += "    • Check the sender's actual email address\n"
+
+        return result
+
+    # ══════════════════════════════════════════════════════════════
+    # REAL-TIME NETWORK MONITOR
+    # ══════════════════════════════════════════════════════════════
+
+    def _toggle_netmon(self):
+        if self._netmon_active:
+            self._netmon_active = False
+            self.jarvis.chat.add_message("system", "Network monitor: STOPPED")
+            self._log_action("netmon", "Network monitor stopped")
+        else:
+            self._netmon_active = True
+            self.jarvis.chat.add_message("system",
+                "Network monitor: ACTIVE — watching for new connections...")
+            self._log_action("netmon", "Network monitor started")
+            self._netmon_thread = threading.Thread(
+                target=self._netmon_loop, daemon=True
+            )
+            self._netmon_thread.start()
+
+    def _netmon_loop(self):
+        """Background loop that watches for new network connections."""
+        # Get initial baseline
+        self._known_connections = self._get_connections()
+
+        while self._netmon_active:
+            time.sleep(10)  # Check every 10 seconds
+            try:
+                current = self._get_connections()
+                new_conns = current - self._known_connections
+
+                if new_conns:
+                    for conn in list(new_conns)[:5]:  # Limit alerts
+                        proto, local, remote, state, proc = conn
+
+                        # Check if remote IP is suspicious
+                        alert_level = "info"
+                        remote_ip = remote.split(":")[0] if ":" in remote else remote
+
+                        # Known suspicious port ranges
+                        try:
+                            remote_port = int(remote.split(":")[-1]) if ":" in remote else 0
+                        except ValueError:
+                            remote_port = 0
+
+                        if remote_port in (4444, 5555, 1337, 31337):
+                            alert_level = "warning"
+                        if proc and proc.lower() in ("cmd.exe", "powershell.exe"):
+                            alert_level = "warning"
+
+                        if alert_level == "warning":
+                            msg = f"⚠ Suspicious connection: [{proc}] → {remote}"
+                            self._log_action("netmon_alert", msg)
+                        else:
+                            msg = f"New connection: [{proc or '?'}] {proto} → {remote}"
+
+                        self.jarvis.root.after(0, lambda m=msg, a=alert_level:
+                            self.jarvis.chat.add_message(
+                                "system" if a == "warning" else "system", f"🛡 {m}"
+                            ))
+
+                self._known_connections = current
+            except Exception:
+                pass
+
+    def _get_connections(self) -> set:
+        """Get current network connections as a set of tuples."""
+        connections = set()
+        try:
+            output = subprocess.run(
+                'netstat -b -n' if platform.system() == "Windows" else 'netstat -tunp',
+                shell=True, capture_output=True, text=True, timeout=5,
+            ).stdout
+
+            current_proc = None
+            for line in output.split("\n"):
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]"):
+                    current_proc = line[1:-1]
+                elif line.startswith("TCP") or line.startswith("UDP"):
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        proto = parts[0]
+                        local = parts[1]
+                        remote = parts[2]
+                        state = parts[3] if len(parts) > 3 else ""
+                        connections.add((proto, local, remote, state, current_proc or ""))
+                        current_proc = None
+        except Exception:
+            pass
+        return connections
+
+    # ══════════════════════════════════════════════════════════════
+    # SECURITY ACTION LOG
+    # ══════════════════════════════════════════════════════════════
+
+    def _log_action(self, action: str, detail: str):
+        """Log a security action with timestamp."""
+        entry = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "action": action,
+            "detail": detail,
+        }
+        self._security_log.append(entry)
+        # Keep last 100 entries
+        if len(self._security_log) > 100:
+            self._security_log = self._security_log[-100:]
+
+    def _show_security_log(self):
+        if not self._security_log:
+            self.jarvis.chat.add_message("system", "Security log is empty.")
+            return
+
+        result = "Security Action Log\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        for entry in self._security_log[-15:]:  # Show last 15
+            result += f"  [{entry['time']}] {entry['action']}: {entry['detail']}\n"
+        result += f"\n  Total entries: {len(self._security_log)}"
+        self.jarvis.chat.add_message("assistant", result)
+
+    # ══════════════════════════════════════════════════════════════
     # NATURAL LANGUAGE DETECTION
     # ══════════════════════════════════════════════════════════════
 
@@ -800,6 +1450,7 @@ class CyberPlugin(PluginBase):
         if re.search(r"scan\s+(?:the\s+)?ports?\s+(?:on\s+|of\s+)?(\S+)", msg):
             match = re.search(r"scan\s+(?:the\s+)?ports?\s+(?:on\s+|of\s+)?(\S+)", msg)
             self._show("Scanning ports...")
+            self._log_action("portscan", match.group(1))
             _bg(self.port_scan, self.jarvis, match.group(1))
             return "__handled__"
 
@@ -808,11 +1459,13 @@ class CyberPlugin(PluginBase):
 
         if re.search(r"(?:scan|show)\s+(?:the\s+)?(?:local\s+)?network", msg):
             self._show("Scanning network...")
+            self._log_action("netscan", "Local network scan")
             _bg(self.net_scan, self.jarvis)
             return "__handled__"
 
         if re.search(r"(?:scan|show|list)\s+(?:the\s+)?wifi", msg):
             self._show("Scanning WiFi...")
+            self._log_action("wifi_scan", "WiFi networks scan")
             _bg(self.wifi_scan, self.jarvis)
             return "__handled__"
 
@@ -821,7 +1474,34 @@ class CyberPlugin(PluginBase):
             _bg(self.my_network, self.jarvis)
             return "__handled__"
 
+        # URL safety check
+        if re.search(r"(?:is\s+(?:this\s+)?(?:link|url|site|website)\s+safe|scan\s+(?:this\s+)?(?:url|link))", msg):
+            urls = re.findall(r"https?://\S+", message)
+            if urls:
+                self._show("Scanning URL...")
+                self._log_action("url_scan", urls[0][:60])
+                _bg(self.url_scan, self.jarvis, urls[0])
+                return "__handled__"
+
+        # Security audit
+        if re.search(r"(?:am i|is my (?:computer|pc|system))\s+(?:secure|safe|protected)", msg):
+            self._show("Running security audit...")
+            self._log_action("audit", "Full system audit")
+            _bg(self.security_audit, self.jarvis)
+            return "__handled__"
+
+        if re.search(r"security\s+(?:audit|check|scan|status)", msg):
+            self._show("Running security audit...")
+            self._log_action("audit", "Full system audit")
+            _bg(self.security_audit, self.jarvis)
+            return "__handled__"
+
         return None
 
     def get_status(self) -> dict:
-        return {"name": self.name, "active": True}
+        return {
+            "name": self.name,
+            "active": True,
+            "netmon_active": self._netmon_active,
+            "log_entries": len(self._security_log),
+        }

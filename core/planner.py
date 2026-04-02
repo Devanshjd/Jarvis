@@ -38,6 +38,15 @@ Available tools:
   lock_screen    — args: {}                          — Lock workstation
   set_volume     — args: {"level": "<0-100>"}        — Set system volume
   remember       — args: {"text": "<memory>"}        — Save to memory bank
+  url_scan       — args: {"url": "<url>"}            — Scan URL for phishing/malware
+  file_scan      — args: {"path": "<file path>"}     — Scan file hash for malware
+  security_audit — args: {}                          — Full system security audit
+  phishing_detect — args: {"text": "<email text>"}   — Analyze email for phishing
+  port_scan      — args: {"host": "<host or IP>"}    — Scan ports on a target
+  wifi_scan      — args: {}                          — List nearby WiFi networks
+  net_scan       — args: {}                          — Discover local network devices
+  network_info   — args: {}                          — Show network configuration
+  threat_lookup  — args: {"ip": "<IP address>"}      — IP threat intelligence
 
 Response format (JSON only, no markdown):
 {

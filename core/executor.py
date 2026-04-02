@@ -49,6 +49,16 @@ class Executor:
             "lock_screen": self._lock_screen,
             "set_volume": self._set_volume,
             "remember": self._remember,
+            # Cybersecurity tools
+            "url_scan": self._cyber_tool("url_scan"),
+            "file_scan": self._cyber_tool("file_scan"),
+            "security_audit": self._cyber_tool("security_audit"),
+            "phishing_detect": self._cyber_tool("phishing_detect"),
+            "port_scan": self._cyber_tool("port_scan"),
+            "wifi_scan": self._cyber_tool("wifi_scan"),
+            "net_scan": self._cyber_tool("net_scan"),
+            "network_info": self._cyber_tool("network_info"),
+            "threat_lookup": self._cyber_tool("threat_lookup"),
         }
 
     @property
@@ -163,6 +173,33 @@ class Executor:
             else:
                 result = method(self.jarvis, str(args))
 
+            return ToolResult(success=True, output=result)
+        return handler
+
+    def _cyber_tool(self, method_name: str):
+        """Factory: returns a handler that delegates to the CyberPlugin."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("cyber")
+            if not plugin:
+                return ToolResult(success=False, error="Cyber plugin not loaded.")
+
+            method_map = {
+                "url_scan": ("url_scan", lambda: plugin.url_scan(self.jarvis, args.get("url", ""))),
+                "file_scan": ("file_scan", lambda: plugin.file_scan(self.jarvis, args.get("path", ""))),
+                "security_audit": ("security_audit", lambda: plugin.security_audit(self.jarvis)),
+                "phishing_detect": ("phishing_detect", lambda: plugin.phishing_detect(self.jarvis, args.get("text", ""))),
+                "port_scan": ("port_scan", lambda: plugin.port_scan(self.jarvis, args.get("host", ""))),
+                "wifi_scan": ("wifi_scan", lambda: plugin.wifi_scan(self.jarvis)),
+                "net_scan": ("net_scan", lambda: plugin.net_scan(self.jarvis)),
+                "network_info": ("network_info", lambda: plugin.my_network(self.jarvis)),
+                "threat_lookup": ("threat_lookup", lambda: plugin.threat_lookup(self.jarvis, args.get("ip", ""))),
+            }
+
+            if method_name not in method_map:
+                return ToolResult(success=False, error=f"Unknown cyber tool: {method_name}")
+
+            _, call = method_map[method_name]
+            result = call()
             return ToolResult(success=True, output=result)
         return handler
 

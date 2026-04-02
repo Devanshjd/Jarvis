@@ -229,6 +229,10 @@ class VoicePlugin(PluginBase):
     def _start_wake_word(self):
         if not HAS_STT or not self.recognizer:
             return
+        # Don't start if already running
+        if self._wake_thread and self._wake_thread.is_alive():
+            self.wake_word_active = True
+            return
         self.wake_word_active = True
         self._wake_thread = threading.Thread(target=self._wake_word_loop, daemon=True)
         self._wake_thread.start()

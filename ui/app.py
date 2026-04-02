@@ -308,7 +308,8 @@ class JarvisApp:
         else:
             self.chat.add_message("assistant",
                 "All systems nominal, sir. How may I assist you today?\n\n"
-                "Just say \"JARVIS\" anytime — I'm always listening.\n"
+                "Say \"JARVIS\" anytime — I'm always listening.\n"
+                "Press Ctrl+Shift+V for push-to-talk (no wake word needed).\n"
                 "Hotkeys: Ctrl+Shift+J (toggle) · Ctrl+Shift+S (scan)"
             )
 
@@ -487,16 +488,46 @@ class JarvisApp:
                 "Voice not available. Install: pip install pyttsx3 SpeechRecognition pyaudio")
 
     def toggle_listening(self):
+        """Push-to-talk: Ctrl+Shift+V or mic button. Pauses wake loop to avoid mic conflict."""
         voice_plugin = self.plugin_manager.plugins.get("voice")
-        if voice_plugin:
-            voice_plugin.listen_once(
-                callback=lambda t: self.root.after(0, self._on_voice_input, t),
-                error_callback=lambda e: self.root.after(0,
-                    lambda: self.chat.add_message("system", f"Voice: {e}")),
-            )
-            self.chat.add_message("voice", "Listening...")
-        else:
+        if not voice_plugin:
             self.chat.add_message("system", "Voice plugin not loaded")
+            return
+
+        # Auto-enable TTS so response is spoken back
+        if not self.voice_enabled:
+            self.voice_enabled = True
+            voice_plugin.is_enabled = True
+            self.voice_btn.config(text="🎤 On", fg=COLORS["green"])
+
+        # Pause wake word loop so it doesn't steal the mic
+        was_wake_active = voice_plugin.wake_word_active
+        if was_wake_active:
+            voice_plugin.wake_word_active = False
+            import time
+            time.sleep(0.3)  # Let current listen cycle finish
+
+        self.chat.add_message("voice", "Listening... (speak now)")
+        voice_plugin.speak("Listening.")
+
+        def _on_done(text):
+            self.root.after(0, lambda: self._on_voice_input(text))
+            # Resume wake loop after processing
+            if was_wake_active:
+                voice_plugin._start_wake_word()
+
+        def _on_fail(err):
+            self.root.after(0, lambda: self.chat.add_message("system", f"Voice: {err}"))
+            # Resume wake loop even on failure
+            if was_wake_active:
+                voice_plugin._start_wake_word()
+
+        voice_plugin.listen_once(
+            callback=_on_done,
+            error_callback=_on_fail,
+            timeout=10,
+            phrase_limit=20,
+        )
 
     def _on_voice_input(self, text: str):
         self.chat.add_message("voice", f'Heard: "{text}"')

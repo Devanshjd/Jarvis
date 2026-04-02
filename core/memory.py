@@ -1,13 +1,17 @@
 """
 J.A.R.V.I.S — Memory System
-Persistent memory bank for storing and recalling operator information.
+Dual-layer memory: long-term (persistent) + short-term (session context).
+
+Long-term: Facts the operator tells JARVIS to remember. Saved to disk.
+Short-term: Recent conversation context for the agent planner. Session-only.
 """
 
+from collections import deque
 from core.config import save_config
 
 
 class MemoryBank:
-    """Manages JARVIS's persistent memory bank."""
+    """Manages JARVIS's persistent (long-term) memory bank."""
 
     MAX_MEMORIES = 100
 
@@ -65,3 +69,54 @@ class MemoryBank:
 
     def __len__(self):
         return len(self.memories)
+
+
+class ShortTermMemory:
+    """
+    Session-scoped context buffer for the agent.
+    Keeps the last N exchanges (user + assistant pairs) plus
+    any tool results from the current turn.
+    """
+
+    MAX_TURNS = 8  # keep last 8 user/assistant pairs
+
+    def __init__(self):
+        self._turns: deque[dict] = deque(maxlen=self.MAX_TURNS * 2)
+        self._tool_results: list[dict] = []
+
+    def add_user(self, text: str):
+        self._turns.append({"role": "user", "content": text})
+
+    def add_assistant(self, text: str):
+        self._turns.append({"role": "assistant", "content": text})
+
+    def add_tool_result(self, tool_name: str, output: str, success: bool):
+        self._tool_results.append({
+            "tool": tool_name,
+            "output": output[:500],
+            "success": success,
+        })
+
+    def clear_tool_results(self):
+        self._tool_results.clear()
+
+    @property
+    def recent_messages(self) -> list[dict]:
+        return list(self._turns)
+
+    def get_context_string(self) -> str:
+        """Format short-term context for the planner."""
+        parts = []
+
+        if self._tool_results:
+            tool_lines = []
+            for tr in self._tool_results[-3:]:
+                status = "OK" if tr["success"] else "FAIL"
+                tool_lines.append(f"  [{status}] {tr['tool']}: {tr['output'][:200]}")
+            parts.append("[RECENT TOOL RESULTS]\n" + "\n".join(tool_lines))
+
+        return "\n\n".join(parts)
+
+    def clear(self):
+        self._turns.clear()
+        self._tool_results.clear()

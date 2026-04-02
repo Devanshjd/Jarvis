@@ -16,6 +16,7 @@ from core.config import load_config, save_config
 from core.memory import MemoryBank
 from core.brain import Brain, MODES, MODE_LABELS
 from core.plugin_manager import PluginManager
+from core.agent import Agent
 from ui.themes import COLORS, FONTS
 from ui.components import ArcReactor, StatusDot
 from ui.chat import ChatDisplay, ChatInput
@@ -43,6 +44,10 @@ class JarvisApp:
         self.memory = MemoryBank(self.config)
         self.brain = Brain(self.config)
         self.plugin_manager = PluginManager(self)
+
+        # ── Agent ──
+        self.agent = Agent(self)
+        self.agent_mode = True  # Use agent loop; set False to bypass
 
         # ── State ──
         self.attached_file = None
@@ -184,7 +189,7 @@ class JarvisApp:
         cmd_bar.pack(fill=tk.X, padx=16, pady=(4, 0))
 
         cmds = ["/weather", "/news", "/crypto", "/wiki",
-                "/quote", "/joke", "/clear", "/voice"]
+                "/quote", "/joke", "/clear", "/voice", "/agent"]
         for cmd in cmds:
             btn = tk.Button(
                 cmd_bar, text=cmd, font=FONTS["label_md"],
@@ -272,6 +277,9 @@ class JarvisApp:
         if mems:
             msgs.append(("system", f"Memory bank: {mems} records"))
 
+        if self.agent_mode:
+            msgs.append(("system", "Agent mode: ACTIVE — planner + executor online"))
+
         def show_msg(index=0):
             if index < len(msgs):
                 role, text = msgs[index]
@@ -338,7 +346,7 @@ class JarvisApp:
         if text == "__handled__":
             return
 
-        # Commands
+        # Commands — always handle directly
         if text.startswith("/"):
             parts = text.split(None, 1)
             cmd = parts[0].lower()
@@ -348,18 +356,7 @@ class JarvisApp:
             self._handle_quick_cmd(cmd)
             return
 
-        # Memory
-        mr = re.match(r"remember\s+(?:that\s+)?(.+)", text, re.IGNORECASE)
-        if mr:
-            mem_text = mr.group(1)
-            self.memory.add(mem_text)
-            self.chat.add_message("user", text)
-            self.chat.add_message("assistant",
-                f'Committed to memory, sir: "{mem_text}"')
-            self._refresh_all()
-            return
-
-        # Normal AI chat
+        # Show user message in chat
         self.chat.add_message("user", text)
         self.brain.add_user_message(text)
         self.brain.msg_count += 1
@@ -368,15 +365,24 @@ class JarvisApp:
         self.chat_input.set_enabled(False)
         self.chat.add_message("thinking", "Processing...")
 
-        system_prompt = self.brain.build_system_prompt(
-            memory_context=self.memory.get_context_string(),
-            notes=self._get_notes(),
-        )
-        self.brain.chat(
-            system_prompt,
-            callback=lambda r, l: self.root.after(0, self._on_reply, r, l),
-            error_callback=lambda e: self.root.after(0, self._on_error, e),
-        )
+        if self.agent_mode:
+            # ── Agent Loop ── plan → safety → execute → respond
+            self.agent.process_message(
+                text,
+                on_reply=lambda r, l: self.root.after(0, self._on_reply, r, l),
+                on_error=lambda e: self.root.after(0, self._on_error, e),
+            )
+        else:
+            # ── Legacy mode ── direct LLM chat (fallback)
+            system_prompt = self.brain.build_system_prompt(
+                memory_context=self.memory.get_context_string(),
+                notes=self._get_notes(),
+            )
+            self.brain.chat(
+                system_prompt,
+                callback=lambda r, l: self.root.after(0, self._on_reply, r, l),
+                error_callback=lambda e: self.root.after(0, self._on_error, e),
+            )
 
     def _on_reply(self, reply: str, latency: int):
         self.chat.remove_last_thinking()
@@ -433,10 +439,16 @@ class JarvisApp:
         if cmd == "/clear":
             self.chat.clear()
             self.brain.clear_history()
+            self.agent.short_term.clear()
             self.chat.add_message("system", "Chat cleared")
             return
         if cmd == "/voice":
             self.toggle_voice()
+            return
+        if cmd == "/agent":
+            self.agent_mode = not self.agent_mode
+            status = "ON — AI agent loop active" if self.agent_mode else "OFF — direct LLM chat"
+            self.chat.add_message("system", f"Agent mode: {status}")
             return
 
         text = cmd_map.get(cmd, cmd)

@@ -43,7 +43,9 @@ class ArcReactor:
         glow_alpha = int(30 + 25 * self._pulse)
 
         # Outer glow ring
-        glow_color = f"#{0:02x}{int(180 + 40*self._pulse):02x}{int(220 + 35*self._pulse):02x}"
+        g = min(int(180 + 40 * self._pulse), 255)
+        b = min(int(220 + 35 * self._pulse), 255)
+        glow_color = f"#{0:02x}{g:02x}{b:02x}"
         c.create_oval(cx-r, cy-r, cx+r, cy+r, outline=glow_color, width=2)
 
         # Inner rings
@@ -54,7 +56,7 @@ class ArcReactor:
 
         # Core — pulsing
         cr = int(r * 0.2 + 2 * self._pulse)
-        core_brightness = int(200 + 55 * self._pulse)
+        core_brightness = min(int(200 + 55 * self._pulse), 255)
         core_color = f"#00{core_brightness:02x}ff"
         c.create_oval(cx-cr, cy-cr, cx+cr, cy+cr,
                      fill=core_color, outline="", width=0)

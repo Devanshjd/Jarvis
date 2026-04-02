@@ -112,57 +112,76 @@ class AutomationPlugin(PluginBase):
         msg_lower = message.lower().strip()
         import re
 
-        # "open YouTube in Chrome" / "open google.com" — website opening
-        web_match = re.search(
+        SITE_MAP = {
+            "youtube": "https://www.youtube.com",
+            "google": "https://www.google.com",
+            "gmail": "https://mail.google.com",
+            "github": "https://github.com",
+            "twitter": "https://twitter.com",
+            "x": "https://x.com",
+            "instagram": "https://www.instagram.com",
+            "facebook": "https://www.facebook.com",
+            "reddit": "https://www.reddit.com",
+            "linkedin": "https://www.linkedin.com",
+            "spotify": "https://open.spotify.com",
+            "netflix": "https://www.netflix.com",
+            "whatsapp": "https://web.whatsapp.com",
+            "chatgpt": "https://chat.openai.com",
+            "amazon": "https://www.amazon.com",
+            "stackoverflow": "https://stackoverflow.com",
+            "wikipedia": "https://www.wikipedia.org",
+            "twitch": "https://www.twitch.tv",
+        }
+
+        # ── 1) "open YouTube in Chrome" — check SITE_MAP first ──
+        browser_match = re.search(
             r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+(.+?)\s+(?:in|on|using)\s+(?:chrome|browser|edge|firefox)",
             msg_lower,
         )
-        if not web_match:
-            # "open youtube" / "open google.com" — direct website
-            web_match = re.search(
-                r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+([\w.-]+\.(?:com|org|net|io|dev|co|in|edu|gov)(?:/\S*)?)",
-                msg_lower,
-            )
-        if not web_match:
-            # "open youtube" where youtube is a known site
-            SITE_MAP = {
-                "youtube": "https://www.youtube.com",
-                "google": "https://www.google.com",
-                "gmail": "https://mail.google.com",
-                "github": "https://github.com",
-                "twitter": "https://twitter.com",
-                "instagram": "https://www.instagram.com",
-                "facebook": "https://www.facebook.com",
-                "reddit": "https://www.reddit.com",
-                "linkedin": "https://www.linkedin.com",
-                "spotify": "https://open.spotify.com",
-                "netflix": "https://www.netflix.com",
-                "whatsapp": "https://web.whatsapp.com",
-                "chatgpt": "https://chat.openai.com",
-                "amazon": "https://www.amazon.com",
-                "stackoverflow": "https://stackoverflow.com",
-            }
-            site_match = re.search(
-                r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+(\w+)(?:\s+(?:in|on)\s+\w+)?$",
-                msg_lower,
-            )
-            if site_match:
-                site_name = site_match.group(1).strip()
-                if site_name in SITE_MAP:
-                    import webbrowser
-                    webbrowser.open(SITE_MAP[site_name])
-                    self.jarvis.chat.add_message("assistant",
-                        f"Opening {site_name.title()}, sir.")
-                    return "__handled__"
+        if browser_match:
+            target = browser_match.group(1).strip()
+            # Known site name? Use full URL
+            if target in SITE_MAP:
+                import webbrowser
+                webbrowser.open(SITE_MAP[target])
+                self.jarvis.chat.add_message("assistant",
+                    f"Opening {target.title()}, sir.")
+                return "__handled__"
+            # Has a domain extension? Treat as URL
+            if re.search(r'\.(?:com|org|net|io|dev|co|in|edu|gov)', target):
+                url = target if target.startswith("http") else "https://" + target
+                import webbrowser
+                webbrowser.open(url)
+                self.jarvis.chat.add_message("assistant", f"Opening {url}, sir.")
+                return "__handled__"
 
-        if web_match:
-            url = web_match.group(1).strip()
+        # ── 2) "open youtube.com" — direct URL ──
+        url_match = re.search(
+            r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+([\w.-]+\.(?:com|org|net|io|dev|co|in|edu|gov)(?:/\S*)?)",
+            msg_lower,
+        )
+        if url_match:
+            url = url_match.group(1).strip()
             if not url.startswith("http"):
                 url = "https://" + url
             import webbrowser
             webbrowser.open(url)
             self.jarvis.chat.add_message("assistant", f"Opening {url}, sir.")
             return "__handled__"
+
+        # ── 3) "open youtube" — known site by name ──
+        site_match = re.search(
+            r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+(\w+)(?:\s+(?:in|on)\s+\w+)?$",
+            msg_lower,
+        )
+        if site_match:
+            site_name = site_match.group(1).strip()
+            if site_name in SITE_MAP:
+                import webbrowser
+                webbrowser.open(SITE_MAP[site_name])
+                self.jarvis.chat.add_message("assistant",
+                    f"Opening {site_name.title()}, sir.")
+                return "__handled__"
 
         # "open X" / "can you open X" / "please open X" — app opening
         match = re.search(

@@ -4,13 +4,15 @@ Ties together: Planner → Safety → Executor → Memory → Response.
 
 Flow:
   1. User message arrives
-  2. Planner sends message + context to LLM → gets AgentPlan (JSON)
-  3. Safety layer checks if confirmation is needed
-  4. Executor runs the tool (if any)
-  5. Memory updated with results
-  6. Spoken reply sent to user (+ TTS via plugin)
+  2. Fast-path checks for common patterns (no LLM needed)
+  3. If no fast-path match → Planner sends to LLM → AgentPlan (JSON)
+  4. Safety layer checks if confirmation is needed
+  5. Executor runs the tool (if any)
+  6. Memory updated with results
+  7. Spoken reply sent to user (+ TTS via plugin)
 """
 
+import re
 import threading
 
 from core.schemas import AgentPlan, AgentState, ToolResult
@@ -37,6 +39,75 @@ class Agent:
         self._confirm_callback = None
         self._pending_plan: AgentPlan | None = None
 
+    def _fast_path(self, text: str) -> AgentPlan | None:
+        """
+        Try to handle common patterns locally — zero LLM latency.
+        Returns an AgentPlan if matched, None to fall through to LLM.
+        """
+        msg = text.lower().strip()
+
+        # Greetings — no need to call the LLM for "hi"
+        if msg in ("hi", "hello", "hey", "yo", "sup", "hi jarvis", "hey jarvis"):
+            return AgentPlan.chat_only("greeting", "Hello, sir. How can I assist you?")
+
+        # "what time is it"
+        if re.search(r"what(?:'s| is) the time", msg) or msg in ("time", "current time"):
+            from datetime import datetime
+            now = datetime.now().strftime("%I:%M %p")
+            return AgentPlan.chat_only("time_check", f"It's {now}, sir.")
+
+        # "what's the date"
+        if re.search(r"what(?:'s| is) (?:the |today(?:'s)? )?date", msg) or msg == "date":
+            from datetime import datetime
+            today = datetime.now().strftime("%A, %B %d, %Y")
+            return AgentPlan.chat_only("date_check", f"Today is {today}, sir.")
+
+        # Weather — direct fast-path to tool
+        weather_match = re.search(r"(?:what(?:'s| is) the )?weather(?: in (.+))?", msg)
+        if weather_match or msg == "weather":
+            city = weather_match.group(1) if weather_match and weather_match.group(1) else ""
+            return AgentPlan(
+                user_intent="check weather",
+                needs_tool=True, tool_name="get_weather",
+                tool_args={"city": city.strip()},
+                spoken_reply=f"Checking the weather{' in ' + city.strip() if city.strip() else ''}, sir.",
+            )
+
+        # Crypto
+        if re.search(r"(?:crypto|bitcoin|btc|eth)\s*(?:price)?", msg):
+            return AgentPlan(
+                user_intent="check crypto",
+                needs_tool=True, tool_name="get_crypto",
+                tool_args={"coin": ""}, spoken_reply="Fetching crypto prices, sir.",
+            )
+
+        # Joke
+        if msg in ("tell me a joke", "joke", "make me laugh"):
+            return AgentPlan(
+                user_intent="joke", needs_tool=True,
+                tool_name="get_joke", tool_args={},
+                spoken_reply="Here's one for you, sir.",
+            )
+
+        # Quote
+        if re.search(r"(?:give me a |inspirational )?quote", msg):
+            return AgentPlan(
+                user_intent="quote", needs_tool=True,
+                tool_name="get_quote", tool_args={},
+                spoken_reply="Finding some inspiration, sir.",
+            )
+
+        # System info
+        if re.search(r"(?:system|pc|computer)\s*(?:info|status|stats|health)", msg):
+            return AgentPlan(
+                user_intent="system info", needs_tool=True,
+                tool_name="system_info", tool_args={},
+                spoken_reply="Checking system status, sir.",
+            )
+
+        # No fast-path match
+        return None
+
     def process_message(self, text: str, on_reply, on_error):
         """
         Main entry point. Processes a user message through the agent loop.
@@ -51,7 +122,11 @@ class Agent:
 
         def _run():
             try:
-                plan = self._plan(text)
+                # Try fast-path first (no LLM call needed)
+                plan = self._fast_path(text)
+                if plan is None:
+                    # Full LLM planning
+                    plan = self._plan(text)
                 self.state.current_plan = plan
 
                 if plan.needs_tool and plan.tool_name:
@@ -98,6 +173,11 @@ class Agent:
         stm_context = self.short_term.get_context_string()
         notes = self.jarvis.config.get("notes", "")
 
+        # User behavior context (learned patterns)
+        learner_context = ""
+        if hasattr(self.jarvis, "learner"):
+            learner_context = self.jarvis.learner.get_context_string()
+
         # Combine planning prompt with JARVIS identity
         from core.brain import MODES
         identity = MODES.get(self.brain.mode, MODES["General"])
@@ -107,6 +187,8 @@ class Agent:
             full_system += f"\n\n{mem_context}"
         if stm_context:
             full_system += f"\n\n{stm_context}"
+        if learner_context:
+            full_system += f"\n\n{learner_context}"
         if notes:
             full_system += f"\n\n[CURRENT NOTES]\n{notes}"
 

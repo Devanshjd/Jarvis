@@ -17,6 +17,7 @@ from core.memory import MemoryBank
 from core.brain import Brain, MODES, MODE_LABELS
 from core.plugin_manager import PluginManager
 from core.agent import Agent
+from core.learner import UserLearner
 from ui.themes import COLORS, FONTS
 from ui.components import ArcReactor, StatusDot
 from ui.chat import ChatDisplay, ChatInput
@@ -45,9 +46,11 @@ class JarvisApp:
         self.brain = Brain(self.config)
         self.plugin_manager = PluginManager(self)
 
-        # ── Agent ──
+        # ── Agent + Learner ──
         self.agent = Agent(self)
         self.agent_mode = True  # Use agent loop; set False to bypass
+        self.learner = UserLearner(self.config)
+        self.learner.on_session_start()
 
         # ── State ──
         self.attached_file = None
@@ -189,7 +192,7 @@ class JarvisApp:
         cmd_bar.pack(fill=tk.X, padx=16, pady=(4, 0))
 
         cmds = ["/weather", "/news", "/crypto", "/wiki",
-                "/quote", "/joke", "/clear", "/voice", "/agent"]
+                "/portscan", "/wifi", "/mynet", "/clear", "/agent"]
         for cmd in cmds:
             btn = tk.Button(
                 cmd_bar, text=cmd, font=FONTS["label_md"],
@@ -336,6 +339,12 @@ class JarvisApp:
         except Exception as e:
             print(f"Web Intel plugin: {e}")
 
+        try:
+            from plugins.cyber.cyber_plugin import CyberPlugin
+            self.plugin_manager.load_plugin(CyberPlugin)
+        except Exception as e:
+            print(f"Cyber plugin: {e}")
+
     # ══════════════════════════════════════════════════════════════
     # MESSAGING
     # ══════════════════════════════════════════════════════════════
@@ -347,11 +356,15 @@ class JarvisApp:
         if text == "__handled__":
             return
 
+        # Track user message for learning
+        self.learner.on_message(text)
+
         # Commands — always handle directly
         if text.startswith("/"):
             parts = text.split(None, 1)
             cmd = parts[0].lower()
             args = parts[1] if len(parts) > 1 else ""
+            self.learner.on_command(cmd)
             if self.plugin_manager.handle_command(cmd, args):
                 return
             self._handle_quick_cmd(cmd)

@@ -40,6 +40,11 @@ DEFAULT_CONFIG = {
         "model": "gpt-4o-mini",
         "base_url": "https://api.openai.com",
     },
+    # Google Gemini (cloud)
+    "gemini": {
+        "api_key": "",
+        "model": "gemini-2.0-flash",
+    },
     "theme": "stark",
 }
 

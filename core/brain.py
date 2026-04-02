@@ -18,6 +18,7 @@ from core.providers.anthropic_provider import AnthropicProvider
 from core.providers.ollama_provider import OllamaProvider
 from core.providers.lmstudio_provider import LMStudioProvider
 from core.providers.openai_provider import OpenAIProvider
+from core.providers.gemini_provider import GeminiProvider
 
 # ── Provider Registry ─────────────────────────────────────────
 PROVIDERS = {
@@ -25,6 +26,7 @@ PROVIDERS = {
     "ollama": OllamaProvider,
     "lmstudio": LMStudioProvider,
     "openai": OpenAIProvider,
+    "gemini": GeminiProvider,
 }
 
 # ── JARVIS Identity & Modes ──────────────────────────────────

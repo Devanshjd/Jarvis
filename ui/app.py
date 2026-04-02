@@ -192,7 +192,8 @@ class JarvisApp:
         cmd_bar.pack(fill=tk.X, padx=16, pady=(4, 0))
 
         cmds = ["/weather", "/news", "/crypto", "/wiki",
-                "/portscan", "/wifi", "/mynet", "/clear", "/agent"]
+                "/inbox", "/remind", "/find", "/devices",
+                "/pyrun", "/clear", "/agent"]
         for cmd in cmds:
             btn = tk.Button(
                 cmd_bar, text=cmd, font=FONTS["label_md"],
@@ -344,6 +345,36 @@ class JarvisApp:
             self.plugin_manager.load_plugin(CyberPlugin)
         except Exception as e:
             print(f"Cyber plugin: {e}")
+
+        try:
+            from plugins.code_assist.code_plugin import CodeAssistPlugin
+            self.plugin_manager.load_plugin(CodeAssistPlugin)
+        except Exception as e:
+            print(f"Code Assist plugin: {e}")
+
+        try:
+            from plugins.scheduler.scheduler_plugin import SchedulerPlugin
+            self.plugin_manager.load_plugin(SchedulerPlugin)
+        except Exception as e:
+            print(f"Scheduler plugin: {e}")
+
+        try:
+            from plugins.file_manager.file_manager_plugin import FileManagerPlugin
+            self.plugin_manager.load_plugin(FileManagerPlugin)
+        except Exception as e:
+            print(f"File Manager plugin: {e}")
+
+        try:
+            from plugins.smart_home.smart_home_plugin import SmartHomePlugin
+            self.plugin_manager.load_plugin(SmartHomePlugin)
+        except Exception as e:
+            print(f"Smart Home plugin: {e}")
+
+        try:
+            from plugins.email.email_plugin import EmailPlugin
+            self.plugin_manager.load_plugin(EmailPlugin)
+        except Exception as e:
+            print(f"Email plugin: {e}")
 
     # ══════════════════════════════════════════════════════════════
     # MESSAGING

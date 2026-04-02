@@ -59,6 +59,26 @@ class Executor:
             "net_scan": self._cyber_tool("net_scan"),
             "network_info": self._cyber_tool("network_info"),
             "threat_lookup": self._cyber_tool("threat_lookup"),
+            # Scheduler tools
+            "set_reminder": self._scheduler_tool("set_reminder"),
+            "set_timer": self._scheduler_tool("set_timer"),
+            "list_reminders": self._scheduler_tool("list_reminders"),
+            # File manager tools
+            "find_files": self._file_tool("find_files"),
+            "organize_files": self._file_tool("organize_files"),
+            "disk_usage": self._file_tool("disk_usage"),
+            # Code tools
+            "run_python": self._code_tool("run_python"),
+            "git_command": self._code_tool("git_command"),
+            "pip_install": self._code_tool("pip_install"),
+            # Email tools
+            "check_inbox": self._email_tool("check_inbox"),
+            "send_email": self._email_tool("send_email"),
+            # Smart home tools
+            "control_lights": self._smart_home_tool("control_lights"),
+            "set_thermostat": self._smart_home_tool("set_thermostat"),
+            "activate_scene": self._smart_home_tool("activate_scene"),
+            "list_devices": self._smart_home_tool("list_devices"),
         }
 
     @property
@@ -201,6 +221,117 @@ class Executor:
             _, call = method_map[method_name]
             result = call()
             return ToolResult(success=True, output=result)
+        return handler
+
+    # ── Plugin Tool Factories ────────────────────────────────────
+
+    def _scheduler_tool(self, action: str):
+        """Factory for scheduler plugin tools."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("scheduler")
+            if not plugin:
+                return ToolResult(success=False, error="Scheduler plugin not loaded.")
+            if action == "set_reminder":
+                time_str = args.get("time", "5m")
+                message = args.get("message", "Reminder")
+                plugin.on_command("/remind", f"{time_str} {message}")
+                return ToolResult(success=True, output=f"Reminder set: {message} in {time_str}")
+            elif action == "set_timer":
+                duration = args.get("duration", "5m")
+                plugin.on_command("/timer", duration)
+                return ToolResult(success=True, output=f"Timer set for {duration}")
+            elif action == "list_reminders":
+                plugin.on_command("/reminders", "")
+                return ToolResult(success=True, output="Reminders displayed.")
+            return ToolResult(success=False, error=f"Unknown scheduler action: {action}")
+        return handler
+
+    def _file_tool(self, action: str):
+        """Factory for file manager plugin tools."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("file_manager")
+            if not plugin:
+                return ToolResult(success=False, error="File Manager plugin not loaded.")
+            if action == "find_files":
+                pattern = args.get("pattern", "*")
+                path = args.get("path", "")
+                query = f"{pattern} {path}".strip() if path else pattern
+                plugin.on_command("/find", query)
+                return ToolResult(success=True, output=f"Searching for {pattern}...")
+            elif action == "organize_files":
+                folder = args.get("folder", "")
+                plugin.on_command("/organize", folder)
+                return ToolResult(success=True, output=f"Organizing {folder}...")
+            elif action == "disk_usage":
+                plugin.on_command("/diskusage", "")
+                return ToolResult(success=True, output="Checking disk usage...")
+            return ToolResult(success=False, error=f"Unknown file action: {action}")
+        return handler
+
+    def _code_tool(self, action: str):
+        """Factory for code assistant plugin tools."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("code_assist")
+            if not plugin:
+                return ToolResult(success=False, error="Code Assist plugin not loaded.")
+            if action == "run_python":
+                code = args.get("code", "")
+                plugin.on_command("/pyrun", code)
+                return ToolResult(success=True, output="Executing Python code...")
+            elif action == "git_command":
+                subcmd = args.get("subcmd", "status")
+                plugin.on_command("/git", subcmd)
+                return ToolResult(success=True, output=f"Running git {subcmd}...")
+            elif action == "pip_install":
+                package = args.get("package", "")
+                plugin.on_command("/pip", package)
+                return ToolResult(success=True, output=f"Installing {package}...")
+            return ToolResult(success=False, error=f"Unknown code action: {action}")
+        return handler
+
+    def _email_tool(self, action: str):
+        """Factory for email plugin tools."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("email")
+            if not plugin:
+                return ToolResult(success=False, error="Email plugin not loaded.")
+            if action == "check_inbox":
+                count = args.get("count", 5)
+                plugin.on_command("/inbox", str(count))
+                return ToolResult(success=True, output="Checking inbox...")
+            elif action == "send_email":
+                to = args.get("to", "")
+                subject = args.get("subject", "")
+                body = args.get("body", "")
+                plugin.on_command("/sendmail", f"{to} {subject} | {body}")
+                return ToolResult(success=True, output=f"Sending email to {to}...")
+            return ToolResult(success=False, error=f"Unknown email action: {action}")
+        return handler
+
+    def _smart_home_tool(self, action: str):
+        """Factory for smart home plugin tools."""
+        def handler(args: dict) -> ToolResult:
+            plugin = self.jarvis.plugin_manager.plugins.get("smart_home")
+            if not plugin:
+                return ToolResult(success=False, error="Smart Home plugin not loaded.")
+            if action == "control_lights":
+                act = args.get("action", "on")
+                level = args.get("level", "")
+                cmd_args = f"{act} {level}".strip() if level else act
+                plugin.on_command("/lights", cmd_args)
+                return ToolResult(success=True, output=f"Lights {act}.")
+            elif action == "set_thermostat":
+                temp = args.get("temp", 72)
+                plugin.on_command("/thermostat", str(temp))
+                return ToolResult(success=True, output=f"Thermostat set to {temp}.")
+            elif action == "activate_scene":
+                scene = args.get("scene", "")
+                plugin.on_command("/scene", scene)
+                return ToolResult(success=True, output=f"Scene '{scene}' activated.")
+            elif action == "list_devices":
+                plugin.on_command("/devices", "")
+                return ToolResult(success=True, output="Devices listed.")
+            return ToolResult(success=False, error=f"Unknown smart home action: {action}")
         return handler
 
     def _scan_screen(self, args: dict) -> ToolResult:

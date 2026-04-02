@@ -12,8 +12,18 @@ Features:
 import threading
 import queue
 import re
+import os
+import tempfile
+import json
 
 from core.plugin_manager import PluginBase
+
+try:
+    import urllib.request
+    import urllib.error
+    HAS_URLLIB = True
+except Exception:
+    HAS_URLLIB = False
 
 try:
     import pyttsx3
@@ -99,6 +109,15 @@ class VoicePlugin(PluginBase):
 
     def speak(self, text: str):
         """Queue text to be spoken."""
+        voice_cfg = self.jarvis.config.get("voice", {})
+        engine = voice_cfg.get("tts_engine", "pyttsx3")
+
+        if engine == "elevenlabs":
+            clean = self._clean_for_speech(text)
+            if clean:
+                threading.Thread(target=self._speak_elevenlabs, args=(clean,), daemon=True).start()
+            return
+
         if not HAS_TTS:
             print("[DEBUG] TTS not available")
             return
@@ -167,6 +186,81 @@ class VoicePlugin(PluginBase):
                 continue
 
         pythoncom.CoUninitialize()
+
+    def _speak_elevenlabs(self, text: str):
+        """Speak text using ElevenLabs TTS API."""
+        if not HAS_URLLIB:
+            print("[DEBUG] urllib not available for ElevenLabs TTS")
+            return
+
+        voice_cfg = self.jarvis.config.get("voice", {})
+        api_key = voice_cfg.get("elevenlabs_key", "")
+        voice_id = voice_cfg.get("elevenlabs_voice", "pNInz6obpgDQGcFmaJgB")
+
+        if not api_key:
+            print("[DEBUG] ElevenLabs API key not configured — set config.voice.elevenlabs_key")
+            return
+
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+        }
+        body = json.dumps({
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+            },
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+            with urllib.request.urlopen(req) as resp:
+                audio_data = resp.read()
+
+            # Save to temp file and play
+            tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+            tmp.write(audio_data)
+            tmp.close()
+
+            # Try pygame.mixer first, fall back to system player
+            try:
+                import pygame
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+                pygame.mixer.music.load(tmp.name)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    import time
+                    time.sleep(0.1)
+            except Exception:
+                # Fallback: use Windows media player silently
+                import subprocess
+                subprocess.Popen(
+                    ["powershell", "-WindowStyle", "Hidden", "-Command",
+                     f'(New-Object Media.SoundPlayer "{tmp.name}").PlaySync()'],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    shell=True,
+                )
+                # SoundPlayer only handles .wav; for .mp3 use wmplayer
+                import time
+                time.sleep(0.5)
+                os.system(f'start /min wmplayer "{tmp.name}"')
+
+            # Clean up after a delay
+            import time
+            time.sleep(2)
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+
+        except urllib.error.HTTPError as e:
+            print(f"[DEBUG] ElevenLabs API error {e.code}: {e.read().decode()}")
+        except Exception as e:
+            print(f"[DEBUG] ElevenLabs TTS error: {e}")
 
     def _clean_for_speech(self, text: str) -> str:
         """Clean text for natural speech output."""
@@ -335,6 +429,29 @@ class VoicePlugin(PluginBase):
     # PLUGIN HOOKS
     # ══════════════════════════════════════════════════════════════
 
+    def _handle_tts_command(self, args: str):
+        """Handle /tts command to switch TTS engine."""
+        voice_cfg = self.jarvis.config.setdefault("voice", {})
+        current = voice_cfg.get("tts_engine", "pyttsx3")
+
+        if not args:
+            self.jarvis.chat.add_message("system",
+                f"Current TTS engine: {current}\n"
+                f"Usage: /tts pyttsx3 | /tts elevenlabs")
+            return
+
+        choice = args.lower()
+        if choice in ("pyttsx3", "elevenlabs"):
+            voice_cfg["tts_engine"] = choice
+            self.jarvis.chat.add_message("system", f"TTS engine switched to: {choice}")
+            if choice == "elevenlabs" and not voice_cfg.get("elevenlabs_key"):
+                self.jarvis.chat.add_message("system",
+                    "Warning: ElevenLabs API key not set. "
+                    "Add \"elevenlabs_key\" to the voice config.")
+        else:
+            self.jarvis.chat.add_message("system",
+                f"Unknown engine '{choice}'. Use: pyttsx3 | elevenlabs")
+
     def on_command(self, command: str, args: str) -> bool:
         if command in ("/voice", "/v"):
             self.jarvis.toggle_voice()
@@ -344,6 +461,9 @@ class VoicePlugin(PluginBase):
             return True
         if command == "/listen":
             self.jarvis.toggle_listening()
+            return True
+        if command == "/tts":
+            self._handle_tts_command(args.strip())
             return True
         return False
 
@@ -355,9 +475,11 @@ class VoicePlugin(PluginBase):
             self.speak(response)
 
     def get_status(self) -> dict:
+        voice_cfg = self.jarvis.config.get("voice", {})
         return {
             "name": self.name,
             "active": self.is_enabled,
+            "tts_engine": voice_cfg.get("tts_engine", "pyttsx3"),
             "tts_available": HAS_TTS,
             "stt_available": HAS_STT,
             "wake_word_active": self.wake_word_active,

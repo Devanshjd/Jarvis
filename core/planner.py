@@ -47,6 +47,21 @@ Available tools:
   net_scan       — args: {}                          — Discover local network devices
   network_info   — args: {}                          — Show network configuration
   threat_lookup  — args: {"ip": "<IP address>"}      — IP threat intelligence
+  set_reminder   — args: {"time": "<5m/2h/14:30>", "message": "<text>"} — Set a reminder
+  set_timer      — args: {"duration": "<5m/1h30m>"}  — Set a countdown timer
+  list_reminders — args: {}                           — List active reminders
+  find_files     — args: {"pattern": "<*.pdf>", "path": "<optional>"} — Search for files
+  organize_files — args: {"folder": "<path>"}         — Auto-organize files by type
+  disk_usage     — args: {}                           — Show disk usage
+  run_python     — args: {"code": "<python code>"}    — Execute Python code
+  git_command    — args: {"subcmd": "<status/log/diff/branch>"} — Git shortcuts
+  pip_install    — args: {"package": "<name>"}        — Install pip package
+  check_inbox    — args: {"count": 5}                 — Check email inbox
+  send_email     — args: {"to": "<email>", "subject": "<subj>", "body": "<text>"} — Send email
+  control_lights — args: {"action": "<on/off/dim>", "level": 50} — Smart home lights
+  set_thermostat — args: {"temp": 72}                 — Set thermostat
+  activate_scene — args: {"scene": "<morning/movie/sleep/work>"} — Activate home scene
+  list_devices   — args: {}                           — List smart home devices
 
 Response format (JSON only, no markdown):
 {

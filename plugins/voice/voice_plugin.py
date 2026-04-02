@@ -241,8 +241,6 @@ class VoicePlugin(PluginBase):
             try:
                 with sr.Microphone() as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
-                    # timeout=5: wait up to 5s for speech to begin
-                    # phrase_time_limit=10: allow up to 10s of continuous speech
                     audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=10)
 
                 try:
@@ -267,14 +265,21 @@ class VoicePlugin(PluginBase):
                                 after = after[len(filler):].strip()
 
                         if after:
+                            # "JARVIS open Chrome" → process immediately
                             print(f"[JARVIS] Wake command: '{after}'")
                             self.jarvis.root.after(0,
                                 lambda c=after: self._handle_wake_command(c))
                         else:
-                            # Just "JARVIS" → acknowledge and listen for follow-up
-                            print("[JARVIS] Wake word only — listening for command...")
+                            # Just "JARVIS" → say "Yes sir?" then listen for
+                            # follow-up RIGHT HERE in this same thread, so we
+                            # don't fight over the microphone.
+                            print("[JARVIS] Wake word only — saying 'Yes sir?' then listening...")
                             self.speak("Yes, sir?")
-                            self.jarvis.root.after(0, self._listen_for_command)
+                            # Wait for TTS to finish before listening
+                            import time
+                            time.sleep(1.5)
+                            self._listen_followup()
+
                 except sr.UnknownValueError:
                     pass  # No speech detected, loop again
                 except sr.RequestError as e:
@@ -287,6 +292,33 @@ class VoicePlugin(PluginBase):
                 import time
                 time.sleep(1)
 
+    def _listen_followup(self):
+        """Listen for a follow-up command INSIDE the wake loop thread (no mic conflict)."""
+        try:
+            print("[JARVIS] Listening for follow-up command...")
+            with sr.Microphone() as source:
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                audio = self.recognizer.listen(source, timeout=8, phrase_time_limit=15)
+
+            text = self.recognizer.recognize_google(audio).lower()
+            print(f"[JARVIS] Follow-up heard: '{text}'")
+
+            # Strip wake word if they said it again
+            wake_word = self.jarvis.config.get("voice", {}).get("wake_word", "jarvis").lower()
+            if wake_word in text:
+                text = text.split(wake_word, 1)[1].strip()
+
+            if text:
+                self.jarvis.root.after(0, lambda c=text: self._handle_wake_command(c))
+            else:
+                print("[JARVIS] Empty follow-up, resuming wake loop")
+        except sr.WaitTimeoutError:
+            print("[JARVIS] No follow-up heard, resuming wake loop")
+        except sr.UnknownValueError:
+            print("[JARVIS] Couldn't understand follow-up, resuming wake loop")
+        except Exception as e:
+            print(f"[JARVIS] Follow-up error: {e}")
+
     def _handle_wake_command(self, command: str):
         self.jarvis.chat.add_message("voice", f'Heard: "{command}"')
         try:
@@ -294,14 +326,6 @@ class VoicePlugin(PluginBase):
         except Exception as e:
             print(f"[JARVIS] Wake command error: {e}")
             self.jarvis.chat.add_message("system", f"Error processing command: {e}")
-
-    def _listen_for_command(self):
-        self.listen_once(
-            callback=lambda t: self.jarvis.root.after(0,
-                lambda: self._handle_wake_command(t)),
-            error_callback=lambda e: self.jarvis.root.after(0,
-                lambda: self.jarvis.chat.add_message("system", f"Voice: {e}")),
-        )
 
     # ══════════════════════════════════════════════════════════════
     # PLUGIN HOOKS

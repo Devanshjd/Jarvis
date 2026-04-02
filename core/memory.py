@@ -104,6 +104,10 @@ class ShortTermMemory:
     def recent_messages(self) -> list[dict]:
         return list(self._turns)
 
+    def get_recent(self) -> list[dict]:
+        """Return recent messages (alias for orchestrator compatibility)."""
+        return list(self._turns)
+
     def get_context_string(self) -> str:
         """Format short-term context for the planner."""
         parts = []

@@ -66,6 +66,12 @@ class VoicePlugin(PluginBase):
                 print(f"STT init error: {e}")
                 self.recognizer = None
 
+        # Auto-start wake word listening on boot
+        auto_wake = self.jarvis.config.get("voice", {}).get("auto_wake", True)
+        if auto_wake and HAS_STT and self.recognizer:
+            self._start_wake_word()
+            print("[JARVIS] Wake word listening active — say 'JARVIS' anytime")
+
     def deactivate(self):
         """Clean up voice resources."""
         self._stop_event.set()
@@ -78,7 +84,8 @@ class VoicePlugin(PluginBase):
         """Enable voice — TTS on responses, start wake word."""
         self.is_enabled = True
         self.speak("Voice systems online, sir.")
-        self._start_wake_word()
+        if not self.wake_word_active:
+            self._start_wake_word()
 
     def disable(self):
         """Disable voice."""
@@ -190,7 +197,7 @@ class VoicePlugin(PluginBase):
     # SPEECH-TO-TEXT
     # ══════════════════════════════════════════════════════════════
 
-    def listen_once(self, callback, error_callback):
+    def listen_once(self, callback, error_callback, timeout=10, phrase_limit=20):
         """Listen for a single voice command."""
         if not HAS_STT or not self.recognizer:
             error_callback("Speech recognition not available. Install: pip install SpeechRecognition pyaudio")
@@ -200,7 +207,7 @@ class VoicePlugin(PluginBase):
             try:
                 with sr.Microphone() as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                    audio = self.recognizer.listen(source, timeout=8, phrase_time_limit=15)
+                    audio = self.recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_limit)
                 text = self.recognizer.recognize_google(audio)
                 if text:
                     callback(text)
@@ -233,18 +240,27 @@ class VoicePlugin(PluginBase):
             try:
                 with sr.Microphone() as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
-                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=4)
+                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=6)
 
                 try:
                     text = self.recognizer.recognize_google(audio).lower()
                     if wake_word in text:
+                        # Auto-enable TTS so JARVIS speaks the response back
+                        if not self.is_enabled:
+                            self.is_enabled = True
+                            self.jarvis.voice_enabled = True
+                            self.jarvis.root.after(0, lambda: self.jarvis.voice_btn.config(
+                                text="🎤 On", fg="#00ff88"))
+
                         parts = text.split(wake_word, 1)
                         command = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
 
                         if command:
+                            # "JARVIS open Chrome" → process immediately
                             self.jarvis.root.after(0,
                                 lambda c=command: self._handle_wake_command(c))
                         else:
+                            # Just "JARVIS" → acknowledge and listen for follow-up
                             self.speak("Yes, sir?")
                             self.jarvis.root.after(0, self._listen_for_command)
                 except (sr.UnknownValueError, sr.RequestError):

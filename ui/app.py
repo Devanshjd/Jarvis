@@ -308,8 +308,8 @@ class JarvisApp:
         else:
             self.chat.add_message("assistant",
                 "All systems nominal, sir. How may I assist you today?\n\n"
-                "Voice: Click 🎤 or say \"JARVIS\"\n"
-                "Hotkeys: Ctrl+Shift+J (toggle) · Ctrl+Shift+S (scan) · Ctrl+Shift+V (voice)"
+                "Just say \"JARVIS\" anytime — I'm always listening.\n"
+                "Hotkeys: Ctrl+Shift+J (toggle) · Ctrl+Shift+S (scan)"
             )
 
     # ══════════════════════════════════════════════════════════════

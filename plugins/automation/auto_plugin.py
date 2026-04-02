@@ -108,7 +108,7 @@ class AutomationPlugin(PluginBase):
         return False
 
     def on_message(self, message: str) -> str | None:
-        """Detect natural language commands like 'open chrome' or 'launch notepad'."""
+        """Detect natural language commands."""
         msg_lower = message.lower().strip()
 
         # "open X" / "can you open X" / "please open X" patterns
@@ -129,6 +129,37 @@ class AutomationPlugin(PluginBase):
                     self._open_app(known_app)
                     return "__handled__"
 
+        # Volume control: "lower/raise/mute the volume", "set volume to 50"
+        vol_match = re.search(
+            r"(?:lower|reduce|decrease|turn down)\s+(?:the\s+)?volume",
+            msg_lower,
+        )
+        if vol_match:
+            self._adjust_volume("down")
+            return "__handled__"
+
+        vol_match = re.search(
+            r"(?:raise|increase|turn up)\s+(?:the\s+)?volume",
+            msg_lower,
+        )
+        if vol_match:
+            self._adjust_volume("up")
+            return "__handled__"
+
+        if re.search(r"(?:mute|unmute)\s+(?:the\s+)?(?:volume|sound|audio)", msg_lower):
+            self._adjust_volume("mute")
+            return "__handled__"
+
+        # Lock screen
+        if re.search(r"lock\s+(?:the\s+)?(?:screen|computer|pc|workstation)", msg_lower):
+            self._lock_screen()
+            return "__handled__"
+
+        # System info
+        if re.search(r"(?:system|pc|computer)\s+(?:info|status|stats|health)", msg_lower):
+            self._system_info()
+            return "__handled__"
+
         return None  # Pass through to AI
 
     # ══════════════════════════════════════════════════════════════
@@ -143,8 +174,14 @@ class AutomationPlugin(PluginBase):
 
         def _launch():
             try:
-                if exe.startswith("ms-"):
-                    os.startfile(exe)
+                if platform.system() == "Windows":
+                    # Use 'start' command — it finds apps even when not in PATH
+                    # Works for chrome, excel, winword, spotify, etc.
+                    subprocess.Popen(
+                        f'start "" "{exe}"', shell=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                 else:
                     subprocess.Popen(
                         exe, shell=True,
@@ -251,16 +288,57 @@ class AutomationPlugin(PluginBase):
         """Set system volume (Windows)."""
         try:
             level = int(level.strip().rstrip("%"))
-            if platform.system() == "Windows":
-                # Use nircmd if available, otherwise PowerShell
-                subprocess.run(
-                    f'powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"',
-                    shell=True, capture_output=True,
-                )
-                self.jarvis.chat.add_message("system",
-                    f"Volume adjustment requested. For precise control, install nircmd.")
+            self._adjust_volume("set", level)
         except ValueError:
             self.jarvis.chat.add_message("system", "Usage: /volume <0-100>")
+
+    def _adjust_volume(self, direction: str, level: int = None):
+        """Adjust volume up/down/mute using Windows key simulation."""
+        if platform.system() != "Windows":
+            self.jarvis.chat.add_message("system", "Volume control only works on Windows.")
+            return
+
+        try:
+            if direction == "mute":
+                # VK_VOLUME_MUTE
+                subprocess.run(
+                    'powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"',
+                    shell=True, capture_output=True,
+                )
+                self.jarvis.chat.add_message("assistant", "Volume muted, sir.")
+            elif direction == "down":
+                # Press volume down 5 times (~10% reduction)
+                for _ in range(5):
+                    subprocess.run(
+                        'powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]174)"',
+                        shell=True, capture_output=True,
+                    )
+                self.jarvis.chat.add_message("assistant", "Volume lowered, sir.")
+            elif direction == "up":
+                # Press volume up 5 times (~10% increase)
+                for _ in range(5):
+                    subprocess.run(
+                        'powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]175)"',
+                        shell=True, capture_output=True,
+                    )
+                self.jarvis.chat.add_message("assistant", "Volume raised, sir.")
+            elif direction == "set" and level is not None:
+                # Use nircmd for exact level, fallback to key presses
+                try:
+                    subprocess.run(
+                        f'nircmd.exe setsysvolume {int(level * 655.35)}',
+                        shell=True, capture_output=True, timeout=3,
+                    )
+                    self.jarvis.chat.add_message("assistant", f"Volume set to {level}%, sir.")
+                except Exception:
+                    self.jarvis.chat.add_message("system",
+                        f"For exact volume control, install nircmd. Using up/down keys instead.")
+                    if level < 50:
+                        self._adjust_volume("down")
+                    else:
+                        self._adjust_volume("up")
+        except Exception as e:
+            self.jarvis.chat.add_message("system", f"Volume control error: {e}")
 
     def get_status(self) -> dict:
         return {

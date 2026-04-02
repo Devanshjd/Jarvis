@@ -80,8 +80,12 @@ class Executor:
         exe = APP_MAP.get(app_name, app_name)
 
         try:
-            if exe.startswith("ms-"):
-                os.startfile(exe)
+            if platform.system() == "Windows":
+                subprocess.Popen(
+                    f'start "" "{exe}"', shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
                 subprocess.Popen(
                     exe, shell=True,

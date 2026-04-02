@@ -110,9 +110,61 @@ class AutomationPlugin(PluginBase):
     def on_message(self, message: str) -> str | None:
         """Detect natural language commands."""
         msg_lower = message.lower().strip()
-
-        # "open X" / "can you open X" / "please open X" patterns
         import re
+
+        # "open YouTube in Chrome" / "open google.com" — website opening
+        web_match = re.search(
+            r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+(.+?)\s+(?:in|on|using)\s+(?:chrome|browser|edge|firefox)",
+            msg_lower,
+        )
+        if not web_match:
+            # "open youtube" / "open google.com" — direct website
+            web_match = re.search(
+                r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+([\w.-]+\.(?:com|org|net|io|dev|co|in|edu|gov)(?:/\S*)?)",
+                msg_lower,
+            )
+        if not web_match:
+            # "open youtube" where youtube is a known site
+            SITE_MAP = {
+                "youtube": "https://www.youtube.com",
+                "google": "https://www.google.com",
+                "gmail": "https://mail.google.com",
+                "github": "https://github.com",
+                "twitter": "https://twitter.com",
+                "instagram": "https://www.instagram.com",
+                "facebook": "https://www.facebook.com",
+                "reddit": "https://www.reddit.com",
+                "linkedin": "https://www.linkedin.com",
+                "spotify": "https://open.spotify.com",
+                "netflix": "https://www.netflix.com",
+                "whatsapp": "https://web.whatsapp.com",
+                "chatgpt": "https://chat.openai.com",
+                "amazon": "https://www.amazon.com",
+                "stackoverflow": "https://stackoverflow.com",
+            }
+            site_match = re.search(
+                r"(?:can you |please |could you )?(?:open|go to|visit|browse)\s+(\w+)(?:\s+(?:in|on)\s+\w+)?$",
+                msg_lower,
+            )
+            if site_match:
+                site_name = site_match.group(1).strip()
+                if site_name in SITE_MAP:
+                    import webbrowser
+                    webbrowser.open(SITE_MAP[site_name])
+                    self.jarvis.chat.add_message("assistant",
+                        f"Opening {site_name.title()}, sir.")
+                    return "__handled__"
+
+        if web_match:
+            url = web_match.group(1).strip()
+            if not url.startswith("http"):
+                url = "https://" + url
+            import webbrowser
+            webbrowser.open(url)
+            self.jarvis.chat.add_message("assistant", f"Opening {url}, sir.")
+            return "__handled__"
+
+        # "open X" / "can you open X" / "please open X" — app opening
         match = re.search(
             r"(?:can you |please |could you )?(?:open|launch|start)\s+(.+?)(?:\s+for me|\s+please)?$",
             msg_lower,

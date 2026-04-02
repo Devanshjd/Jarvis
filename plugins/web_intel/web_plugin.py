@@ -43,10 +43,11 @@ def _fetch(url: str, timeout: int = 10) -> dict | str:
 
 
 def _bg(func, jarvis, *args):
-    """Run a function in background thread, post result to chat."""
+    """Run a function in background thread, post result to chat.
+    Passes jarvis as first arg to the function, then *args after."""
     def _run():
         try:
-            result = func(*args)
+            result = func(jarvis, *args)
             jarvis.root.after(0, lambda: jarvis.chat.add_message("assistant", result))
             jarvis.root.after(0, lambda: jarvis.plugin_manager.on_response(result))
         except Exception as e:

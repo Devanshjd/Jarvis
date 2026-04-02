@@ -160,14 +160,8 @@ class Agent:
         threading.Thread(target=_run, daemon=True).start()
 
     def _plan(self, user_message: str) -> AgentPlan:
-        """Send message to LLM with planning prompt, parse structured output."""
-        if not self.brain.provider.is_available():
-            info = self.brain.get_provider_info()
-            raise ConnectionError(
-                f"{info['name']} is not available. "
-                f"Check your API key or start the local server."
-            )
-
+        """Send message to LLM with planning prompt, parse structured output.
+        Uses auto-fallback if primary provider fails."""
         # Build context
         mem_context = self.memory.get_context_string()
         stm_context = self.short_term.get_context_string()
@@ -192,8 +186,8 @@ class Agent:
         if notes:
             full_system += f"\n\n[CURRENT NOTES]\n{notes}"
 
-        # Call the provider directly (synchronous, we're in a thread)
-        reply_text, latency = self.brain.provider.chat(
+        # Use the brain's fallback-aware chat method
+        reply_text, latency = self.brain._chat_with_fallback(
             messages=self.brain.history,
             system_prompt=full_system,
             max_tokens=self.brain.config.get("max_tokens", 2048),

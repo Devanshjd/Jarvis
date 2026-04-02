@@ -45,6 +45,18 @@ DEFAULT_CONFIG = {
         "api_key": "",
         "model": "gemini-2.0-flash",
     },
+    # Groq (cloud — free tier, ultra-fast)
+    "groq": {
+        "api_key": "",
+        "model": "llama-3.3-70b-versatile",
+    },
+    # DeepSeek (cloud — very cheap)
+    "deepseek": {
+        "api_key": "",
+        "model": "deepseek-chat",
+    },
+    # Auto-fallback: try other providers if primary fails
+    "auto_fallback": True,
     "theme": "stark",
 }
 

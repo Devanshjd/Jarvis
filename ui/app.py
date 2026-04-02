@@ -458,14 +458,9 @@ class JarvisApp:
                 self.chat.add_message("system", result)
                 self._update_provider_display()
             else:
-                info = self.brain.get_provider_info()
-                available = ", ".join(["anthropic", "ollama", "lmstudio", "openai"])
-                self.chat.add_message("assistant",
-                    f"Current provider: {info['name']} ({info['model']})\n"
-                    f"Local: {'Yes' if info.get('local') else 'No'}\n"
-                    f"Vision: {'Yes' if info.get('vision') else 'No'}\n\n"
-                    f"Switch with: /provider <{available}>"
-                )
+                # Show full provider dashboard
+                result = self.brain.switch_provider("status")
+                self.chat.add_message("assistant", result)
             return
 
         cmd_map = {

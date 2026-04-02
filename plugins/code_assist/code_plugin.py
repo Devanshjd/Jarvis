@@ -185,6 +185,13 @@ class CodeAssistPlugin(PluginBase):
             _bg(self._show_env, self.jarvis)
             return True
 
+        if cmd == "/savecode":
+            if not args.strip():
+                self._show("Usage: /savecode <filename>\nSaves the last generated code to a file.")
+                return True
+            self._save_last_code(args.strip())
+            return True
+
         return False
 
     # ══════════════════════════════════════════════════════════════
@@ -267,8 +274,74 @@ class CodeAssistPlugin(PluginBase):
     #  Execution Functions (run in background threads)
     # ══════════════════════════════════════════════════════════════
 
+    def _is_gui_or_interactive(self, code: str) -> bool:
+        """Detect if code contains GUI mainloop or interactive input that would hang."""
+        blockers = [
+            "mainloop()", "app.exec", "input(", "sys.stdin",
+            "pygame.event", "turtle.", "root.mainloop",
+            "tkinter", "from tkinter", "import tkinter",
+        ]
+        code_lower = code.lower()
+        return any(b.lower() in code_lower for b in blockers)
+
+    def _save_code_to_file(self, code: str, filename: str) -> str:
+        """Save code to a file on Desktop or project directory."""
+        # Default save location
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        if not os.path.isabs(filename):
+            save_dir = desktop if os.path.exists(desktop) else os.path.expanduser("~")
+            filepath = os.path.join(save_dir, filename)
+        else:
+            filepath = filename
+
+        try:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(code)
+            return filepath
+        except Exception as e:
+            return f"ERROR:{e}"
+
+    def _save_last_code(self, filename: str):
+        """Save the last code block from chat history to a file."""
+        # Search recent history for code blocks
+        history = self.jarvis.brain.history
+        code = None
+        for msg in reversed(history):
+            if msg["role"] == "assistant":
+                # Extract code from markdown code blocks
+                blocks = re.findall(r"```(?:\w+)?\n(.*?)```", msg["content"], re.DOTALL)
+                if blocks:
+                    code = blocks[-1].strip()
+                    break
+                # Or check if the whole message looks like code
+                if any(kw in msg["content"] for kw in ["def ", "class ", "import ", "print("]):
+                    code = msg["content"].strip()
+                    break
+
+        if not code:
+            self._show("No code found in recent conversation. Ask JARVIS to write code first.")
+            return
+
+        result = self._save_code_to_file(code, filename)
+        if result.startswith("ERROR:"):
+            self._show(f"Failed to save: {result[6:]}")
+        else:
+            self._show(f"Code saved to: {result}\n\nYou can run it with:\n  python \"{result}\"")
+
     def _exec_pyrun(self, jarvis, code: str) -> str:
-        """Quick Python one-liner execution."""
+        """Quick Python one-liner execution. Saves GUI/interactive code instead of running."""
+        # If it's GUI or interactive code, save to file instead
+        if self._is_gui_or_interactive(code):
+            filepath = self._save_code_to_file(code, "jarvis_code.py")
+            if filepath.startswith("ERROR:"):
+                return f"This code contains a GUI/interactive loop and can't run inline.\nFailed to save: {filepath[6:]}"
+            return (
+                f"This code contains a GUI/interactive loop, so I saved it instead of running it.\n\n"
+                f"Saved to: {filepath}\n\n"
+                f"Run it with:\n  python \"{filepath}\""
+            )
+
         try:
             result = subprocess.run(
                 [sys.executable, "-c", code],

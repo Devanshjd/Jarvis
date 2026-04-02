@@ -69,6 +69,7 @@ class Executor:
             "disk_usage": self._file_tool("disk_usage"),
             # Code tools
             "run_python": self._code_tool("run_python"),
+            "save_file": self._save_file,
             "git_command": self._code_tool("git_command"),
             "pip_install": self._code_tool("pip_install"),
             # Email tools
@@ -333,6 +334,32 @@ class Executor:
                 return ToolResult(success=True, output="Devices listed.")
             return ToolResult(success=False, error=f"Unknown smart home action: {action}")
         return handler
+
+    def _save_file(self, args: dict) -> ToolResult:
+        """Save content to a file on disk."""
+        import os
+        filename = args.get("filename", "jarvis_output.py")
+        content = args.get("content", "")
+        if not content:
+            return ToolResult(success=False, error="No content to save.")
+
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        if not os.path.isabs(filename):
+            save_dir = desktop if os.path.exists(desktop) else os.path.expanduser("~")
+            filepath = os.path.join(save_dir, filename)
+        else:
+            filepath = filename
+
+        try:
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+            return ToolResult(
+                success=True,
+                output=f"File saved to: {filepath}",
+            )
+        except Exception as e:
+            return ToolResult(success=False, error=f"Failed to save: {e}")
 
     def _scan_screen(self, args: dict) -> ToolResult:
         # Trigger scan through the app — it's async, so we just kick it off

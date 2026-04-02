@@ -53,7 +53,8 @@ Available tools:
   find_files     — args: {"pattern": "<*.pdf>", "path": "<optional>"} — Search for files
   organize_files — args: {"folder": "<path>"}         — Auto-organize files by type
   disk_usage     — args: {}                           — Show disk usage
-  run_python     — args: {"code": "<python code>"}    — Execute Python code
+  run_python     — args: {"code": "<python code>"}    — Execute Python code (short scripts only, NOT GUI/interactive)
+  save_file      — args: {"filename": "<name.py>", "content": "<full code>"} — Save code/text to a file on Desktop
   git_command    — args: {"subcmd": "<status/log/diff/branch>"} — Git shortcuts
   pip_install    — args: {"package": "<name>"}        — Install pip package
   check_inbox    — args: {"count": 5}                 — Check email inbox

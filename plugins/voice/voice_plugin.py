@@ -252,38 +252,43 @@ class VoicePlugin(PluginBase):
                     pass
 
     def _play_audio_file(self, filepath: str):
-        """Play an audio file (mp3/wav). Tries pygame, then system player."""
+        """Play an audio file (mp3/wav). Tries pygame, then PowerShell."""
         try:
+            import os as _os
+            _os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
             import pygame
             if not pygame.mixer.get_init():
-                pygame.mixer.init()
+                pygame.mixer.init(frequency=24000)
             pygame.mixer.music.load(filepath)
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
-                time.sleep(0.1)
+                time.sleep(0.05)
             pygame.mixer.music.unload()
             return
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[DEBUG] pygame playback failed: {e}")
 
-        # Fallback: Windows Media.SoundPlayer for wav, or powershell for mp3
+        # Fallback: PowerShell MediaPlayer (less reliable but works without pygame)
         try:
             import subprocess
-            # Use PowerShell to play mp3 via Windows Media Player COM
+            # Escape backslashes for PowerShell
+            safe_path = filepath.replace("\\", "\\\\")
             ps_cmd = (
                 f'Add-Type -AssemblyName presentationCore; '
                 f'$player = New-Object System.Windows.Media.MediaPlayer; '
-                f'$player.Open("{filepath}"); '
+                f'$player.Open([Uri]"{safe_path}"); '
+                f'Start-Sleep -Milliseconds 500; '  # let it buffer
                 f'$player.Play(); '
-                f'Start-Sleep -Seconds ([math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds + 1)); '
+                f'while ($player.NaturalDuration.HasTimeSpan -eq $false) {{ Start-Sleep -Milliseconds 100 }}; '
+                f'Start-Sleep -Seconds ([math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds + 0.5)); '
                 f'$player.Close()'
             )
             subprocess.run(
                 ["powershell", "-WindowStyle", "Hidden", "-Command", ps_cmd],
-                capture_output=True, timeout=30,
+                capture_output=True, timeout=60,
             )
         except Exception as e:
-            print(f"[DEBUG] Audio playback error: {e}")
+            print(f"[DEBUG] PowerShell audio playback error: {e}")
 
     def _speak_elevenlabs(self, text: str):
         """Speak text using ElevenLabs TTS API."""

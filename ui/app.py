@@ -13,13 +13,19 @@ from tkinter import filedialog, messagebox
 from datetime import datetime
 
 from core.config import load_config, save_config
-from core.memory import MemoryBank
+from core.memory import MemoryBank, MemorySystem
 from core.brain import Brain, MODES, MODE_LABELS
 from core.plugin_manager import PluginManager
 from core.agent import Agent
 from core.learner import UserLearner
 from core.cognitive import CognitiveCore
 from core.orchestrator import TaskOrchestrator
+from core.presence import PresenceEngine
+from core.awareness import AwarenessEngine
+from core.proactive import ProactiveEngine
+from core.intent import IntentEngine
+from core.modes import ModeAutoSwitcher
+from core.self_modify import SelfModificationEngine
 from ui.themes import COLORS, FONTS
 from ui.components import ArcReactor, StatusDot
 from ui.chat import ChatDisplay, ChatInput
@@ -45,21 +51,31 @@ class JarvisApp:
         # ── Core ──
         self.config = load_config()
         self.memory = MemoryBank(self.config)
+        self.mem = MemorySystem(self.config)   # 4-layer memory
         self.brain = Brain(self.config)
         self.plugin_manager = PluginManager(self)
 
         # ── Agent + Learner + Cognitive Core + Orchestrator ──
         self.agent = Agent(self)
-        self.agent_mode = True  # Use agent loop; set False to bypass
+        self.agent_mode = True
         self.learner = UserLearner(self.config)
         self.learner.on_session_start()
         self.cognitive = CognitiveCore(self.config)
         self.orchestrator = TaskOrchestrator(self)
 
+        # ── Movie JARVIS Engines ──
+        self.presence = PresenceEngine(self)
+        self.awareness = AwarenessEngine(self)
+        self.proactive = ProactiveEngine(self)
+        self.intent_engine = IntentEngine()
+        self.mode_switcher = ModeAutoSwitcher(self)
+        self.self_modify = SelfModificationEngine(self)
+
         # ── State ──
         self.attached_file = None
         self.session_start = time.time()
         self.voice_enabled = False
+        self._processing = False   # For interruption support
 
         # ── Window ──
         self.root = tk.Tk()
@@ -76,6 +92,7 @@ class JarvisApp:
         self._build_ui()
         self._setup_hotkeys()
         self._load_plugins()
+        self._start_engines()
         self._tick()
         self.root.after(300, self._boot_animation)
 
@@ -196,8 +213,8 @@ class JarvisApp:
         cmd_bar.pack(fill=tk.X, padx=16, pady=(4, 0))
 
         cmds = ["/weather", "/news", "/crypto", "/wiki",
-                "/inbox", "/remind", "/find", "/devices",
-                "/pyrun", "/clear", "/agent"]
+                "/status", "/remind", "/find", "/scan",
+                "/improve", "/clear"]
         for cmd in cmds:
             btn = tk.Button(
                 cmd_bar, text=cmd, font=FONTS["label_md"],
@@ -266,64 +283,119 @@ class JarvisApp:
         self.session_label.pack(side=tk.RIGHT, padx=8)
 
     # ══════════════════════════════════════════════════════════════
+    # ENGINE STARTUP
+    # ══════════════════════════════════════════════════════════════
+
+    def _start_engines(self):
+        """Start all movie-JARVIS engines."""
+        try:
+            self.presence.start()
+        except Exception as e:
+            print(f"Presence engine: {e}")
+
+        try:
+            self.awareness.start()
+        except Exception as e:
+            print(f"Awareness engine: {e}")
+
+        try:
+            self.proactive.start(self.awareness)
+            self.proactive.set_notify_callback(self._on_proactive_notification)
+        except Exception as e:
+            print(f"Proactive engine: {e}")
+
+    def _on_proactive_notification(self, notification: dict):
+        """Handle a proactive notification from the awareness/proactive engines."""
+        msg_type = notification.get("type", "info")
+        icon = notification.get("icon", "")
+        message = notification.get("message", "")
+
+        def _show():
+            if msg_type == "alert":
+                self.chat.add_message("system", f"{icon}  ALERT: {message}")
+                # Speak alerts if voice is on
+                voice = self.plugin_manager.plugins.get("voice")
+                if voice and self.voice_enabled:
+                    voice.speak(message)
+            elif msg_type == "warning":
+                self.chat.add_message("system", f"{icon}  {message}")
+            elif msg_type == "suggestion":
+                self.chat.add_message("system", f"{icon}  {message}")
+            else:
+                self.chat.add_message("system", f"{icon}  {message}")
+
+        self.root.after(0, _show)
+
+    # ══════════════════════════════════════════════════════════════
     # BOOT ANIMATION
     # ══════════════════════════════════════════════════════════════
 
     def _boot_animation(self):
-        """Cinematic boot sequence."""
+        """Cinematic boot sequence — movie JARVIS style."""
         msgs = [
             ("system", "Initializing J.A.R.V.I.S..."),
-            ("system", "Core systems online"),
+            ("system", "Neural core online"),
         ]
 
-        # Check plugin status
-        plugins = list(self.plugin_manager.plugins.keys())
-        if plugins:
-            msgs.append(("system", f"Plugins loaded: {', '.join(plugins)}"))
+        # Engines status
+        engine_count = 0
+        for name in ["presence", "awareness", "proactive"]:
+            if hasattr(self, name):
+                engine_count += 1
+        msgs.append(("system", f"Awareness engines: {engine_count} active"))
 
+        # Plugin count (not listing all names — too noisy)
+        plugin_count = len(self.plugin_manager.plugins)
+        if plugin_count:
+            msgs.append(("system", f"Subsystems loaded: {plugin_count}"))
+
+        # Memory status
         mems = len(self.memory)
-        if mems:
-            msgs.append(("system", f"Memory bank: {mems} records"))
+        cog_stats = self.cognitive.get_stats()
+        knowledge = cog_stats.get("total_knowledge", 0)
+        if mems or knowledge:
+            msgs.append(("system",
+                f"Memory bank: {mems} records · Knowledge: {knowledge} entries"))
 
-        if self.agent_mode:
-            msgs.append(("system", "Agent mode: ACTIVE — planner + executor online"))
-            cog_stats = self.cognitive.get_stats()
-            if cog_stats.get("total_knowledge", 0) > 0:
-                msgs.append(("system",
-                    f"Cognitive core: {cog_stats['total_knowledge']} knowledge entries loaded"))
+        # Provider status
+        info = self.brain.get_provider_info()
+        available = info.get("name", "Unknown")
+        msgs.append(("system", f"AI provider: {available}"))
+
+        msgs.append(("system", "All systems nominal"))
 
         def show_msg(index=0):
             if index < len(msgs):
                 role, text = msgs[index]
                 self.chat.add_message(role, text)
-                self.root.after(400, lambda: show_msg(index + 1))
+                self.root.after(350, lambda: show_msg(index + 1))
             else:
-                # Final greeting
-                self.root.after(300, self._show_greeting)
+                self.root.after(400, self._show_greeting)
 
         show_msg()
 
     def _show_greeting(self):
-        key = self.config.get("api_key", "")
-        if not key:
+        # Check if ANY provider is available (not just Anthropic)
+        has_provider = False
+        try:
+            if self.brain.provider.is_available():
+                has_provider = True
+            elif self.brain.fallback_enabled:
+                fallbacks = self.brain._get_fallback_providers()
+                has_provider = len(fallbacks) > 0
+        except Exception:
+            pass
+
+        if not has_provider:
             self.chat.add_message("assistant",
-                "Welcome, sir. API key required to activate AI.\n"
-                "Go to console.anthropic.com to get your key."
-            )
-            self.root.after(600, self.show_settings)
-        elif not key.startswith("sk-ant-"):
-            self.chat.add_message("assistant",
-                "Welcome, sir. Your API key appears invalid — "
-                "it should start with 'sk-ant-'.\n"
-                "Please update it in Settings."
+                "Welcome, sir. No AI provider configured yet.\n"
+                "Free options: Gemini (aistudio.google.dev) or Groq (console.groq.com).\n"
+                "Add your key to ~/.jarvis_config.json"
             )
         else:
-            self.chat.add_message("assistant",
-                "All systems nominal, sir. How may I assist you today?\n\n"
-                "Say \"JARVIS\" anytime — I'm always listening.\n"
-                "Press Ctrl+Shift+V for push-to-talk (no wake word needed).\n"
-                "Hotkeys: Ctrl+Shift+J (toggle) · Ctrl+Shift+S (scan)"
-            )
+            # Smart contextual greeting from presence engine
+            greeting = self.presence.get_boot_greeting()
+            self.chat.add_message("assistant", greeting)
 
     # ══════════════════════════════════════════════════════════════
     # PLUGINS
@@ -384,6 +456,12 @@ class JarvisApp:
         except Exception as e:
             print(f"Email plugin: {e}")
 
+        try:
+            from plugins.self_improve.self_improve_plugin import SelfImprovePlugin
+            self.plugin_manager.load_plugin(SelfImprovePlugin)
+        except Exception as e:
+            print(f"Self-improve plugin: {e}")
+
     # ══════════════════════════════════════════════════════════════
     # MESSAGING
     # ══════════════════════════════════════════════════════════════
@@ -395,7 +473,8 @@ class JarvisApp:
         if text == "__handled__":
             return
 
-        # Track user message for learning
+        # ── Track interaction with presence engine ──
+        welcome_back = self.presence.on_interaction(text)
         self.learner.on_message(text)
 
         # Commands — always handle directly
@@ -409,19 +488,64 @@ class JarvisApp:
             self._handle_quick_cmd(cmd)
             return
 
+        # ── Parse intent — understand what they MEAN ──
+        intent = self.intent_engine.parse(text)
+
+        # Handle interruptions immediately
+        if intent.action == "interrupt":
+            self._handle_interrupt()
+            return
+
+        # Check for explicit mode switch
+        mode_switch = self.mode_switcher.check_explicit_switch(text)
+        if mode_switch:
+            msg = self.mode_switcher.switch(mode_switch, manual=True)
+            self.chat.add_message("system", msg)
+            return
+
+        # Auto-suggest mode based on intent
+        suggested_mode = self.mode_switcher.suggest_mode(
+            intent=intent,
+            window_category=self.awareness.active_window.app_category,
+        )
+        if suggested_mode:
+            msg = self.mode_switcher.switch(suggested_mode)
+            self.chat.add_message("system", msg)
+
         # Show user message in chat
         self.chat.add_message("user", text)
         self.brain.add_user_message(text)
         self.brain.msg_count += 1
         self._update_stats()
 
+        # Show welcome back if returning from idle
+        if welcome_back:
+            self.chat.add_message("system", welcome_back)
+
+        # Update session memory
+        self.mem.session.add_user(text)
+        self.mem.session.set_mood(intent.mood)
+
         self.chat_input.set_enabled(False)
+        self._processing = True
         self.chat.add_message("thinking", "Processing...")
 
         if self.agent_mode:
-            # ── Smart Orchestrator ── classify → route → execute → learn
+            # ── Smart Pipeline ── intent → cognitive → orchestrator → learn
             # Extract knowledge from user message
             self.cognitive.extract_knowledge(text, "")
+
+            # Instant responses for greetings (no AI needed)
+            if intent.category == "greeting" and intent.confidence > 0.7:
+                greeting = self.presence.get_time_greeting() + " How can I help?"
+                self.root.after(0, lambda: self._on_reply(greeting, 0))
+                return
+
+            # System status — local only
+            if intent.category == "system" and intent.action == "status":
+                status = self.awareness.get_system_status()
+                self.root.after(0, lambda: self._on_reply(status, 0))
+                return
 
             # Try local reasoning first (zero API cost)
             local_answer = self.cognitive.local_reason(text)
@@ -434,6 +558,14 @@ class JarvisApp:
             if cached:
                 self.root.after(0, lambda: self._on_reply(cached, 0))
                 return
+
+            # Track as unhandled (no fast-path hit)
+            try:
+                si = self.plugin_manager.get_plugin("self_improve")
+                if si:
+                    si.track_unhandled(text)
+            except Exception:
+                pass
 
             # Full orchestrator pipeline
             self.orchestrator.execute(
@@ -454,31 +586,66 @@ class JarvisApp:
             )
 
     def _on_reply(self, reply: str, latency: int):
+        self._processing = False
         self.chat.remove_last_thinking()
         self.chat.add_message("assistant", reply)
         self.chat_input.set_enabled(True)
         self._update_stats()
 
+        # Update subtitle to show active state
+        self.subtitle.config(text="At your service")
+
+        # Feed into 4-layer memory
+        self.mem.session.add_assistant(reply)
+
         # Feed response back to cognitive core for learning
         try:
-            self.cognitive.cache_store(
-                self.brain.history[-2]["content"] if len(self.brain.history) >= 2 else "",
-                reply,
-            )
-            # Extract knowledge from both user message and AI response
             user_msg = self.brain.history[-2]["content"] if len(self.brain.history) >= 2 else ""
+            self.cognitive.cache_store(user_msg, reply)
             self.cognitive.extract_knowledge(user_msg, reply)
         except Exception:
-            pass  # Non-critical
+            pass
+
+        # Self-improvement tracking: slow queries
+        try:
+            si = self.plugin_manager.get_plugin("self_improve")
+            if si and latency:
+                si.track_slow(
+                    self.brain.history[-2]["content"] if len(self.brain.history) >= 2 else "?",
+                    latency,
+                )
+        except Exception:
+            pass
 
         # Speak the response if voice is on
-        print(f"[DEBUG] _on_reply called, voice_enabled={self.voice_enabled}")
         self.plugin_manager.on_response(reply)
 
     def _on_error(self, error: str):
+        self._processing = False
         self.chat.remove_last_thinking()
-        self.chat.add_message("assistant", f"Error, sir: {error}")
+        self.chat.add_message("assistant", f"Ran into an issue, sir. {error}")
         self.chat_input.set_enabled(True)
+
+        # Self-improvement tracking: failures
+        try:
+            si = self.plugin_manager.get_plugin("self_improve")
+            if si:
+                query = self.brain.history[-1]["content"] if self.brain.history else "?"
+                si.track_failure(query, str(error))
+        except Exception:
+            pass
+
+    def _handle_interrupt(self):
+        """Handle 'stop', 'wait', 'cancel' — movie JARVIS style."""
+        self._processing = False
+        self.chat.remove_last_thinking()
+        self.chat_input.set_enabled(True)
+        self.chat.add_message("assistant", "Understood. Standing by.")
+
+        # Stop voice if speaking
+        voice = self.plugin_manager.plugins.get("voice")
+        if voice and hasattr(voice, 'stop_speaking'):
+            voice.stop_speaking()
 
     # ══════════════════════════════════════════════════════════════
     # COMMANDS
@@ -527,6 +694,27 @@ class JarvisApp:
             status = "ON — AI agent loop active" if self.agent_mode else "OFF — direct LLM chat"
             self.chat.add_message("system", f"Agent mode: {status}")
             return
+        if cmd == "/status":
+            # Movie JARVIS system status
+            sys_status = self.awareness.get_system_status()
+            session = self.presence.get_session_summary()
+            cog_stats = self.cognitive.get_stats()
+            self.chat.add_message("assistant",
+                f"System Status\n"
+                f"{'=' * 40}\n"
+                f"{sys_status}\n\n"
+                f"Session: {session['duration']} · {session['interactions']} interactions\n"
+                f"State: {session['state']}\n"
+                f"Knowledge: {cog_stats.get('total_knowledge', 0)} entries · "
+                f"Cache: {cog_stats.get('cache_entries', 0)} ({cog_stats.get('hit_rate', 0):.0f}% hit rate)\n"
+                f"Mode: {self.mode_switcher.current_mode}"
+            )
+            return
+
+        if cmd == "/scan":
+            self.scan_screen()
+            return
+
         if cmd == "/brain":
             stats = self.cognitive.get_stats()
             knowledge = self.cognitive.export_knowledge()
@@ -552,6 +740,10 @@ class JarvisApp:
                 self.chat.add_message("system", "Usage: /forget <topic>")
             return
 
+        # Route plugin commands through plugin manager
+        if self.plugin_manager.handle_command(cmd, ""):
+            return
+
         text = cmd_map.get(cmd, cmd)
         if text:
             self.chat_input.set_text(text)
@@ -561,9 +753,8 @@ class JarvisApp:
     # ══════════════════════════════════════════════════════════════
 
     def set_mode(self, mode: str):
-        self.brain.set_mode(mode)
-        self.mode_label.config(text=MODE_LABELS.get(mode, mode[:3].upper()))
-        self.chat.add_message("system", f"Mode → {mode}")
+        msg = self.mode_switcher.switch(mode, manual=True)
+        self.chat.add_message("system", msg)
 
     # ══════════════════════════════════════════════════════════════
     # VOICE
@@ -858,6 +1049,31 @@ class JarvisApp:
             self.session_label.config(text=f"Session: {m:02d}:{s:02d}")
         self.sidebar.update_stats(time=f"{m:02d}:{s:02d}")
 
+        # Update presence state in subtitle
+        try:
+            state_text = self.presence.get_status_text()
+            if not self._processing:
+                health = self.awareness.system_health
+                if health.cpu_percent > 0:
+                    self.subtitle.config(
+                        text=f"{state_text} · {health.status_text}")
+                else:
+                    self.subtitle.config(text=state_text)
+
+                # Update status dot color based on system health
+                alert = health.alert_level
+                if alert == "red":
+                    self.status_dot.label.config(text="WARNING")
+                    self.status_dot.color = COLORS["red"]
+                elif alert == "yellow":
+                    self.status_dot.label.config(text="ELEVATED")
+                    self.status_dot.color = COLORS["gold"]
+                else:
+                    self.status_dot.label.config(text="ONLINE")
+                    self.status_dot.color = COLORS["green"]
+        except Exception:
+            pass
+
         self.root.after(1000, self._tick)
 
     # ══════════════════════════════════════════════════════════════
@@ -889,7 +1105,27 @@ class JarvisApp:
         self.root.mainloop()
 
     def _on_close(self):
+        # Save work context for "continue where I left off"
+        try:
+            last_msg = self.mem.session.last_user_message
+            if last_msg:
+                self.mem.tasks.save_context(
+                    context=last_msg,
+                    topic=self.mem.session._active_topic,
+                )
+        except Exception:
+            pass
+
         self.save_notes()
+
+        # Shutdown engines
+        try:
+            self.presence.stop()
+            self.awareness.stop()
+            self.proactive.stop()
+        except Exception:
+            pass
+
         for name in list(self.plugin_manager.plugins.keys()):
             self.plugin_manager.unload_plugin(name)
         if HAS_KEYBOARD:

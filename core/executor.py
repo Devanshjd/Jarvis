@@ -80,6 +80,13 @@ class Executor:
             "set_thermostat": self._smart_home_tool("set_thermostat"),
             "activate_scene": self._smart_home_tool("activate_scene"),
             "list_devices": self._smart_home_tool("list_devices"),
+            # Self-modification tools
+            "create_plugin": self._create_plugin,
+            "modify_file": self._modify_file,
+            "reload_plugin": self._reload_plugin,
+            "list_plugins": self._list_plugins,
+            "system_status": self._system_status,
+            "rollback_file": self._rollback_file,
         }
 
     @property
@@ -402,3 +409,129 @@ class Executor:
         if added:
             return ToolResult(success=True, output=f"Committed to memory: \"{text}\"")
         return ToolResult(success=False, error="Already in memory or empty.")
+
+    # ── Self-Modification Tools ──────────────────────────────
+
+    def _create_plugin(self, args: dict) -> ToolResult:
+        """Create a new JARVIS plugin."""
+        sm = getattr(self.jarvis, "self_modify", None)
+        if not sm:
+            return ToolResult(success=False, error="Self-modification engine not available.")
+
+        name = args.get("name", "")
+        description = args.get("description", "")
+        commands = args.get("commands", {})
+        code = args.get("code")
+
+        if not name:
+            return ToolResult(success=False, error="Plugin name required.")
+
+        result = sm.create_plugin(name, description, commands, code)
+
+        if result["success"]:
+            # Test syntax
+            if code:
+                test = sm.test_code(code, "syntax")
+                if not test["success"]:
+                    return ToolResult(
+                        success=False,
+                        error=f"Plugin created but has syntax errors: {test['message']}",
+                    )
+
+            # Try to load it
+            reload = sm.reload_plugin(name)
+            msg = result["message"]
+            if reload["success"]:
+                msg += f"\n{reload['message']}"
+            else:
+                msg += f"\nCreated but not loaded: {reload['message']}"
+
+            return ToolResult(success=True, output=msg)
+
+        return ToolResult(success=False, error=result["message"])
+
+    def _modify_file(self, args: dict) -> ToolResult:
+        """Modify a file in the JARVIS project."""
+        sm = getattr(self.jarvis, "self_modify", None)
+        if not sm:
+            return ToolResult(success=False, error="Self-modification engine not available.")
+
+        filepath = args.get("filepath", "")
+        content = args.get("content", "")
+        reason = args.get("reason", "Self-modification")
+
+        if not filepath or not content:
+            return ToolResult(success=False, error="filepath and content required.")
+
+        # Test syntax first
+        if filepath.endswith(".py"):
+            test = sm.test_code(content, "syntax")
+            if not test["success"]:
+                return ToolResult(
+                    success=False,
+                    error=f"Code has syntax errors: {test['message']}",
+                )
+
+        result = sm.write_file(filepath, content, reason)
+        if result["success"]:
+            return ToolResult(success=True, output=result["message"])
+        return ToolResult(success=False, error=result["message"])
+
+    def _reload_plugin(self, args: dict) -> ToolResult:
+        """Hot-reload a plugin."""
+        sm = getattr(self.jarvis, "self_modify", None)
+        if not sm:
+            return ToolResult(success=False, error="Self-modification engine not available.")
+
+        name = args.get("name", "")
+        if not name:
+            return ToolResult(success=False, error="Plugin name required.")
+
+        result = sm.reload_plugin(name)
+        if result["success"]:
+            return ToolResult(success=True, output=result["message"])
+        return ToolResult(success=False, error=result["message"])
+
+    def _list_plugins(self, args: dict) -> ToolResult:
+        """List all plugins and their status."""
+        sm = getattr(self.jarvis, "self_modify", None)
+        if not sm:
+            return ToolResult(success=False, error="Self-modification engine not available.")
+
+        plugins = sm.list_plugins()
+        lines = ["JARVIS Plugins:"]
+        for p in plugins:
+            status = "ACTIVE" if p["loaded"] else "available"
+            lines.append(f"  [{status}] {p['name']} ({p['class']})")
+
+        history = sm.get_modification_history()
+        if history:
+            lines.append(f"\nRecent modifications: {len(history)}")
+            for h in history[-3:]:
+                lines.append(f"  {h.get('action', '?')}: {h.get('file', '?')} — {h.get('reason', '')}")
+
+        return ToolResult(success=True, output="\n".join(lines))
+
+    def _system_status(self, args: dict) -> ToolResult:
+        """Full system status using awareness engine."""
+        awareness = getattr(self.jarvis, "awareness", None)
+        if not awareness:
+            return ToolResult(success=False, error="Awareness engine not available.")
+
+        status = awareness.get_system_status()
+        return ToolResult(success=True, output=status)
+
+    def _rollback_file(self, args: dict) -> ToolResult:
+        """Rollback a file to its last backup."""
+        sm = getattr(self.jarvis, "self_modify", None)
+        if not sm:
+            return ToolResult(success=False, error="Self-modification engine not available.")
+
+        filepath = args.get("filepath", "")
+        if not filepath:
+            return ToolResult(success=False, error="filepath required.")
+
+        result = sm.rollback(filepath)
+        if result["success"]:
+            return ToolResult(success=True, output=result["message"])
+        return ToolResult(success=False, error=result["message"])

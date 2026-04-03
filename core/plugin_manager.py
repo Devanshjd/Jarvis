@@ -94,6 +94,10 @@ class PluginManager:
         for plugin in self.plugins.values():
             plugin.on_response(response)
 
+    def get_plugin(self, name: str):
+        """Get a loaded plugin by name, or None."""
+        return self.plugins.get(name)
+
     def get_all_status(self) -> list[dict]:
         """Get status from all loaded plugins."""
         return [p.get_status() for p in self.plugins.values()]

@@ -63,6 +63,12 @@ Available tools:
   set_thermostat — args: {"temp": 72}                 — Set thermostat
   activate_scene — args: {"scene": "<morning/movie/sleep/work>"} — Activate home scene
   list_devices   — args: {}                           — List smart home devices
+  create_plugin  — args: {"name": "<plugin_name>", "description": "<what it does>", "commands": {"/cmd": "desc"}, "code": "<full python code or null>"} — Create a new JARVIS plugin
+  modify_file    — args: {"filepath": "<relative path>", "content": "<full file content>", "reason": "<why>"} — Modify a file in JARVIS project (plugins/ and core/ only)
+  reload_plugin  — args: {"name": "<plugin_name>"}    — Hot-reload a plugin without restart
+  list_plugins   — args: {}                           — List all plugins and modification history
+  system_status  — args: {}                           — Full system health status (CPU, RAM, battery, disk)
+  rollback_file  — args: {"filepath": "<relative path>"} — Rollback a file to its last backup
 
 Response format (JSON only, no markdown):
 {

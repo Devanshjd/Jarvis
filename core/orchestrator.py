@@ -89,6 +89,13 @@ class PipelineResult:
 #  Classification patterns
 # ═══════════════════════════════════════════════════════════════════
 
+# ── Negation / cancellation patterns ────────────────────────
+_NEGATION_RE = re.compile(
+    r"^(?:don'?t|do not|stop|cancel|never mind|nevermind|abort|"
+    r"no |nah |nope|forget it|skip|ignore)\b",
+    re.IGNORECASE,
+)
+
 # Greetings / simple
 _GREETINGS = {
     "hi", "hello", "hey", "yo", "sup", "hi jarvis", "hey jarvis",
@@ -257,6 +264,10 @@ class TaskOrchestrator:
         """
         msg = text.strip()
         msg_lower = msg.lower().strip()
+
+        # ── Negation / cancellation — always treat as conversational ─
+        if _NEGATION_RE.search(msg_lower):
+            return TaskType.CONVERSATIONAL
 
         # ── Check cache first ────────────────────────────────────
         cache_key = self._cache_key(msg_lower)
@@ -736,6 +747,28 @@ class TaskOrchestrator:
             full_system += f"\n\n{learner_context}"
         if notes:
             full_system += f"\n\n[CURRENT NOTES]\n{notes}"
+
+        # Inject awareness context (what user is doing, clipboard)
+        try:
+            if hasattr(self.jarvis, 'awareness'):
+                env_ctx = self.jarvis.awareness.get_current_context()
+                if env_ctx:
+                    full_system += f"\n\n{env_ctx}"
+                clip_ctx = self.jarvis.awareness.get_clipboard_context()
+                if clip_ctx:
+                    full_system += f"\n{clip_ctx}"
+            # Inject 4-layer memory context
+            if hasattr(self.jarvis, 'mem'):
+                mem4_ctx = self.jarvis.mem.get_full_context()
+                if mem4_ctx:
+                    full_system += f"\n\n{mem4_ctx}"
+            # Inject intent context
+            if hasattr(self.jarvis, 'intent_engine'):
+                intent_ctx = self.jarvis.intent_engine.get_conversation_context()
+                if intent_ctx:
+                    full_system += f"\n\n[INTENT] {intent_ctx}"
+        except Exception:
+            pass
 
         try:
             reply_text, latency = self.brain._chat_with_fallback(

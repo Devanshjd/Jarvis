@@ -130,6 +130,48 @@ class ConversationMemoryPlugin(PluginBase):
             lines.append(f"           Me: {c['assistant'][:60]}")
         self.jarvis.chat.add_message("assistant", "\n".join(lines))
 
+    def get_context_for_llm(self, max_exchanges: int = 10) -> str:
+        """Return recent conversation history as context for the LLM.
+
+        Provides the last `max_exchanges` from previous sessions so JARVIS
+        can reference past conversations naturally.
+        """
+        if not self.conversations:
+            return ""
+
+        recent = self.conversations[-max_exchanges:]
+        lines = ["[CONVERSATION MEMORY — past exchanges from previous sessions]"]
+        for c in recent:
+            ts = c["timestamp"][:16].replace("T", " ")
+            lines.append(f"  [{ts}] User: {c['user']}")
+            lines.append(f"  [{ts}] JARVIS: {c['assistant']}")
+        lines.append("[END CONVERSATION MEMORY]")
+        return "\n".join(lines)
+
+    def get_last_session_summary(self) -> str:
+        """Return a brief summary of the last session's conversations."""
+        if not self.conversations:
+            return ""
+
+        # Group by date to find last session
+        from itertools import groupby
+        def date_key(c):
+            return c["timestamp"][:10]
+
+        groups = []
+        for date, convos in groupby(self.conversations, key=date_key):
+            groups.append((date, list(convos)))
+
+        if not groups:
+            return ""
+
+        last_date, last_convos = groups[-1]
+        topics = [c["user"][:80] for c in last_convos[:5]]
+        return (
+            f"Last session ({last_date}): {len(last_convos)} exchanges. "
+            f"Topics: {'; '.join(topics)}"
+        )
+
     def _stats(self):
         total = len(self.conversations)
         if not total:

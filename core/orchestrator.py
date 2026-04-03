@@ -783,6 +783,13 @@ class TaskOrchestrator:
                 intent_ctx = self.jarvis.intent_engine.get_conversation_context()
                 if intent_ctx:
                     full_system += f"\n\n[INTENT] {intent_ctx}"
+            # Inject conversation memory from previous sessions
+            if hasattr(self.jarvis, 'plugin_manager'):
+                conv_mem = self.jarvis.plugin_manager.plugins.get("conversation_memory")
+                if conv_mem and hasattr(conv_mem, 'get_context_for_llm'):
+                    conv_ctx = conv_mem.get_context_for_llm(max_exchanges=10)
+                    if conv_ctx:
+                        full_system += f"\n\n{conv_ctx}"
         except Exception:
             pass
 

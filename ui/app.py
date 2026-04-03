@@ -355,9 +355,22 @@ class JarvisApp:
         mems = len(self.memory)
         cog_stats = self.cognitive.get_stats()
         knowledge = cog_stats.get("total_knowledge", 0)
-        if mems or knowledge:
-            msgs.append(("system",
-                f"Memory bank: {mems} records · Knowledge: {knowledge} entries"))
+        conv_count = 0
+        try:
+            conv_mem = self.plugin_manager.plugins.get("conversation_memory")
+            if conv_mem:
+                conv_count = len(conv_mem.conversations)
+        except Exception:
+            pass
+        mem_parts = []
+        if mems:
+            mem_parts.append(f"{mems} records")
+        if knowledge:
+            mem_parts.append(f"{knowledge} knowledge")
+        if conv_count:
+            mem_parts.append(f"{conv_count} past conversations")
+        if mem_parts:
+            msgs.append(("system", f"Memory: {' · '.join(mem_parts)}"))
 
         # Provider status
         info = self.brain.get_provider_info()
@@ -406,6 +419,17 @@ class JarvisApp:
         else:
             # Smart contextual greeting from presence engine
             greeting = self.presence.get_boot_greeting()
+
+            # Add last session summary if conversation memory has data
+            try:
+                conv_mem = self.plugin_manager.plugins.get("conversation_memory")
+                if conv_mem and hasattr(conv_mem, 'get_last_session_summary'):
+                    summary = conv_mem.get_last_session_summary()
+                    if summary:
+                        greeting += f"\n\nI remember our last session. {summary}"
+            except Exception:
+                pass
+
             self.chat.add_message("assistant", greeting)
 
     # ══════════════════════════════════════════════════════════════
@@ -472,6 +496,18 @@ class JarvisApp:
             self.plugin_manager.load_plugin(SelfImprovePlugin)
         except Exception as e:
             print(f"Self-improve plugin: {e}")
+
+        try:
+            from plugins.conversation_memory.conversation_memory_plugin import ConversationMemoryPlugin
+            self.plugin_manager.load_plugin(ConversationMemoryPlugin)
+        except Exception as e:
+            print(f"Conversation Memory plugin: {e}")
+
+        try:
+            from plugins.web_automation.web_automation_plugin import WebAutomationPlugin
+            self.plugin_manager.load_plugin(WebAutomationPlugin)
+        except Exception as e:
+            print(f"Web Automation plugin: {e}")
 
     # ══════════════════════════════════════════════════════════════
     # MESSAGING

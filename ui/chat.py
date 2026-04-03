@@ -55,8 +55,22 @@ class ChatDisplay:
     def pack(self, **kwargs):
         self.widget.pack(**kwargs)
 
-    def add_message(self, role: str, text: str):
+    def add_message(self, role: str, text):
         """Add a message with smooth animation."""
+        # Defensive: ensure text is always a string
+        if text is None:
+            text = ""
+        elif isinstance(text, dict):
+            text = (
+                text.get("answer")
+                or text.get("spoken_reply")
+                or text.get("message")
+                or text.get("content")
+                or str(text)
+            )
+        elif not isinstance(text, str):
+            text = str(text)
+
         self.widget.config(state=tk.NORMAL)
         ts = datetime.now().strftime("%H:%M")
 

@@ -13,6 +13,7 @@ import threading
 import queue
 import re
 import os
+import time
 import tempfile
 import json
 
@@ -54,6 +55,8 @@ class VoicePlugin(PluginBase):
         self._tts_thread = None
         self._stop_event = threading.Event()
         self._tts_ready = threading.Event()
+        self.is_speaking = False       # True while TTS is actively outputting
+        self._tts_done_time = 0.0      # timestamp when TTS last finished
 
     def activate(self):
         """Initialize STT and start TTS worker thread."""
@@ -170,6 +173,7 @@ class VoicePlugin(PluginBase):
                 if text is None:
                     break
                 print(f"[DEBUG] TTS worker speaking: {text[:50]}...")
+                self.is_speaking = True
                 try:
                     engine = pyttsx3.init()
                     engine.setProperty("rate", rate)
@@ -182,6 +186,10 @@ class VoicePlugin(PluginBase):
                     del engine
                 except Exception as e:
                     print(f"TTS speak error: {e}")
+                finally:
+                    self.is_speaking = False
+                    import time as _t
+                    self._tts_done_time = _t.time()
             except queue.Empty:
                 continue
 
@@ -336,6 +344,15 @@ class VoicePlugin(PluginBase):
         print(f"[JARVIS] Wake word loop started — listening for '{wake_word}'")
 
         while self.wake_word_active and not self._stop_event.is_set():
+            # ── Prevent feedback loop: skip while TTS is speaking ──
+            if self.is_speaking:
+                time.sleep(0.2)
+                continue
+            # Also wait 1.5s after TTS finishes to avoid echo pickup
+            if self._tts_done_time and (time.time() - self._tts_done_time < 1.5):
+                time.sleep(0.2)
+                continue
+
             try:
                 with sr.Microphone() as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
@@ -392,6 +409,13 @@ class VoicePlugin(PluginBase):
 
     def _listen_followup(self):
         """Listen for a follow-up command INSIDE the wake loop thread (no mic conflict)."""
+        # Wait for TTS to finish before listening (prevents echo feedback)
+        while self.is_speaking:
+            time.sleep(0.2)
+        # Extra cooldown after TTS
+        if self._tts_done_time and (time.time() - self._tts_done_time < 1.5):
+            time.sleep(1.5 - (time.time() - self._tts_done_time))
+
         try:
             print("[JARVIS] Listening for follow-up command...")
             with sr.Microphone() as source:

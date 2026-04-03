@@ -564,10 +564,11 @@ class JarvisApp:
                 self.root.after(0, lambda: self._on_reply(local_answer, 0))
                 return
 
-            # Try cache lookup
+            # Try cache lookup (returns dict with "answer" key or None)
             cached = self.cognitive.cache_lookup(text)
             if cached:
-                self.root.after(0, lambda: self._on_reply(cached, 0))
+                cached_answer = cached.get("answer", str(cached)) if isinstance(cached, dict) else str(cached)
+                self.root.after(0, lambda: self._on_reply(cached_answer, 0))
                 return
 
             # Track as unhandled (no fast-path hit)
@@ -596,8 +597,27 @@ class JarvisApp:
                 error_callback=lambda e: self.root.after(0, self._on_error, e),
             )
 
-    def _on_reply(self, reply: str, latency: int):
+    @staticmethod
+    def _normalize_reply(reply) -> str:
+        """Ensure reply is always a plain string — never a dict or None."""
+        if isinstance(reply, str):
+            return reply
+        if isinstance(reply, dict):
+            # cache_lookup returns {"question":..., "answer":...}
+            # planner returns {"spoken_reply":..., ...}
+            for key in ("answer", "spoken_reply", "message", "content", "text", "reply"):
+                val = reply.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val
+            return str(reply)
+        if reply is None:
+            return ""
+        return str(reply)
+
+    def _on_reply(self, reply, latency: int = 0):
         self._processing = False
+        reply = self._normalize_reply(reply)
+
         self.chat.remove_last_thinking()
         self.chat.add_message("assistant", reply)
         self.chat_input.set_enabled(True)

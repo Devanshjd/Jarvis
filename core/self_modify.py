@@ -360,21 +360,39 @@ class SelfModificationEngine:
             module = importlib.import_module(module_path)
 
             # Find the plugin class (naming convention: XxxPlugin)
+            from core.plugin_manager import PluginBase
             plugin_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
                 if (isinstance(attr, type)
                     and attr_name.endswith("Plugin")
-                    and attr_name != "PluginBase"
-                    and hasattr(attr, 'name')):
-                    plugin_class = attr
-                    break
+                    and attr_name != "PluginBase"):
+                    # Prefer PluginBase subclasses, but accept any class
+                    # with a 'name' attribute as a plugin
+                    if issubclass(attr, PluginBase):
+                        plugin_class = attr
+                        break
+                    elif hasattr(attr, 'name'):
+                        plugin_class = attr
 
             if plugin_class is None:
                 return {
                     "success": False,
                     "message": f"No plugin class found in {module_path}",
                 }
+
+            # If it doesn't inherit PluginBase, wrap it dynamically
+            if not issubclass(plugin_class, PluginBase):
+                original = plugin_class
+                # Create a wrapper that inherits PluginBase
+                wrapper = type(
+                    original.__name__,
+                    (PluginBase,),
+                    {k: v for k, v in original.__dict__.items()
+                     if not k.startswith('__') or k in ('__init__',)},
+                )
+                wrapper.name = getattr(original, 'name', plugin_name)
+                plugin_class = wrapper
 
             # Load and activate
             pm.load_plugin(plugin_class)

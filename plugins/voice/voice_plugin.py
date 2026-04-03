@@ -111,25 +111,35 @@ class VoicePlugin(PluginBase):
     # ══════════════════════════════════════════════════════════════
 
     def speak(self, text: str):
-        """Queue text to be spoken."""
+        """Queue text to be spoken. Selects best available TTS engine."""
         voice_cfg = self.jarvis.config.get("voice", {})
-        engine = voice_cfg.get("tts_engine", "pyttsx3")
+        engine = voice_cfg.get("tts_engine", "auto")
 
-        if engine == "elevenlabs":
-            clean = self._clean_for_speech(text)
-            if clean:
-                threading.Thread(target=self._speak_elevenlabs, args=(clean,), daemon=True).start()
-            return
-
-        if not HAS_TTS:
-            print("[DEBUG] TTS not available")
-            return
         clean = self._clean_for_speech(text)
-        if clean:
-            print(f"[DEBUG] Queuing TTS: {clean[:60]}...")
-            self._tts_queue.put(clean)
-        else:
-            print("[DEBUG] Clean text was empty, nothing to speak")
+        if not clean:
+            return
+
+        # Engine priority: elevenlabs > edge-tts > pyttsx3
+        if engine == "elevenlabs":
+            threading.Thread(target=self._speak_elevenlabs, args=(clean,), daemon=True).start()
+            return
+
+        if engine in ("edge", "edge-tts", "auto"):
+            # Try edge-tts first (free neural voices, sounds human)
+            try:
+                import edge_tts as _et  # noqa: F401
+                threading.Thread(target=self._speak_edge_tts, args=(clean,), daemon=True).start()
+                return
+            except ImportError:
+                if engine != "auto":
+                    print("[DEBUG] edge-tts not installed. pip install edge-tts")
+
+        # Fallback: pyttsx3
+        if not HAS_TTS:
+            print("[DEBUG] No TTS engine available")
+            return
+        print(f"[DEBUG] Queuing TTS (pyttsx3): {clean[:60]}...")
+        self._tts_queue.put(clean)
 
     def _tts_worker(self):
         """
@@ -194,6 +204,86 @@ class VoicePlugin(PluginBase):
                 continue
 
         pythoncom.CoUninitialize()
+
+    def _speak_edge_tts(self, text: str):
+        """Speak text using Microsoft Edge neural TTS (free, human-quality)."""
+        import asyncio
+        import edge_tts
+
+        voice_cfg = self.jarvis.config.get("voice", {})
+        # Good male voices: en-GB-RyanNeural (British), en-US-GuyNeural,
+        # en-US-AndrewNeural, en-GB-ThomasNeural
+        voice = voice_cfg.get("edge_voice", "en-GB-RyanNeural")
+        rate = voice_cfg.get("edge_rate", "+0%")  # e.g. "+10%", "-5%"
+
+        self.is_speaking = True
+        tmp_path = None
+        try:
+            tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+
+            async def _generate():
+                communicate = edge_tts.Communicate(text, voice, rate=rate)
+                await communicate.save(tmp_path)
+
+            # Run async in a new event loop (we're in a thread)
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(_generate())
+            loop.close()
+
+            # Play the audio
+            self._play_audio_file(tmp_path)
+
+        except Exception as e:
+            print(f"[DEBUG] Edge TTS error: {e}")
+            # Fallback to pyttsx3 if edge-tts fails
+            if HAS_TTS:
+                self._tts_queue.put(text)
+        finally:
+            self.is_speaking = False
+            self._tts_done_time = time.time()
+            # Clean up temp file
+            if tmp_path:
+                try:
+                    time.sleep(0.5)
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    def _play_audio_file(self, filepath: str):
+        """Play an audio file (mp3/wav). Tries pygame, then system player."""
+        try:
+            import pygame
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            pygame.mixer.music.load(filepath)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.music.unload()
+            return
+        except Exception:
+            pass
+
+        # Fallback: Windows Media.SoundPlayer for wav, or powershell for mp3
+        try:
+            import subprocess
+            # Use PowerShell to play mp3 via Windows Media Player COM
+            ps_cmd = (
+                f'Add-Type -AssemblyName presentationCore; '
+                f'$player = New-Object System.Windows.Media.MediaPlayer; '
+                f'$player.Open("{filepath}"); '
+                f'$player.Play(); '
+                f'Start-Sleep -Seconds ([math]::Ceiling($player.NaturalDuration.TimeSpan.TotalSeconds + 1)); '
+                f'$player.Close()'
+            )
+            subprocess.run(
+                ["powershell", "-WindowStyle", "Hidden", "-Command", ps_cmd],
+                capture_output=True, timeout=30,
+            )
+        except Exception as e:
+            print(f"[DEBUG] Audio playback error: {e}")
 
     def _speak_elevenlabs(self, text: str):
         """Speak text using ElevenLabs TTS API."""
@@ -271,28 +361,56 @@ class VoicePlugin(PluginBase):
             print(f"[DEBUG] ElevenLabs TTS error: {e}")
 
     def _clean_for_speech(self, text: str) -> str:
-        """Clean text for natural speech output."""
-        # Remove code blocks
-        text = re.sub(r"```[\s\S]*?```", "code block omitted", text)
-        # Remove inline code
-        text = re.sub(r"`[^`]+`", "", text)
-        # Remove markdown
-        text = re.sub(r"[*_#~>|]", "", text)
-        # Remove URLs
-        text = re.sub(r"https?://\S+", "link", text)
-        # Remove special chars
-        text = re.sub(r"[⬡◌●✓○⚠▶🎤📸]", "", text)
-        # Clean whitespace
+        """Clean text for natural, human-sounding speech output."""
+        if not text:
+            return ""
+
+        # Don't speak raw JSON/dicts
+        stripped = text.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            return ""
+
+        # Remove code blocks — replace with brief mention
+        text = re.sub(r"```[\s\S]*?```", " I've put the code on screen. ", text)
+        # Remove inline code backticks but keep the word
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+        # Remove markdown formatting but keep text
+        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)  # bold
+        text = re.sub(r"\*([^*]+)\*", r"\1", text)       # italic
+        text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)  # headers
+        text = re.sub(r"^[-*]\s+", "", text, flags=re.MULTILINE)  # bullets
+        text = re.sub(r"[~>|]", "", text)
+        # Remove URLs — say "link" naturally
+        text = re.sub(r"https?://\S+", "the link", text)
+        # Remove emojis and special UI chars
+        text = re.sub(r"[⬡◌●✓✗○⚠▶🎤📸🔍💾🔋💿☕🛡️⚡📋🌙☰]", "", text)
+
+        # Make abbreviations speech-friendly
+        text = text.replace("CPU", "C P U")
+        text = text.replace("RAM", "ram")
+        text = text.replace("GB", "gigabytes")
+        text = text.replace("MB", "megabytes")
+        text = text.replace("API", "A P I")
+        text = text.replace("URL", "U R L")
+        text = text.replace("SSH", "S S H")
+        text = text.replace("DNS", "D N S")
+
+        # Convert numbered lists to natural speech
+        text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)
+
+        # Clean up whitespace
+        text = re.sub(r"\n+", ". ", text)  # newlines become pauses
         text = re.sub(r"\s+", " ", text).strip()
-        # Truncate long responses
-        if len(text) > 500:
-            # Cut at sentence boundary
-            cut = text[:500]
+        text = re.sub(r"\.\s*\.", ".", text)  # remove double periods
+
+        # Truncate at sentence boundary
+        if len(text) > 600:
+            cut = text[:600]
             last_period = cut.rfind(".")
             if last_period > 200:
-                text = cut[:last_period + 1] + " Full response is on screen, sir."
+                text = cut[:last_period + 1] + " The rest is on screen."
             else:
-                text = cut + "... Full response is on screen, sir."
+                text = cut + "... rest is on screen."
         return text
 
     # ══════════════════════════════════════════════════════════════

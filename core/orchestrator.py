@@ -154,6 +154,8 @@ _TOOL_PATTERNS = [
     (re.compile(r"\bthermostat\b", re.I), "set_thermostat"),
     (re.compile(r"\bscene\b", re.I), "activate_scene"),
     (re.compile(r"\bdevices?\b", re.I), "list_devices"),
+    # Web automation
+    (re.compile(r"\b(?:log\s*in|login|sign\s*in)\s*(?:to|into)\b", re.I), "web_login"),
 ]
 
 # Research triggers
@@ -701,6 +703,14 @@ class TaskOrchestrator:
             m = re.search(r"port\s*scan\s+(\S+)", msg_lower)
             host = m.group(1) if m else ""
             return {"host": host}
+
+        elif tool_name == "web_login":
+            # Detect what site to login to
+            if re.search(r"\b(?:uni|university|studynet|herts)\b", msg_lower):
+                return {"site": "university"}
+            m = re.search(r"(?:https?://\S+)", text)
+            url = m.group(0) if m else ""
+            return {"site": "custom", "url": url}
 
         # Default: pass text as generic arg
         return {}

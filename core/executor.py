@@ -87,6 +87,10 @@ class Executor:
             "list_plugins": self._list_plugins,
             "system_status": self._system_status,
             "rollback_file": self._rollback_file,
+            # Web automation tools
+            "web_login": self._web_login,
+            "web_navigate": self._web_navigate,
+            "web_click": self._web_click,
         }
 
     @property
@@ -599,3 +603,46 @@ class Executor:
         if result["success"]:
             return ToolResult(success=True, output=result["message"])
         return ToolResult(success=False, error=result["message"])
+
+    # ── Web Automation Tools ────────────────────────────────
+
+    def _web_login(self, args: dict) -> ToolResult:
+        """Automated web login via Selenium."""
+        plugin = self.jarvis.plugin_manager.plugins.get("web_automation")
+        if not plugin:
+            return ToolResult(success=False, error="Web automation plugin not loaded.")
+
+        site = args.get("site", "")
+        if site == "university":
+            result = plugin._uni_login("")
+        else:
+            url = args.get("url", "")
+            result = plugin._navigate(url) if url else "No URL provided."
+
+        return ToolResult(success=True, output=result)
+
+    def _web_navigate(self, args: dict) -> ToolResult:
+        """Navigate to a URL in automated browser."""
+        plugin = self.jarvis.plugin_manager.plugins.get("web_automation")
+        if not plugin:
+            return ToolResult(success=False, error="Web automation plugin not loaded.")
+
+        url = args.get("url", "")
+        if not url:
+            return ToolResult(success=False, error="No URL provided.")
+
+        result = plugin._navigate(url)
+        return ToolResult(success=True, output=result)
+
+    def _web_click(self, args: dict) -> ToolResult:
+        """Click an element on the current browser page."""
+        plugin = self.jarvis.plugin_manager.plugins.get("web_automation")
+        if not plugin:
+            return ToolResult(success=False, error="Web automation plugin not loaded.")
+
+        selector = args.get("selector", "")
+        if not selector:
+            return ToolResult(success=False, error="No CSS selector provided.")
+
+        result = plugin._click(selector)
+        return ToolResult(success=True, output=result)

@@ -69,6 +69,9 @@ Available tools:
   list_plugins   — args: {}                           — List all plugins and modification history
   system_status  — args: {}                           — Full system health status (CPU, RAM, battery, disk)
   rollback_file  — args: {"filepath": "<relative path>"} — Rollback a file to its last backup
+  web_login      — args: {"site": "<university/custom>", "url": "<optional url>"} — Automated web login using browser (Selenium). For university login, use site: "university"
+  web_navigate   — args: {"url": "<url>"}               — Open URL in automated browser
+  web_click      — args: {"selector": "<CSS selector>"} — Click element on current page
 
 Response format (JSON only, no markdown):
 {

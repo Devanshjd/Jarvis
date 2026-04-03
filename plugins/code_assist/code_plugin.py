@@ -342,6 +342,23 @@ class CodeAssistPlugin(PluginBase):
                 f"Run it with:\n  python \"{filepath}\""
             )
 
+        # Try resilient execution if available (auto-retry, auto-fix)
+        resilient = getattr(jarvis, "resilient", None)
+        if resilient:
+            res = resilient.execute_code(code, description="User /pyrun command")
+            if res["success"]:
+                output = res["output"] or "(no output)"
+                fixes = res.get("fixes_applied", [])
+                result_text = f"Python Output:\n```\n{_truncate(output.strip())}\n```"
+                if fixes:
+                    result_text += f"\n(Auto-fixed: {', '.join(fixes)})"
+                if res["attempts"] > 1:
+                    result_text += f"\n(Succeeded on attempt {res['attempts']})"
+                return result_text
+            else:
+                return f"Failed after {res['attempts']} attempts:\n```\n{_truncate(res['output'])}\n```"
+
+        # Fallback: direct execution without resilience
         try:
             result = subprocess.run(
                 [sys.executable, "-c", code],

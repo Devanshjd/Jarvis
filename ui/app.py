@@ -26,6 +26,7 @@ from core.proactive import ProactiveEngine
 from core.intent import IntentEngine
 from core.modes import ModeAutoSwitcher
 from core.self_modify import SelfModificationEngine
+from core.resilient import ResilientExecutor
 from ui.themes import COLORS, FONTS
 from ui.components import ArcReactor, StatusDot
 from ui.chat import ChatDisplay, ChatInput
@@ -70,6 +71,7 @@ class JarvisApp:
         self.intent_engine = IntentEngine()
         self.mode_switcher = ModeAutoSwitcher(self)
         self.self_modify = SelfModificationEngine(self)
+        self.resilient = ResilientExecutor(self)
 
         # ── State ──
         self.attached_file = None
@@ -361,6 +363,15 @@ class JarvisApp:
         info = self.brain.get_provider_info()
         available = info.get("name", "Unknown")
         msgs.append(("system", f"AI provider: {available}"))
+
+        # Resilient engine
+        if hasattr(self, "resilient"):
+            err_stats = self.resilient.get_error_stats()
+            known = err_stats.get("known_fixes", 0)
+            if known:
+                msgs.append(("system", f"Resilient engine: {known} known fixes loaded"))
+            else:
+                msgs.append(("system", "Resilient engine: online"))
 
         msgs.append(("system", "All systems nominal"))
 

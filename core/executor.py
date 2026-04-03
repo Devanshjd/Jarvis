@@ -94,7 +94,11 @@ class Executor:
         return list(self._tools.keys())
 
     def execute(self, tool_name: str, tool_args: dict) -> ToolResult:
-        """Execute a tool by name with given arguments."""
+        """Execute a tool by name with given arguments.
+
+        If the tool fails and a ResilientExecutor is available,
+        retries with escalating fix strategies before giving up.
+        """
         handler = self._tools.get(tool_name)
         if not handler:
             return ToolResult(
@@ -102,8 +106,51 @@ class Executor:
                 error=f"Unknown tool: {tool_name}",
             )
         try:
-            return handler(tool_args)
+            result = handler(tool_args)
+
+            # If tool failed, try resilient retry
+            if not result.success and result.error:
+                resilient = getattr(self.jarvis, "resilient", None)
+                if resilient:
+                    import logging
+                    logging.getLogger("jarvis.executor").info(
+                        "Tool %s failed, engaging resilient executor: %s",
+                        tool_name, result.error[:100],
+                    )
+                    retry = resilient.execute_tool(
+                        handler, tool_args, tool_name=tool_name,
+                    )
+                    if retry.get("success"):
+                        retry_result = retry.get("result")
+                        if isinstance(retry_result, ToolResult):
+                            return retry_result
+                        return ToolResult(
+                            success=True,
+                            output=str(retry_result) if retry_result else "Done (after retry).",
+                        )
+                    # Resilient also failed — return the last error
+                    return ToolResult(
+                        success=False,
+                        error=f"Failed after {retry.get('attempts', '?')} attempts: {retry.get('error', result.error)}",
+                    )
+
+            return result
+
         except Exception as e:
+            # Exception path — also try resilient retry
+            resilient = getattr(self.jarvis, "resilient", None)
+            if resilient:
+                retry = resilient.execute_tool(
+                    handler, tool_args, tool_name=tool_name,
+                )
+                if retry.get("success"):
+                    retry_result = retry.get("result")
+                    if isinstance(retry_result, ToolResult):
+                        return retry_result
+                    return ToolResult(
+                        success=True,
+                        output=str(retry_result) if retry_result else "Done (after retry).",
+                    )
             return ToolResult(success=False, error=str(e))
 
     # ── Tool Handlers ─────────────────────────────────────────────
@@ -284,6 +331,23 @@ class Executor:
                 return ToolResult(success=False, error="Code Assist plugin not loaded.")
             if action == "run_python":
                 code = args.get("code", "")
+                # Use resilient executor for direct code execution
+                resilient = getattr(self.jarvis, "resilient", None)
+                if resilient and code:
+                    res = resilient.execute_code(code, description="LLM run_python tool")
+                    if res["success"]:
+                        output = res["output"] or "(no output)"
+                        fixes = res.get("fixes_applied", [])
+                        msg = f"Python output:\n{output}"
+                        if fixes:
+                            msg += f"\n(Auto-fixed: {', '.join(fixes)})"
+                        return ToolResult(success=True, output=msg)
+                    else:
+                        return ToolResult(
+                            success=False,
+                            error=f"Failed after {res['attempts']} attempts: {res['output'][:500]}",
+                        )
+                # Fallback to plugin
                 plugin.on_command("/pyrun", code)
                 return ToolResult(success=True, output="Executing Python code...")
             elif action == "git_command":

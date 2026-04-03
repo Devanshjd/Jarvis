@@ -475,8 +475,17 @@ class TaskOrchestrator:
 
         except Exception as e:
             logger.error("Pipeline error for '%s': %s", task.text[:40], e)
+
+            # ── Resilient recovery — don't give up ──
+            resilient = getattr(self.jarvis, "resilient", None)
+            if resilient:
+                logger.info("Engaging resilient executor for pipeline error")
+                resilient.knowledge.record_error(
+                    type(e).__name__, str(e)[:200], task.text[:200],
+                )
+
             result = PipelineResult(
-                success=False, reply=f"I encountered an error: {e}",
+                success=False, reply=f"Ran into a snag, sir. {e}",
                 pipeline="error",
             )
 
@@ -603,13 +612,20 @@ class TaskOrchestrator:
                     pipeline="tool_pipeline",
                 )
 
-        # Execute
+        # Execute (Executor already has resilient retry built in)
         result = self.executor.execute(tool_name, tool_args)
 
         if result.success:
             reply = result.output or f"Done — {tool_name} executed successfully."
         else:
-            reply = f"There was an issue: {result.error}"
+            # Record the failure for learning
+            resilient = getattr(self.jarvis, "resilient", None)
+            if resilient:
+                resilient.knowledge.record_error(
+                    "tool_failure", result.error[:200],
+                    f"tool={tool_name} args={tool_args}",
+                )
+            reply = f"Tried multiple approaches but hit a wall: {result.error}"
 
         return PipelineResult(
             success=result.success, reply=reply, pipeline="tool_pipeline",
@@ -781,14 +797,21 @@ class TaskOrchestrator:
             plan = parse_plan(reply_text)
 
             if plan.needs_tool and plan.tool_name:
-                # Execute the tool from the plan
+                # Execute the tool from the plan (Executor has resilient retry)
                 tool_result = self.executor.execute(plan.tool_name, plan.tool_args)
                 reply = plan.spoken_reply
                 if tool_result.success and tool_result.output:
                     if tool_result.output not in reply:
                         reply += f"\n\n{tool_result.output}"
                 elif not tool_result.success:
-                    reply += f"\n\nHowever, there was an issue: {tool_result.error}"
+                    # Record failure for future learning
+                    resilient = getattr(self.jarvis, "resilient", None)
+                    if resilient:
+                        resilient.knowledge.record_error(
+                            "ai_tool_failure", tool_result.error[:200],
+                            f"plan_tool={plan.tool_name}",
+                        )
+                    reply += f"\n\nTried my best, but: {tool_result.error}"
             else:
                 reply = plan.spoken_reply or reply_text
 

@@ -549,6 +549,55 @@ export class JarvisGeminiLive {
                         required: []
                       }
                     },
+                    // ─── Phase 4: Creative Tools ───
+                    {
+                      name: 'generate_image',
+                      description: 'Generate an AI image from a text prompt. Saves the image to disk.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          prompt: { type: 'STRING', description: 'The image prompt describing what to generate.' },
+                          width: { type: 'NUMBER', description: 'Image width (default 1024).' },
+                          height: { type: 'NUMBER', description: 'Image height (default 1024).' }
+                        },
+                        required: ['prompt']
+                      }
+                    },
+                    {
+                      name: 'analyze_code',
+                      description: 'Analyze a code file for metrics, complexity, and security issues.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          file_path: { type: 'STRING', description: 'Path to the code file to analyze.' }
+                        },
+                        required: ['file_path']
+                      }
+                    },
+                    {
+                      name: 'summarize_text',
+                      description: 'Summarize a text or file. Can accept a file path or text directly.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          input: { type: 'STRING', description: 'Text to summarize, or file path to read and summarize.' }
+                        },
+                        required: ['input']
+                      }
+                    },
+                    {
+                      name: 'translate_text',
+                      description: 'Translate text between languages.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          text: { type: 'STRING', description: 'Text to translate.' },
+                          target_lang: { type: 'STRING', description: 'Target language code (e.g. es, fr, de, ja, zh, ar, hi, ko, pt, ru, it).' },
+                          source_lang: { type: 'STRING', description: 'Source language code (default: en).' }
+                        },
+                        required: ['text', 'target_lang']
+                      }
+                    },
                     {
                       name: 'jarvis_chat',
                       description: 'Fallback: Send a complex request to the JARVIS AI backend.',
@@ -1018,6 +1067,32 @@ export class JarvisGeminiLive {
             } else {
               output = '📚 Knowledge base is empty. Ingest documents to get started.'
             }
+            break
+          }
+
+          // ─── Phase 4: Creative Tools ───
+
+          case 'generate_image': {
+            const r = await api.toolGenerateImage(args.prompt, args.width, args.height)
+            output = r.success ? `🎨 ${r.message}\nSaved to: ${r.path}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'analyze_code': {
+            const r = await api.toolAnalyzeCode(args.file_path)
+            output = r.success ? r.message || 'Analysis complete.' : `Error: ${r.error}`
+            break
+          }
+
+          case 'summarize_text': {
+            const r = await api.toolSummarizeText(args.input)
+            output = r.success ? r.message || 'Summary complete.' : `Error: ${r.error}`
+            break
+          }
+
+          case 'translate_text': {
+            const r = await api.toolTranslateText(args.text, args.target_lang, args.source_lang)
+            output = r.success ? r.message || 'Translation complete.' : `Error: ${r.error}`
             break
           }
 

@@ -154,6 +154,12 @@ declare global {
       ragSearch: (query: string, topK?: number) => Promise<{ success: boolean; results?: Array<{ text: string; score: number; docId: string; filename: string; chunkIndex: number }>; searchType?: string; message?: string; error?: string }>
       ragListDocuments: () => Promise<{ success: boolean; documents?: Array<{ id: string; filename: string; filePath: string; ingestedAt: string; chunks: number; size: number }>; total?: number; error?: string }>
       ragDeleteDocument: (docId: string) => Promise<{ success: boolean; message?: string; error?: string }>
+
+      // ─── Phase 4: Creative Tools ───
+      toolGenerateImage: (prompt: string, width?: number, height?: number) => Promise<{ success: boolean; message?: string; path?: string; url?: string; size?: number; error?: string }>
+      toolAnalyzeCode: (filePath: string) => Promise<{ success: boolean; message?: string; metrics?: Record<string, unknown>; error?: string }>
+      toolSummarizeText: (input: string) => Promise<{ success: boolean; message?: string; method?: string; originalLength?: number; summaryLength?: number; error?: string }>
+      toolTranslateText: (text: string, targetLang: string, sourceLang?: string) => Promise<{ success: boolean; message?: string; translated?: string; confidence?: number; error?: string }>
     }
   }
 }

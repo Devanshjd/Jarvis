@@ -104,7 +104,17 @@ const desktopApi = {
   ragListDocuments: () =>
     ipcRenderer.invoke('rag-list-documents'),
   ragDeleteDocument: (docId: string) =>
-    ipcRenderer.invoke('rag-delete-document', docId)
+    ipcRenderer.invoke('rag-delete-document', docId),
+
+  // ─── Phase 4: Creative Tools ───
+  toolGenerateImage: (prompt: string, width?: number, height?: number) =>
+    ipcRenderer.invoke('tool-generate-image', prompt, width, height),
+  toolAnalyzeCode: (filePath: string) =>
+    ipcRenderer.invoke('tool-analyze-code', filePath),
+  toolSummarizeText: (input: string) =>
+    ipcRenderer.invoke('tool-summarize-text', input),
+  toolTranslateText: (text: string, targetLang: string, sourceLang?: string) =>
+    ipcRenderer.invoke('tool-translate-text', text, targetLang, sourceLang)
 }
 
 if (process.contextIsolated) {

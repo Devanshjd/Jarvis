@@ -1870,6 +1870,253 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── PHASE 4: Creative Tools ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // Generate image using Pollinations.ai (FREE, no API key)
+  ipcMain.handle('tool-generate-image', async (_event, prompt: string, width?: number, height?: number) => {
+    try {
+      const w = width || 1024
+      const h = height || 1024
+      const seed = Math.floor(Math.random() * 999999)
+      const encodedPrompt = encodeURIComponent(prompt.trim())
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&seed=${seed}&nologo=true`
+
+      // Download & save the image
+      const imgDir = join(getJarvisRoot(), '.jarvis_sandbox', 'generated_images')
+      await fs.mkdir(imgDir, { recursive: true })
+
+      const fileName = `jarvis_${Date.now()}.png`
+      const filePath = join(imgDir, fileName)
+
+      const imageData = await new Promise<Buffer>((resolve, reject) => {
+        const https = require('https')
+        const fetch = (url: string, redirects = 0): void => {
+          if (redirects > 5) return reject(new Error('Too many redirects'))
+          https.get(url, { timeout: 60000 }, (res: any) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              return fetch(res.headers.location, redirects + 1)
+            }
+            const chunks: Buffer[] = []
+            res.on('data', (chunk: Buffer) => chunks.push(chunk))
+            res.on('end', () => resolve(Buffer.concat(chunks)))
+          }).on('error', reject)
+        }
+        fetch(imageUrl)
+      })
+
+      await fs.writeFile(filePath, imageData)
+
+      return {
+        success: true,
+        message: `Generated image: "${prompt}" (${w}x${h})`,
+        path: filePath,
+        url: imageUrl,
+        size: imageData.length
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Analyze code quality and complexity
+  ipcMain.handle('tool-analyze-code', async (_event, filePath: string) => {
+    try {
+      const resolvedPath = resolveUserPath(filePath)
+      if (!existsSync(resolvedPath)) {
+        return { success: false, error: `File not found: ${resolvedPath}` }
+      }
+
+      const content = await fs.readFile(resolvedPath, 'utf8')
+      const lines = content.split('\n')
+      const filename = resolvedPath.split(/[/\\]/).pop() || 'unknown'
+      const ext = filename.split('.').pop()?.toLowerCase() || ''
+
+      // Basic metrics
+      const totalLines = lines.length
+      const codeLines = lines.filter(l => l.trim() && !l.trim().startsWith('//') && !l.trim().startsWith('#') && !l.trim().startsWith('*')).length
+      const commentLines = lines.filter(l => l.trim().startsWith('//') || l.trim().startsWith('#') || l.trim().startsWith('*')).length
+      const blankLines = lines.filter(l => !l.trim()).length
+
+      // Detect functions/classes
+      const functionMatches = content.match(/\b(function|def|fn|func|async function|const\s+\w+\s*=\s*(async\s+)?\(|=>\s*{|method)\b/g)
+      const classMatches = content.match(/\b(class|struct|interface|enum|type)\s+\w+/g)
+      const importMatches = content.match(/\b(import|require|from|using|include)\b/g)
+
+      // Security issues
+      const securityIssues: string[] = []
+      if (content.includes('eval(')) securityIssues.push('⚠️ eval() usage detected — potential code injection')
+      if (content.match(/innerHTML\s*=/)) securityIssues.push('⚠️ innerHTML assignment — potential XSS')
+      if (content.match(/password\s*=\s*['"][^'"]+['"]/i)) securityIssues.push('🔴 Hardcoded password detected')
+      if (content.match(/api[_-]?key\s*=\s*['"][^'"]+['"]/i)) securityIssues.push('🔴 Hardcoded API key detected')
+      if (content.includes('exec(') || content.includes('execSync(')) securityIssues.push('⚠️ exec() usage — potential command injection')
+      if (content.match(/console\.(log|debug|trace)\(/)) securityIssues.push('ℹ️ Console statements (remove for production)')
+      if (content.includes('TODO') || content.includes('FIXME') || content.includes('HACK')) securityIssues.push('ℹ️ TODO/FIXME/HACK comments found')
+
+      // Complexity estimation (cyclomatic-like)
+      const branches = (content.match(/\b(if|else|switch|case|for|while|do|catch|try|\?\.|&&|\|\|)\b/g) || []).length
+      const complexity = branches <= 10 ? 'Low' : branches <= 25 ? 'Medium' : 'High'
+
+      // Language detection
+      const langMap: Record<string, string> = {
+        js: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript React', jsx: 'JavaScript React',
+        py: 'Python', rs: 'Rust', go: 'Go', cpp: 'C++', c: 'C', java: 'Java',
+        rb: 'Ruby', php: 'PHP', cs: 'C#', swift: 'Swift', kt: 'Kotlin',
+        html: 'HTML', css: 'CSS', json: 'JSON', md: 'Markdown', yaml: 'YAML', yml: 'YAML',
+        sh: 'Bash', ps1: 'PowerShell', sql: 'SQL'
+      }
+      const language = langMap[ext] || ext.toUpperCase()
+
+      const report = [
+        `📊 CODE ANALYSIS: ${filename}`,
+        `Language: ${language}`,
+        ``,
+        `── Metrics ──`,
+        `Total Lines: ${totalLines}`,
+        `Code Lines: ${codeLines}`,
+        `Comments: ${commentLines} (${Math.round(commentLines / totalLines * 100)}%)`,
+        `Blank Lines: ${blankLines}`,
+        `Functions: ${functionMatches?.length || 0}`,
+        `Classes/Types: ${classMatches?.length || 0}`,
+        `Imports: ${importMatches?.length || 0}`,
+        `File Size: ${content.length.toLocaleString()} chars`,
+        ``,
+        `── Complexity ──`,
+        `Branch Points: ${branches}`,
+        `Complexity: ${complexity}`,
+        ...(securityIssues.length > 0 ? [
+          ``,
+          `── Security / Quality ──`,
+          ...securityIssues
+        ] : [``, `✅ No obvious security issues detected`])
+      ].join('\n')
+
+      return {
+        success: true,
+        message: report,
+        metrics: { totalLines, codeLines, commentLines, blankLines, functions: functionMatches?.length || 0, classes: classMatches?.length || 0, complexity, branches, language, securityIssues: securityIssues.length }
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Summarize text/file using Gemini API
+  ipcMain.handle('tool-summarize-text', async (_event, input: string) => {
+    try {
+      let textToSummarize = input
+
+      // If input looks like a file path, read it
+      if (input.match(/^[a-zA-Z]:[/\\]|^[~./]/) && !input.includes('\n')) {
+        const resolved = resolveUserPath(input)
+        if (existsSync(resolved)) {
+          textToSummarize = await fs.readFile(resolved, 'utf8')
+        }
+      }
+
+      if (textToSummarize.length < 50) {
+        return { success: false, error: 'Text too short to summarize (min 50 characters)' }
+      }
+
+      const keys = await getSecureKeys()
+      const apiKey = keys.geminiKey
+
+      if (!apiKey) {
+        // Fallback: basic extractive summary
+        const sentences = textToSummarize.split(/[.!?]+/).filter(s => s.trim().length > 20)
+        const summary = sentences.slice(0, Math.min(5, sentences.length)).join('. ') + '.'
+        return {
+          success: true,
+          message: `📝 Summary (extractive):\n\n${summary}`,
+          method: 'extractive',
+          originalLength: textToSummarize.length,
+          summaryLength: summary.length
+        }
+      }
+
+      // Use Gemini API for AI summary
+      const truncated = textToSummarize.slice(0, 30000) // limit to 30K chars
+      const postData = JSON.stringify({
+        contents: [{ parts: [{ text: `Summarize the following text concisely. Identify key points, main topics, and conclusions:\n\n${truncated}` }] }]
+      })
+
+      const resp = await new Promise<string>((resolve, reject) => {
+        const https = require('https')
+        const req = https.request({
+          hostname: 'generativelanguage.googleapis.com',
+          path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+          timeout: 30000
+        }, (res: any) => {
+          let data = ''
+          res.on('data', (chunk: string) => { data += chunk })
+          res.on('end', () => resolve(data))
+        })
+        req.on('error', reject)
+        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+        req.write(postData)
+        req.end()
+      })
+
+      const json = JSON.parse(resp)
+      const summary = json.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate summary.'
+
+      return {
+        success: true,
+        message: `📝 AI Summary:\n\n${summary}`,
+        method: 'gemini',
+        originalLength: textToSummarize.length,
+        summaryLength: summary.length
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Translate text using MyMemory API (FREE, no key)
+  ipcMain.handle('tool-translate-text', async (_event, text: string, targetLang: string, sourceLang?: string) => {
+    try {
+      const src = sourceLang || 'en'
+      const tgt = targetLang || 'es'
+      const encoded = encodeURIComponent(text.trim().slice(0, 5000))
+
+      const resp = await new Promise<string>((resolve, reject) => {
+        const https = require('https')
+        https.get(
+          `https://api.mymemory.translated.net/get?q=${encoded}&langpair=${src}|${tgt}`,
+          { timeout: 15000 },
+          (res: any) => {
+            let data = ''
+            res.on('data', (chunk: string) => { data += chunk })
+            res.on('end', () => resolve(data))
+          }
+        ).on('error', reject)
+      })
+
+      const json = JSON.parse(resp)
+      const translated = json.responseData?.translatedText || ''
+      const match = json.responseData?.match
+
+      if (!translated) {
+        return { success: false, error: 'Translation failed — no result returned' }
+      }
+
+      return {
+        success: true,
+        message: `🌐 Translation (${src} → ${tgt}):\n\n${translated}`,
+        original: text.trim().slice(0, 500),
+        translated,
+        confidence: match,
+        sourceLang: src,
+        targetLang: tgt
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

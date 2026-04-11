@@ -60,11 +60,20 @@ const TOOLS: ToolDef[] = [
   { name: 'subdomain_enum', phase: 'Cyber', icon: <RiShieldLine size={12} />, color: '#ef4444' },
   { name: 'hash_identify', phase: 'Cyber', icon: <RiShieldLine size={12} />, color: '#ef4444' },
   { name: 'ip_geolocation', phase: 'Cyber', icon: <RiShieldLine size={12} />, color: '#ef4444' },
+  // Phase 3: RAG
+  { name: 'ingest_document', phase: 'RAG', icon: <RiBrainLine size={12} />, color: '#a855f7' },
+  { name: 'semantic_search', phase: 'RAG', icon: <RiSearchEyeLine size={12} />, color: '#a855f7' },
+  { name: 'list_documents', phase: 'RAG', icon: <RiBrainLine size={12} />, color: '#a855f7' },
+  // Phase 4: Creative
+  { name: 'generate_image', phase: 'Creative', icon: <RiCameraLine size={12} />, color: '#f59e0b' },
+  { name: 'analyze_code', phase: 'Creative', icon: <RiTerminalBoxLine size={12} />, color: '#f59e0b' },
+  { name: 'summarize_text', phase: 'Creative', icon: <RiBrainLine size={12} />, color: '#f59e0b' },
+  { name: 'translate_text', phase: 'Creative', icon: <RiCommandLine size={12} />, color: '#f59e0b' },
 ]
 
-const PHASES = ['Core', 'Desktop', 'Comms', 'Cyber']
+const PHASES = ['Core', 'Desktop', 'Comms', 'Cyber', 'RAG', 'Creative']
 const PHASE_COLORS: Record<string, string> = {
-  Core: '#10b981', Desktop: '#ec4899', Comms: '#84cc16', Cyber: '#ef4444'
+  Core: '#10b981', Desktop: '#ec4899', Comms: '#84cc16', Cyber: '#ef4444', RAG: '#a855f7', Creative: '#f59e0b'
 }
 
 export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {

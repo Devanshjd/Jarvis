@@ -160,6 +160,13 @@ declare global {
       toolAnalyzeCode: (filePath: string) => Promise<{ success: boolean; message?: string; metrics?: Record<string, unknown>; error?: string }>
       toolSummarizeText: (input: string) => Promise<{ success: boolean; message?: string; method?: string; originalLength?: number; summaryLength?: number; error?: string }>
       toolTranslateText: (text: string, targetLang: string, sourceLang?: string) => Promise<{ success: boolean; message?: string; translated?: string; confidence?: number; error?: string }>
+
+      // ─── Offline Brain + Learning ───
+      brainLogToolCall: (userInput: string, toolName: string, params: Record<string, unknown>) => Promise<{ success: boolean }>
+      brainLearningStats: () => Promise<{ success: boolean; totalExamples: number; toolCounts: Record<string, number> }>
+      brainOfflineQuery: (userInput: string) => Promise<{ success: boolean; toolCall?: Record<string, unknown> | null; rawResponse?: string; model?: string; mode?: string; error?: string }>
+      brainCheckNetwork: () => Promise<{ online: boolean }>
+      brainCheckOllama: () => Promise<{ running: boolean }>
     }
   }
 }

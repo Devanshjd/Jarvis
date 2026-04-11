@@ -114,7 +114,19 @@ const desktopApi = {
   toolSummarizeText: (input: string) =>
     ipcRenderer.invoke('tool-summarize-text', input),
   toolTranslateText: (text: string, targetLang: string, sourceLang?: string) =>
-    ipcRenderer.invoke('tool-translate-text', text, targetLang, sourceLang)
+    ipcRenderer.invoke('tool-translate-text', text, targetLang, sourceLang),
+
+  // ─── Offline Brain + Learning ───
+  brainLogToolCall: (userInput: string, toolName: string, params: Record<string, unknown>) =>
+    ipcRenderer.invoke('brain-log-tool-call', userInput, toolName, params),
+  brainLearningStats: () =>
+    ipcRenderer.invoke('brain-learning-stats'),
+  brainOfflineQuery: (userInput: string) =>
+    ipcRenderer.invoke('brain-offline-query', userInput),
+  brainCheckNetwork: () =>
+    ipcRenderer.invoke('brain-check-network'),
+  brainCheckOllama: () =>
+    ipcRenderer.invoke('brain-check-ollama')
 }
 
 if (process.contextIsolated) {

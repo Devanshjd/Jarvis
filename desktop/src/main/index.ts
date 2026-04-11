@@ -2117,6 +2117,143 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── OFFLINE BRAIN + LEARNING SYSTEM ──────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const learningLogPath = join(getJarvisRoot(), '.jarvis_sandbox', 'learning_log.jsonl')
+
+  // Log a successful Gemini tool call for offline brain training
+  ipcMain.handle('brain-log-tool-call', async (_event, userInput: string, toolName: string, params: Record<string, unknown>) => {
+    try {
+      const entry = {
+        timestamp: new Date().toISOString(),
+        instruction: userInput,
+        output: JSON.stringify({ tool: toolName, params }),
+        source: 'gemini'
+      }
+      await fs.mkdir(join(getJarvisRoot(), '.jarvis_sandbox'), { recursive: true })
+      await fs.appendFile(learningLogPath, JSON.stringify(entry) + '\n', 'utf8')
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
+  })
+
+  // Get learning stats
+  ipcMain.handle('brain-learning-stats', async () => {
+    try {
+      const raw = await fs.readFile(learningLogPath, 'utf8')
+      const lines = raw.trim().split('\n').filter(l => l.trim())
+      const toolCounts: Record<string, number> = {}
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line)
+          const parsed = JSON.parse(entry.output)
+          const tool = parsed.tool || 'unknown'
+          toolCounts[tool] = (toolCounts[tool] || 0) + 1
+        } catch { /* skip bad lines */ }
+      }
+      return { success: true, totalExamples: lines.length, toolCounts }
+    } catch {
+      return { success: true, totalExamples: 0, toolCounts: {} }
+    }
+  })
+
+  // Offline brain — query Ollama when no internet
+  ipcMain.handle('brain-offline-query', async (_event, userInput: string) => {
+    try {
+      // Query Ollama API at localhost:11434
+      const postData = JSON.stringify({
+        model: 'jarvis-brain',
+        prompt: userInput,
+        stream: false
+      })
+
+      const resp = await new Promise<string>((resolve, reject) => {
+        const httpLib = require('http')
+        const req = httpLib.request({
+          hostname: '127.0.0.1',
+          port: 11434,
+          path: '/api/generate',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 60000
+        }, (res: any) => {
+          let data = ''
+          res.on('data', (chunk: string) => { data += chunk })
+          res.on('end', () => resolve(data))
+        })
+        req.on('error', reject)
+        req.on('timeout', () => { req.destroy(); reject(new Error('Ollama timeout')) })
+        req.write(postData)
+        req.end()
+      })
+
+      const json = JSON.parse(resp)
+      const response = json.response || ''
+
+      // Extract JSON from response
+      let toolCall: Record<string, unknown> | null = null
+      const jsonMatch = response.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          toolCall = JSON.parse(jsonMatch[0])
+        } catch { /* */ }
+      }
+
+      return {
+        success: true,
+        toolCall,
+        rawResponse: response,
+        model: 'jarvis-brain',
+        mode: 'offline'
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Check network connectivity
+  ipcMain.handle('brain-check-network', async () => {
+    try {
+      const resp = await new Promise<boolean>((resolve) => {
+        const https = require('https')
+        const req = https.get('https://generativelanguage.googleapis.com', { timeout: 5000 }, () => resolve(true))
+        req.on('error', () => resolve(false))
+        req.on('timeout', () => { req.destroy(); resolve(false) })
+      })
+      return { online: resp }
+    } catch {
+      return { online: false }
+    }
+  })
+
+  // Check if Ollama is running
+  ipcMain.handle('brain-check-ollama', async () => {
+    try {
+      const resp = await new Promise<boolean>((resolve) => {
+        const httpLib = require('http')
+        const req = httpLib.get('http://127.0.0.1:11434/api/tags', { timeout: 3000 }, (res: any) => {
+          let data = ''
+          res.on('data', (chunk: string) => { data += chunk })
+          res.on('end', () => {
+            try {
+              const json = JSON.parse(data)
+              const hasJarvisBrain = json.models?.some((m: any) => m.name?.includes('jarvis-brain'))
+              resolve(hasJarvisBrain || false)
+            } catch { resolve(false) }
+          })
+        })
+        req.on('error', () => resolve(false))
+        req.on('timeout', () => { req.destroy(); resolve(false) })
+      })
+      return { running: resp }
+    } catch {
+      return { running: false }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

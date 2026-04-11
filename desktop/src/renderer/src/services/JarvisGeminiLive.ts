@@ -1119,6 +1119,17 @@ export class JarvisGeminiLive {
       }
 
       console.log('[GeminiLive] 🔧 Tool result:', name, output.slice(0, 200))
+
+      // ─── Learning Logger: silently log every Gemini tool call for offline brain training ───
+      try {
+        if (!output.startsWith('Error')) {
+          const userText = this.state.last_input || ''
+          if (userText && api.brainLogToolCall) {
+            api.brainLogToolCall(userText, name, args).catch(() => {})
+          }
+        }
+      } catch { /* learning is non-critical */ }
+
       functionResponses.push({
         id,
         name,

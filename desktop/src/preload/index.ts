@@ -146,7 +146,33 @@ const desktopApi = {
   analyzeImage: (base64: string, prompt: string) =>
     ipcRenderer.invoke('analyze-image', base64, prompt),
   assignmentSolve: (base64: string, instructions: string) =>
-    ipcRenderer.invoke('assignment-solve', base64, instructions)
+    ipcRenderer.invoke('assignment-solve', base64, instructions),
+
+  // ─── Browser Automation ───
+  browserLaunch: () =>
+    ipcRenderer.invoke('browser-launch'),
+  browserNavigate: (url: string) =>
+    ipcRenderer.invoke('browser-navigate', url),
+  browserClick: (selector: string) =>
+    ipcRenderer.invoke('browser-click', selector),
+  browserType: (selector: string, text: string) =>
+    ipcRenderer.invoke('browser-type', selector, text),
+  browserScreenshot: () =>
+    ipcRenderer.invoke('browser-screenshot'),
+  browserRead: (selector?: string) =>
+    ipcRenderer.invoke('browser-read', selector),
+  browserExecute: (code: string) =>
+    ipcRenderer.invoke('browser-execute', code),
+
+  // ─── Screen Awareness ───
+  awarenessStart: (intervalMs?: number) =>
+    ipcRenderer.invoke('awareness-start', intervalMs),
+  awarenessStop: () =>
+    ipcRenderer.invoke('awareness-stop'),
+  awarenessStatus: () =>
+    ipcRenderer.invoke('awareness-status'),
+  awarenessAnalyzeNow: () =>
+    ipcRenderer.invoke('awareness-analyze-now')
 }
 
 if (process.contextIsolated) {

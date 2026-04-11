@@ -179,6 +179,21 @@ declare global {
       clipboardReadImage: () => Promise<{ success: boolean; base64?: string; width?: number; height?: number; error?: string }>
       analyzeImage: (base64: string, prompt: string) => Promise<{ success: boolean; text?: string; error?: string }>
       assignmentSolve: (base64: string, instructions: string) => Promise<{ success: boolean; text?: string; error?: string }>
+
+      // ─── Browser Automation ───
+      browserLaunch: () => Promise<{ success: boolean; url?: string; error?: string }>
+      browserNavigate: (url: string) => Promise<{ success: boolean; url?: string; title?: string; error?: string }>
+      browserClick: (selector: string) => Promise<{ success: boolean; clicked?: string; error?: string }>
+      browserType: (selector: string, text: string) => Promise<{ success: boolean; typed?: string; error?: string }>
+      browserScreenshot: () => Promise<{ success: boolean; base64?: string; error?: string }>
+      browserRead: (selector?: string) => Promise<{ success: boolean; title?: string; url?: string; text?: string; error?: string }>
+      browserExecute: (code: string) => Promise<{ success: boolean; result?: string; error?: string }>
+
+      // ─── Screen Awareness ───
+      awarenessStart: (intervalMs?: number) => Promise<{ success: boolean; status: string; interval?: number; firstResult?: string }>
+      awarenessStop: () => Promise<{ success: boolean; status: string }>
+      awarenessStatus: () => Promise<{ active: boolean; lastResult: string }>
+      awarenessAnalyzeNow: () => Promise<{ success: boolean; text: string }>
     }
   }
 }

@@ -2456,6 +2456,263 @@ Provide the complete answer ready to submit.`
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── BROWSER AUTOMATION (Puppeteer CDP) ───────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  let browserInstance: import('puppeteer-core').Browser | null = null
+  let activePage: import('puppeteer-core').Page | null = null
+
+  const getBrowserPage = async (): Promise<import('puppeteer-core').Page> => {
+    if (activePage && !activePage.isClosed()) return activePage
+
+    const puppeteer = require('puppeteer-core') as typeof import('puppeteer-core')
+
+    // Find Chrome path
+    const chromePaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+      '/usr/bin/google-chrome',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ]
+
+    let chromePath = ''
+    const fs = require('fs')
+    for (const p of chromePaths) {
+      if (fs.existsSync(p)) { chromePath = p; break }
+    }
+
+    if (!chromePath) throw new Error('Chrome not found. Install Google Chrome.')
+
+    browserInstance = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: false,
+      defaultViewport: null,
+      args: ['--start-maximized', '--no-first-run', '--disable-default-apps']
+    })
+
+    const pages = await browserInstance.pages()
+    activePage = pages[0] || await browserInstance.newPage()
+    return activePage
+  }
+
+  // Launch browser
+  ipcMain.handle('browser-launch', async () => {
+    try {
+      const page = await getBrowserPage()
+      return { success: true, url: page.url() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Navigate to URL
+  ipcMain.handle('browser-navigate', async (_event, url: string) => {
+    try {
+      const page = await getBrowserPage()
+      if (!url.startsWith('http')) url = 'https://' + url
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 })
+      const title = await page.title()
+      return { success: true, url: page.url(), title }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Click element
+  ipcMain.handle('browser-click', async (_event, selector: string) => {
+    try {
+      const page = await getBrowserPage()
+      // Try CSS selector first, then text-based
+      try {
+        await page.click(selector)
+        return { success: true, clicked: selector }
+      } catch {
+        // Try finding by text content
+        const el = await page.evaluateHandle((text: string) => {
+          const all = document.querySelectorAll('a, button, input[type=submit], [role=button]')
+          for (const e of all) {
+            if (e.textContent?.toLowerCase().includes(text.toLowerCase())) return e
+          }
+          return null
+        }, selector)
+        if (el) {
+          await (el as import('puppeteer-core').ElementHandle).click()
+          return { success: true, clicked: `text: ${selector}` }
+        }
+        return { success: false, error: `Element not found: ${selector}` }
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Type text
+  ipcMain.handle('browser-type', async (_event, selector: string, text: string) => {
+    try {
+      const page = await getBrowserPage()
+      await page.click(selector)
+      await page.type(selector, text, { delay: 30 })
+      return { success: true, typed: text.slice(0, 50) }
+    } catch (err: unknown) {
+      // Try focus + keyboard type
+      try {
+        const page = await getBrowserPage()
+        await page.keyboard.type(text, { delay: 30 })
+        return { success: true, typed: text.slice(0, 50) }
+      } catch {
+        return { success: false, error: (err as Error).message }
+      }
+    }
+  })
+
+  // Screenshot page
+  ipcMain.handle('browser-screenshot', async () => {
+    try {
+      const page = await getBrowserPage()
+      const buffer = await page.screenshot({ encoding: 'base64', type: 'png' }) as string
+      return { success: true, base64: buffer }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Read page content
+  ipcMain.handle('browser-read', async (_event, selector?: string) => {
+    try {
+      const page = await getBrowserPage()
+      const title = await page.title()
+      const url = page.url()
+
+      let text: string
+      if (selector) {
+        text = await page.$eval(selector, (el: Element) => el.textContent || '') as string
+      } else {
+        text = await page.evaluate(() => {
+          // Get readable text, skip scripts/styles
+          const body = document.body.cloneNode(true) as HTMLElement
+          body.querySelectorAll('script, style, noscript').forEach(el => el.remove())
+          return body.innerText.slice(0, 5000)
+        }) as string
+      }
+
+      return { success: true, title, url, text }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Execute JavaScript on page
+  ipcMain.handle('browser-execute', async (_event, code: string) => {
+    try {
+      const page = await getBrowserPage()
+      const result = await page.evaluate(code)
+      return { success: true, result: String(result).slice(0, 3000) }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── SCREEN AWARENESS (Vision Loop) ──────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  let awarenessTimer: ReturnType<typeof setInterval> | null = null
+  let awarenessActive = false
+  let lastAwarenessResult = ''
+
+  const analyzeScreen = async (): Promise<string> => {
+    try {
+      // Take screenshot via desktop capture
+      const { desktopCapturer } = require('electron')
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1280, height: 720 }
+      })
+
+      if (!sources.length) return 'No screen capture available'
+
+      const screenshot = sources[0].thumbnail.toPNG().toString('base64')
+
+      // Send to Gemini Vision
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const fs = require('fs')
+      if (!fs.existsSync(configPath)) return 'No config'
+
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      const apiKey = config.geminiApiKey
+      if (!apiKey) return 'No API key'
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+      const body = JSON.stringify({
+        contents: [{
+          parts: [
+            { inlineData: { mimeType: 'image/png', data: screenshot } },
+            { text: 'Briefly describe what is on this screen. Focus on: 1) Which app is active 2) What the user is doing 3) Any errors or important text visible. Keep it under 100 words. If you see code errors, mention them specifically.' }
+          ]
+        }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 200 }
+      })
+
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+      const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not analyze screen'
+
+      lastAwarenessResult = text
+
+      // Send to renderer as context update
+      if (mainWindow) {
+        mainWindow.webContents.send('awareness-update', { text, timestamp: Date.now() })
+      }
+
+      return text
+    } catch (err: unknown) {
+      return `Awareness error: ${(err as Error).message}`
+    }
+  }
+
+  // Start awareness loop
+  ipcMain.handle('awareness-start', async (_event, intervalMs?: number) => {
+    if (awarenessActive) return { success: true, status: 'already_active' }
+
+    const interval = intervalMs || 15000 // Default 15 seconds
+    awarenessActive = true
+
+    // Immediate first analysis
+    const firstResult = await analyzeScreen()
+
+    awarenessTimer = setInterval(async () => {
+      if (awarenessActive) await analyzeScreen()
+    }, interval)
+
+    return { success: true, status: 'started', interval, firstResult }
+  })
+
+  // Stop awareness
+  ipcMain.handle('awareness-stop', async () => {
+    awarenessActive = false
+    if (awarenessTimer) {
+      clearInterval(awarenessTimer)
+      awarenessTimer = null
+    }
+    return { success: true, status: 'stopped' }
+  })
+
+  // Get awareness status
+  ipcMain.handle('awareness-status', async () => {
+    return {
+      active: awarenessActive,
+      lastResult: lastAwarenessResult
+    }
+  })
+
+  // Force immediate analysis
+  ipcMain.handle('awareness-analyze-now', async () => {
+    const result = await analyzeScreen()
+    return { success: true, text: result }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

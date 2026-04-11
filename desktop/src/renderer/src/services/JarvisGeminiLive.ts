@@ -108,6 +108,74 @@ export class JarvisGeminiLive {
     this.updateState({ mic_muted: muted })
   }
 
+  // ─── Wake Word Detection (SpeechRecognition API) ───
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private wakeWordRecognition: any = null
+  private wakeWordEnabled = false
+
+  startWakeWord(onTriggered: () => void) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+    if (!SR) {
+      console.warn('[GeminiLive] SpeechRecognition not available in this browser')
+      return
+    }
+
+    this.wakeWordRecognition = new SR()
+    this.wakeWordRecognition.continuous = true
+    this.wakeWordRecognition.interimResults = true
+    this.wakeWordRecognition.lang = 'en-US'
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.wakeWordRecognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript.toLowerCase().trim()
+        if (transcript.includes('jarvis') || transcript.includes('hey jarvis') || transcript.includes('yo jarvis')) {
+          console.log('[GeminiLive] 🎤 Wake word detected:', transcript)
+          this.stopWakeWord()
+          onTriggered()
+          return
+        }
+      }
+    }
+
+    this.wakeWordRecognition.onend = () => {
+      // Auto-restart if still enabled (SpeechRecognition stops after silence)
+      if (this.wakeWordEnabled && !this.state.active) {
+        try {
+          this.wakeWordRecognition?.start()
+        } catch { /* already running */ }
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.wakeWordRecognition.onerror = (event: any) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.error('[GeminiLive] Wake word error:', event.error)
+      }
+    }
+
+    this.wakeWordEnabled = true
+    this.wakeWordRecognition.start()
+    this.updateState({ wake_word_active: true })
+    console.log('[GeminiLive] 🎤 Wake word listening — say "Hey JARVIS"')
+  }
+
+  stopWakeWord() {
+    this.wakeWordEnabled = false
+    try {
+      this.wakeWordRecognition?.stop()
+    } catch { /* not running */ }
+    this.wakeWordRecognition = null
+    this.updateState({ wake_word_active: false })
+    console.log('[GeminiLive] 🎤 Wake word stopped')
+  }
+
+  isWakeWordActive() {
+    return this.wakeWordEnabled
+  }
+
   private updateState(next: Partial<VoiceBridgeState>) {
     this.state = { ...this.state, ...next }
     this.callbacks.onStateChange?.({ ...this.state })
@@ -680,6 +748,84 @@ export class JarvisGeminiLive {
                         },
                         required: []
                       }
+                    },
+                    // ─── Browser Automation Tools ───
+                    {
+                      name: 'browser_navigate',
+                      description: 'Open Chrome and navigate to a URL. Use when user says "go to website", "open google", "navigate to...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          url: { type: 'STRING', description: 'URL to navigate to (e.g. google.com, github.com/user).' }
+                        },
+                        required: ['url']
+                      }
+                    },
+                    {
+                      name: 'browser_click',
+                      description: 'Click a button or link on the current web page. Use when user says "click on login", "press the submit button".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'CSS selector or visible text of the element to click.' }
+                        },
+                        required: ['target']
+                      }
+                    },
+                    {
+                      name: 'browser_type',
+                      description: 'Type text into a form field on the web page. Use when user says "type my email", "fill in the search box".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          selector: { type: 'STRING', description: 'CSS selector of the input field (e.g. input[name=email], #search, textarea).' },
+                          text: { type: 'STRING', description: 'Text to type.' }
+                        },
+                        required: ['selector', 'text']
+                      }
+                    },
+                    {
+                      name: 'browser_read_page',
+                      description: 'Read the text content of the current web page. Use when user says "read this page", "what does it say", "get page content".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          selector: { type: 'STRING', description: 'Optional CSS selector to read specific element.' }
+                        },
+                        required: []
+                      }
+                    },
+                    {
+                      name: 'browser_screenshot',
+                      description: 'Take a screenshot of the current web page. Use when user says "screenshot the page".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'browser_execute_js',
+                      description: 'Execute JavaScript code on the current web page. Use for complex scraping or automation.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          code: { type: 'STRING', description: 'JavaScript code to execute in page context.' }
+                        },
+                        required: ['code']
+                      }
+                    },
+                    // ─── Screen Awareness Tools ───
+                    {
+                      name: 'awareness_start',
+                      description: 'Turn on screen awareness. JARVIS watches your screen and understands what you are doing. Use when user says "watch my screen", "turn on awareness", "start observing".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'awareness_stop',
+                      description: 'Turn off screen awareness. Use when user says "stop watching", "turn off awareness".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'awareness_analyze',
+                      description: 'Analyze the screen right now. Use when user says "what am I doing", "look at my screen", "what is on my screen right now".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
                     }
                   ]
                 }
@@ -1279,6 +1425,84 @@ export class JarvisGeminiLive {
                 ? `Assignment answer:\n\n${result.text}`
                 : `Could not solve: ${result.error}`
             }
+            break
+          }
+
+          // ─── Browser Automation Tools ───
+          case 'browser_navigate': {
+            const r = await api.browserNavigate(args.url)
+            output = r.success
+              ? `Navigated to ${r.title} (${r.url})`
+              : `Navigation failed: ${r.error}`
+            break
+          }
+
+          case 'browser_click': {
+            const r = await api.browserClick(args.target)
+            output = r.success
+              ? `Clicked: ${r.clicked}`
+              : `Click failed: ${r.error}`
+            break
+          }
+
+          case 'browser_type': {
+            const r = await api.browserType(args.selector, args.text)
+            output = r.success
+              ? `Typed: ${r.typed}`
+              : `Type failed: ${r.error}`
+            break
+          }
+
+          case 'browser_read_page': {
+            const r = await api.browserRead(args.selector)
+            output = r.success
+              ? `Page: ${r.title} (${r.url})\n\n${r.text?.slice(0, 2000)}`
+              : `Read failed: ${r.error}`
+            break
+          }
+
+          case 'browser_screenshot': {
+            const r = await api.browserScreenshot()
+            if (r.success && r.base64) {
+              // Analyze the screenshot with Gemini
+              const analysis = await api.analyzeImage(r.base64, 'Describe what is on this web page.')
+              output = analysis.success
+                ? `Page screenshot captured. Content: ${analysis.text}`
+                : 'Screenshot captured but could not analyze.'
+            } else {
+              output = `Screenshot failed: ${r.error}`
+            }
+            break
+          }
+
+          case 'browser_execute_js': {
+            const r = await api.browserExecute(args.code)
+            output = r.success
+              ? `JS Result: ${r.result}`
+              : `JS Error: ${r.error}`
+            break
+          }
+
+          // ─── Screen Awareness Tools ───
+          case 'awareness_start': {
+            const r = await api.awarenessStart()
+            output = r.success
+              ? `Screen awareness activated. I'm watching your screen every 15 seconds.\nFirst observation: ${r.firstResult}`
+              : 'Could not start awareness.'
+            break
+          }
+
+          case 'awareness_stop': {
+            const r = await api.awarenessStop()
+            output = r.success ? 'Screen awareness deactivated.' : 'Could not stop awareness.'
+            break
+          }
+
+          case 'awareness_analyze': {
+            const r = await api.awarenessAnalyzeNow()
+            output = r.success
+              ? `Screen analysis: ${r.text}`
+              : 'Could not analyze screen.'
             break
           }
 

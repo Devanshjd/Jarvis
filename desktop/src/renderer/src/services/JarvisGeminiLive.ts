@@ -435,6 +435,87 @@ export class JarvisGeminiLive {
                         required: ['to', 'subject', 'body']
                       }
                     },
+                    // ─── Phase 5: Cyber Arsenal ───
+                    {
+                      name: 'port_scan',
+                      description: 'Scan TCP ports on a target IP or domain. Returns which ports are open.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'Target IP address or domain name.' },
+                          ports: { type: 'STRING', description: 'Comma-separated port numbers to scan. Leave empty for common ports.' }
+                        },
+                        required: ['target']
+                      }
+                    },
+                    {
+                      name: 'nmap_scan',
+                      description: 'Run an nmap scan on a target (requires nmap installed). More powerful than port_scan.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'Target IP or domain.' },
+                          flags: { type: 'STRING', description: 'nmap flags (e.g. -sV -T4 --top-ports 100). Leave empty for defaults.' }
+                        },
+                        required: ['target']
+                      }
+                    },
+                    {
+                      name: 'whois_lookup',
+                      description: 'Perform a WHOIS lookup on a domain or IP to find registration information.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'Domain name or IP address.' }
+                        },
+                        required: ['target']
+                      }
+                    },
+                    {
+                      name: 'dns_lookup',
+                      description: 'Look up DNS records for a domain (A, AAAA, MX, NS, TXT, CNAME, SOA).',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'Domain name to look up.' },
+                          record_type: { type: 'STRING', description: 'Record type: A, AAAA, MX, NS, TXT, CNAME, SOA, or ANY for all.' }
+                        },
+                        required: ['target']
+                      }
+                    },
+                    {
+                      name: 'subdomain_enum',
+                      description: 'Enumerate subdomains for a domain using certificate transparency logs and DNS brute-force.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          domain: { type: 'STRING', description: 'Root domain to enumerate (e.g. example.com).' }
+                        },
+                        required: ['domain']
+                      }
+                    },
+                    {
+                      name: 'hash_identify',
+                      description: 'Identify the algorithm of a hash (MD5, SHA-1, SHA-256, bcrypt, etc.).',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          hash: { type: 'STRING', description: 'The hash string to identify.' }
+                        },
+                        required: ['hash']
+                      }
+                    },
+                    {
+                      name: 'ip_geolocation',
+                      description: 'Get geolocation data for an IP address (country, city, ISP, coordinates).',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          ip: { type: 'STRING', description: 'IP address to geolocate.' }
+                        },
+                        required: ['ip']
+                      }
+                    },
                     {
                       name: 'jarvis_chat',
                       description: 'Fallback: Send a complex request to the JARVIS AI backend.',
@@ -826,6 +907,50 @@ export class JarvisGeminiLive {
           case 'send_email': {
             const r = await api.toolSendEmail(args.to, args.subject, args.body)
             output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          // ─── Phase 5: Cyber Arsenal ───
+
+          case 'port_scan': {
+            const r = await api.toolPortScan(args.target, args.ports)
+            output = r.success ? `🔍 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'nmap_scan': {
+            const r = await api.toolNmapScan(args.target, args.flags)
+            output = r.success ? `🔍 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'whois_lookup': {
+            const r = await api.toolWhoisLookup(args.target)
+            output = r.success ? `📋 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'dns_lookup': {
+            const r = await api.toolDnsLookup(args.target, args.record_type)
+            output = r.success ? `🌐 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'subdomain_enum': {
+            const r = await api.toolSubdomainEnum(args.domain)
+            output = r.success ? `🕸️ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'hash_identify': {
+            const r = await api.toolHashIdentify(args.hash)
+            output = r.success ? `🔑 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'ip_geolocation': {
+            const r = await api.toolIpGeolocation(args.ip)
+            output = r.success ? `🌍 ${r.message}` : `Error: ${r.error}`
             break
           }
 

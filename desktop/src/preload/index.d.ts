@@ -139,6 +139,15 @@ declare global {
       toolOpenWhatsappChat: (contact: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolSendTelegram: (contact: string, message: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolSendEmail: (to: string, subject: string, body: string) => Promise<{ success: boolean; message?: string; error?: string }>
+
+      // ─── Phase 5: Cyber Arsenal ───
+      toolPortScan: (target: string, ports?: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolNmapScan: (target: string, flags?: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolWhoisLookup: (target: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolDnsLookup: (target: string, recordType?: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolSubdomainEnum: (domain: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolHashIdentify: (hash: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolIpGeolocation: (ip: string) => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }

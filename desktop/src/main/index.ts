@@ -1366,6 +1366,240 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── PHASE 5: Cyber Arsenal ───────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  ipcMain.handle('tool-port-scan', async (_event, target: string, ports?: string) => {
+    try {
+      const portList = ports || '21,22,23,25,53,80,110,135,139,143,443,445,993,995,1433,1723,3306,3389,5432,5900,8080,8443,8888'
+      const psScript = `
+        $target = "${target.replace(/"/g, '`"')}"
+        $ports = @(${portList.split(',').map(p => p.trim()).join(',')})
+        $results = @()
+        foreach ($port in $ports) {
+          try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $connect = $tcp.BeginConnect($target, $port, $null, $null)
+            $wait = $connect.AsyncWaitHandle.WaitOne(800, $false)
+            if ($wait -and $tcp.Connected) {
+              $results += "$port OPEN"
+            }
+            $tcp.Close()
+          } catch { }
+        }
+        if ($results.Count -eq 0) { "No open ports found on $target (scanned: ` + portList + `)" }
+        else { "Open ports on " + $target + ":" + [char]10 + ($results -join [char]10) }
+      `
+      const result = spawnSync('powershell', ['-NoProfile', '-Command', psScript], {
+        encoding: 'utf8', windowsHide: true, timeout: 30000
+      })
+      const output = (result.stdout || '').trim() || (result.stderr || '').trim() || 'Scan completed with no output.'
+      return { success: true, message: output }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-nmap-scan', async (_event, target: string, flags?: string) => {
+    try {
+      // Check if nmap is installed
+      const check = spawnSync('where', ['nmap'], { encoding: 'utf8', windowsHide: true, timeout: 3000 })
+      if (!check.stdout?.trim()) {
+        return { success: false, error: 'nmap is not installed. Install it from https://nmap.org/download.html or use the port_scan tool instead.' }
+      }
+      const nmapFlags = flags || '-sV -T4 --top-ports 100'
+      const result = spawnSync('nmap', [...nmapFlags.split(' '), target], {
+        encoding: 'utf8', windowsHide: true, timeout: 120000
+      })
+      const output = (result.stdout || '').trim() || (result.stderr || '').trim()
+      return { success: true, message: output || 'nmap scan completed.' }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-whois-lookup', async (_event, target: string) => {
+    try {
+      // Try whois command first
+      const check = spawnSync('where', ['whois'], { encoding: 'utf8', windowsHide: true, timeout: 3000 })
+      if (check.stdout?.trim()) {
+        const result = spawnSync('whois', [target], { encoding: 'utf8', windowsHide: true, timeout: 15000 })
+        return { success: true, message: (result.stdout || '').trim().slice(0, 3000) || 'No WHOIS data returned.' }
+      }
+      // Fallback: PowerShell .NET
+      const psScript = `
+        try {
+          $web = New-Object System.Net.WebClient
+          $data = $web.DownloadString("https://whois.arin.net/rest/ip/${target.replace(/"/g, '')}")
+          $data.Substring(0, [Math]::Min($data.Length, 2000))
+        } catch {
+          try {
+            $dns = Resolve-DnsName "${target}" -ErrorAction Stop
+            "DNS Resolution for ${target}:" + ($dns | Format-List | Out-String)
+          } catch { "WHOIS lookup failed. Target: ${target}" }
+        }
+      `
+      const result = spawnSync('powershell', ['-NoProfile', '-Command', psScript], {
+        encoding: 'utf8', windowsHide: true, timeout: 15000
+      })
+      return { success: true, message: (result.stdout || '').trim().slice(0, 3000) || 'No WHOIS data returned.' }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-dns-lookup', async (_event, target: string, recordType?: string) => {
+    try {
+      const rType = recordType || 'ANY'
+      const types = rType === 'ANY' ? ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA'] : [rType.toUpperCase()]
+      const results: string[] = []
+
+      for (const t of types) {
+        const r = spawnSync('powershell', ['-NoProfile', '-Command',
+          `try { Resolve-DnsName "${target}" -Type ${t} -ErrorAction Stop | Format-Table -AutoSize | Out-String } catch { "" }`
+        ], { encoding: 'utf8', windowsHide: true, timeout: 10000 })
+        const out = (r.stdout || '').trim()
+        if (out) results.push(`── ${t} Records ──\n${out}`)
+      }
+
+      return { success: true, message: results.length > 0 ? results.join('\n\n') : `No DNS records found for ${target}` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-subdomain-enum', async (_event, domain: string) => {
+    try {
+      const results: string[] = []
+
+      // Method 1: crt.sh (Certificate Transparency)
+      try {
+        const crtData = await new Promise<string>((resolve, reject) => {
+          const req = (domain.includes('https') ? require('https') : require('https')).get(
+            `https://crt.sh/?q=%25.${domain}&output=json`,
+            { timeout: 15000 },
+            (res: any) => {
+              let data = ''
+              res.on('data', (chunk: string) => { data += chunk })
+              res.on('end', () => resolve(data))
+            }
+          )
+          req.on('error', reject)
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+        })
+        const entries = JSON.parse(crtData)
+        const subs = new Set<string>()
+        for (const entry of entries) {
+          const names = (entry.name_value || '').split('\n')
+          for (const name of names) {
+            const clean = name.trim().toLowerCase()
+            if (clean && clean.endsWith(domain) && !clean.includes('*')) {
+              subs.add(clean)
+            }
+          }
+        }
+        if (subs.size > 0) {
+          results.push(`── crt.sh (Certificate Transparency) ── Found ${subs.size} subdomains:\n${[...subs].sort().join('\n')}`)
+        }
+      } catch { /* crt.sh failed, continue */ }
+
+      // Method 2: Common subdomain brute-force via DNS
+      const common = ['www', 'mail', 'ftp', 'admin', 'api', 'dev', 'staging', 'test', 'blog', 'shop',
+        'app', 'cdn', 'ns1', 'ns2', 'mx', 'smtp', 'pop', 'imap', 'vpn', 'remote',
+        'portal', 'secure', 'login', 'dashboard', 'git', 'gitlab', 'jenkins', 'ci',
+        'docs', 'wiki', 'support', 'help', 'status', 'monitor', 'grafana']
+      const dnsResults: string[] = []
+      for (const sub of common) {
+        const fqdn = `${sub}.${domain}`
+        const r = spawnSync('powershell', ['-NoProfile', '-Command',
+          `try { $r = Resolve-DnsName "${fqdn}" -Type A -ErrorAction Stop; "$fqdn -> " + ($r.IPAddress -join ", ") } catch { "" }`
+        ], { encoding: 'utf8', windowsHide: true, timeout: 3000 })
+        const out = (r.stdout || '').trim()
+        if (out) dnsResults.push(out)
+      }
+      if (dnsResults.length > 0) {
+        results.push(`── DNS Brute-force ── Found ${dnsResults.length} subdomains:\n${dnsResults.join('\n')}`)
+      }
+
+      return {
+        success: true,
+        message: results.length > 0 ? results.join('\n\n') : `No subdomains found for ${domain}. Try using a more common domain.`
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-hash-identify', async (_event, hash: string) => {
+    try {
+      const h = hash.trim()
+      const len = h.length
+      const patterns: Array<{ regex: RegExp; type: string; desc: string }> = [
+        { regex: /^[a-f0-9]{32}$/i, type: 'MD5', desc: '128-bit (insecure, rainbow-table vulnerable)' },
+        { regex: /^[a-f0-9]{40}$/i, type: 'SHA-1', desc: '160-bit (deprecated, collision-prone)' },
+        { regex: /^[a-f0-9]{64}$/i, type: 'SHA-256', desc: '256-bit (secure, widely used)' },
+        { regex: /^[a-f0-9]{128}$/i, type: 'SHA-512', desc: '512-bit (high security)' },
+        { regex: /^\$2[aby]?\$\d{1,2}\$.{53}$/i, type: 'bcrypt', desc: 'Adaptive hash (password storage)' },
+        { regex: /^\$6\$.{1,16}\$.{86}$/i, type: 'SHA-512crypt', desc: 'Unix /etc/shadow format' },
+        { regex: /^\$5\$.{1,16}\$.{43}$/i, type: 'SHA-256crypt', desc: 'Unix /etc/shadow format' },
+        { regex: /^\$1\$.{1,8}\$.{22}$/i, type: 'MD5crypt', desc: 'Old Unix password hash' },
+        { regex: /^[a-f0-9]{16}$/i, type: 'MySQL 3.x / Half-MD5', desc: '64-bit (very weak)' },
+        { regex: /^\*[A-F0-9]{40}$/i, type: 'MySQL 4.1+', desc: 'Double SHA-1' },
+        { regex: /^[a-f0-9]{56}$/i, type: 'SHA-224', desc: '224-bit truncated SHA-256' },
+        { regex: /^[a-f0-9]{96}$/i, type: 'SHA-384', desc: '384-bit truncated SHA-512' },
+        { regex: /^[a-f0-9]{8}$/i, type: 'CRC-32 / Adler-32', desc: 'Checksum (not cryptographic)' },
+        { regex: /^(0x)?[a-f0-9]{40}$/i, type: 'RIPEMD-160', desc: '160-bit (used in Bitcoin)' },
+      ]
+
+      const matches = patterns.filter(p => p.regex.test(h))
+      if (matches.length === 0) {
+        return { success: true, message: `Unknown hash format.\nInput: ${h}\nLength: ${len} chars\nHex-only: ${/^[a-f0-9]+$/i.test(h)}\n\nCould not identify the hash algorithm.` }
+      }
+
+      const result = matches.map(m => `🔑 ${m.type} — ${m.desc}`).join('\n')
+      return {
+        success: true,
+        message: `Hash Analysis:\nInput: ${h}\nLength: ${len} chars\n\nPossible types:\n${result}`
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-ip-geolocation', async (_event, ip: string) => {
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const req = http.get(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,zip,lat,lon,timezone,isp,org,as,query`, {
+          timeout: 10000
+        }, (res) => {
+          let body = ''
+          res.on('data', chunk => { body += chunk })
+          res.on('end', () => resolve(body))
+        })
+        req.on('error', reject)
+        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+      })
+      const geo = JSON.parse(data)
+      if (geo.status === 'fail') {
+        return { success: false, error: geo.message || 'Geolocation lookup failed.' }
+      }
+      const output = [
+        `🌍 IP Geolocation: ${geo.query}`,
+        `📍 Location: ${geo.city}, ${geo.regionName}, ${geo.country}`,
+        `📮 ZIP: ${geo.zip || 'N/A'}`,
+        `🗺️ Coordinates: ${geo.lat}, ${geo.lon}`,
+        `⏰ Timezone: ${geo.timezone}`,
+        `🏢 ISP: ${geo.isp}`,
+        `🏛️ Organization: ${geo.org}`,
+        `📡 AS: ${geo.as}`
+      ].join('\n')
+      return { success: true, message: output }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

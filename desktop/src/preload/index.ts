@@ -78,7 +78,23 @@ const desktopApi = {
   toolSendTelegram: (contact: string, message: string) =>
     ipcRenderer.invoke('tool-send-telegram', contact, message),
   toolSendEmail: (to: string, subject: string, body: string) =>
-    ipcRenderer.invoke('tool-send-email', to, subject, body)
+    ipcRenderer.invoke('tool-send-email', to, subject, body),
+
+  // ─── Phase 5: Cyber Arsenal ───
+  toolPortScan: (target: string, ports?: string) =>
+    ipcRenderer.invoke('tool-port-scan', target, ports),
+  toolNmapScan: (target: string, flags?: string) =>
+    ipcRenderer.invoke('tool-nmap-scan', target, flags),
+  toolWhoisLookup: (target: string) =>
+    ipcRenderer.invoke('tool-whois-lookup', target),
+  toolDnsLookup: (target: string, recordType?: string) =>
+    ipcRenderer.invoke('tool-dns-lookup', target, recordType),
+  toolSubdomainEnum: (domain: string) =>
+    ipcRenderer.invoke('tool-subdomain-enum', domain),
+  toolHashIdentify: (hash: string) =>
+    ipcRenderer.invoke('tool-hash-identify', hash),
+  toolIpGeolocation: (ip: string) =>
+    ipcRenderer.invoke('tool-ip-geolocation', ip)
 }
 
 if (process.contextIsolated) {

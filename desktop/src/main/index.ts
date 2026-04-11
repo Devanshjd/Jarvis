@@ -2713,6 +2713,307 @@ Provide the complete answer ready to submit.`
     return { success: true, text: result }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── KNOWLEDGE VAULT (SQLite) ─────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const Database = require('better-sqlite3')
+  const vaultPath = require('path').join(require('os').homedir(), '.jarvis_vault.db')
+  const vault = new Database(vaultPath)
+
+  // Create tables
+  vault.exec(`
+    CREATE TABLE IF NOT EXISTS entities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      type TEXT DEFAULT 'general',
+      description TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS facts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_id INTEGER,
+      fact TEXT NOT NULL,
+      source TEXT DEFAULT 'user',
+      confidence REAL DEFAULT 1.0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (entity_id) REFERENCES entities(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS relationships (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_entity INTEGER NOT NULL,
+      to_entity INTEGER NOT NULL,
+      relation TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (from_entity) REFERENCES entities(id),
+      FOREIGN KEY (to_entity) REFERENCES entities(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tool_used TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+
+  // Save entity
+  ipcMain.handle('vault-save-entity', async (_event, name: string, type: string, description: string) => {
+    try {
+      const stmt = vault.prepare(`INSERT INTO entities (name, type, description) VALUES (?, ?, ?)
+        ON CONFLICT(name) DO UPDATE SET description=?, type=?, updated_at=datetime('now')`)
+      stmt.run(name, type, description, description, type)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Save fact
+  ipcMain.handle('vault-save-fact', async (_event, entityName: string, fact: string, source?: string) => {
+    try {
+      // Get or create entity
+      let entity = vault.prepare('SELECT id FROM entities WHERE name = ?').get(entityName) as { id: number } | undefined
+      if (!entity) {
+        vault.prepare('INSERT INTO entities (name) VALUES (?)').run(entityName)
+        entity = vault.prepare('SELECT id FROM entities WHERE name = ?').get(entityName) as { id: number }
+      }
+      vault.prepare('INSERT INTO facts (entity_id, fact, source) VALUES (?, ?, ?)').run(entity.id, fact, source || 'user')
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Save relationship
+  ipcMain.handle('vault-save-relationship', async (_event, fromName: string, toName: string, relation: string) => {
+    try {
+      const getOrCreate = (name: string) => {
+        let e = vault.prepare('SELECT id FROM entities WHERE name = ?').get(name) as { id: number } | undefined
+        if (!e) {
+          vault.prepare('INSERT INTO entities (name) VALUES (?)').run(name)
+          e = vault.prepare('SELECT id FROM entities WHERE name = ?').get(name) as { id: number }
+        }
+        return e.id
+      }
+      const fromId = getOrCreate(fromName)
+      const toId = getOrCreate(toName)
+      vault.prepare('INSERT INTO relationships (from_entity, to_entity, relation) VALUES (?, ?, ?)').run(fromId, toId, relation)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Query vault
+  ipcMain.handle('vault-query', async (_event, query: string) => {
+    try {
+      const entities = vault.prepare(`SELECT e.name, e.type, e.description, GROUP_CONCAT(f.fact, ' | ') as facts
+        FROM entities e LEFT JOIN facts f ON e.id = f.entity_id
+        WHERE e.name LIKE ? OR e.description LIKE ? OR f.fact LIKE ?
+        GROUP BY e.id LIMIT 20`).all(`%${query}%`, `%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
+
+      const relations = vault.prepare(`SELECT e1.name as from_name, r.relation, e2.name as to_name
+        FROM relationships r
+        JOIN entities e1 ON r.from_entity = e1.id
+        JOIN entities e2 ON r.to_entity = e2.id
+        WHERE e1.name LIKE ? OR e2.name LIKE ? OR r.relation LIKE ?
+        LIMIT 20`).all(`%${query}%`, `%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
+
+      return { success: true, entities, relations }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Get all entities
+  ipcMain.handle('vault-list', async () => {
+    try {
+      const entities = vault.prepare(`SELECT e.name, e.type, e.description, COUNT(f.id) as fact_count
+        FROM entities e LEFT JOIN facts f ON e.id = f.entity_id
+        GROUP BY e.id ORDER BY e.updated_at DESC LIMIT 50`).all() as Array<Record<string, unknown>>
+      return { success: true, entities }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Log conversation
+  ipcMain.handle('vault-log-conversation', async (_event, role: string, content: string, toolUsed?: string) => {
+    try {
+      vault.prepare('INSERT INTO conversations (role, content, tool_used) VALUES (?, ?, ?)').run(role, content, toolUsed || null)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── WORKFLOW BUILDER ─────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const workflowsDir = require('path').join(require('os').homedir(), '.jarvis_workflows')
+  if (!require('fs').existsSync(workflowsDir)) require('fs').mkdirSync(workflowsDir, { recursive: true })
+
+  // Save workflow
+  ipcMain.handle('workflow-save', async (_event, name: string, steps: Array<{ tool: string; params: Record<string, unknown>; description?: string }>) => {
+    try {
+      const filePath = require('path').join(workflowsDir, `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`)
+      const workflow = {
+        name,
+        steps,
+        created_at: new Date().toISOString(),
+        run_count: 0
+      }
+      require('fs').writeFileSync(filePath, JSON.stringify(workflow, null, 2))
+      return { success: true, path: filePath }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // List workflows
+  ipcMain.handle('workflow-list', async () => {
+    try {
+      const fs = require('fs')
+      const files = fs.readdirSync(workflowsDir).filter((f: string) => f.endsWith('.json'))
+      const workflows = files.map((f: string) => {
+        const data = JSON.parse(fs.readFileSync(require('path').join(workflowsDir, f), 'utf-8'))
+        return { name: data.name, steps: data.steps.length, created_at: data.created_at, run_count: data.run_count || 0 }
+      })
+      return { success: true, workflows }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Get workflow by name
+  ipcMain.handle('workflow-get', async (_event, name: string) => {
+    try {
+      const filePath = require('path').join(workflowsDir, `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`)
+      if (!require('fs').existsSync(filePath)) return { success: false, error: `Workflow "${name}" not found` }
+      const data = JSON.parse(require('fs').readFileSync(filePath, 'utf-8'))
+      return { success: true, workflow: data }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Delete workflow
+  ipcMain.handle('workflow-delete', async (_event, name: string) => {
+    try {
+      const filePath = require('path').join(workflowsDir, `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`)
+      if (require('fs').existsSync(filePath)) require('fs').unlinkSync(filePath)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── GOAL TRACKER (OKR System) ────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  vault.exec(`
+    CREATE TABLE IF NOT EXISTS goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT DEFAULT 'general',
+      priority TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'active',
+      progress INTEGER DEFAULT 0,
+      due_date TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS goal_updates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal_id INTEGER NOT NULL,
+      note TEXT NOT NULL,
+      progress_change INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (goal_id) REFERENCES goals(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT DEFAULT (date('now')),
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `)
+
+  // Add goal
+  ipcMain.handle('goal-add', async (_event, title: string, description: string, category?: string, priority?: string, dueDate?: string) => {
+    try {
+      vault.prepare('INSERT INTO goals (title, description, category, priority, due_date) VALUES (?, ?, ?, ?, ?)')
+        .run(title, description, category || 'general', priority || 'medium', dueDate || null)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // List goals
+  ipcMain.handle('goal-list', async (_event, status?: string) => {
+    try {
+      const filter = status || 'active'
+      const goals = vault.prepare(`SELECT * FROM goals WHERE status = ? ORDER BY
+        CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC`)
+        .all(filter) as Array<Record<string, unknown>>
+      return { success: true, goals }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Update goal progress
+  ipcMain.handle('goal-update', async (_event, goalId: number, note: string, progressChange?: number) => {
+    try {
+      if (progressChange) {
+        vault.prepare('UPDATE goals SET progress = MIN(100, MAX(0, progress + ?)) WHERE id = ?').run(progressChange, goalId)
+      }
+      vault.prepare('INSERT INTO goal_updates (goal_id, note, progress_change) VALUES (?, ?, ?)').run(goalId, note, progressChange || 0)
+      // Auto-complete at 100%
+      const goal = vault.prepare('SELECT progress FROM goals WHERE id = ?').get(goalId) as { progress: number } | undefined
+      if (goal && goal.progress >= 100) {
+        vault.prepare("UPDATE goals SET status = 'completed', completed_at = datetime('now') WHERE id = ?").run(goalId)
+      }
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Daily log
+  ipcMain.handle('daily-log', async (_event, type: string, content: string) => {
+    try {
+      vault.prepare('INSERT INTO daily_log (type, content) VALUES (?, ?)').run(type, content)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Get daily summary
+  ipcMain.handle('daily-summary', async (_event, date?: string) => {
+    try {
+      const d = date || new Date().toISOString().split('T')[0]
+      const logs = vault.prepare('SELECT * FROM daily_log WHERE date = ? ORDER BY created_at').all(d) as Array<Record<string, unknown>>
+      const activeGoals = vault.prepare("SELECT title, progress, priority FROM goals WHERE status = 'active' ORDER BY priority").all() as Array<Record<string, unknown>>
+      return { success: true, date: d, logs, activeGoals }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

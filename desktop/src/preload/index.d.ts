@@ -194,6 +194,27 @@ declare global {
       awarenessStop: () => Promise<{ success: boolean; status: string }>
       awarenessStatus: () => Promise<{ active: boolean; lastResult: string }>
       awarenessAnalyzeNow: () => Promise<{ success: boolean; text: string }>
+
+      // ─── Knowledge Vault ───
+      vaultSaveEntity: (name: string, type: string, description: string) => Promise<{ success: boolean; error?: string }>
+      vaultSaveFact: (entityName: string, fact: string, source?: string) => Promise<{ success: boolean; error?: string }>
+      vaultSaveRelationship: (from: string, to: string, relation: string) => Promise<{ success: boolean; error?: string }>
+      vaultQuery: (query: string) => Promise<{ success: boolean; entities?: Array<Record<string, unknown>>; relations?: Array<Record<string, unknown>>; error?: string }>
+      vaultList: () => Promise<{ success: boolean; entities?: Array<Record<string, unknown>>; error?: string }>
+      vaultLogConversation: (role: string, content: string, tool?: string) => Promise<{ success: boolean; error?: string }>
+
+      // ─── Workflow Builder ───
+      workflowSave: (name: string, steps: Array<{ tool: string; params: Record<string, unknown> }>) => Promise<{ success: boolean; path?: string; error?: string }>
+      workflowList: () => Promise<{ success: boolean; workflows?: Array<Record<string, unknown>>; error?: string }>
+      workflowGet: (name: string) => Promise<{ success: boolean; workflow?: Record<string, unknown>; error?: string }>
+      workflowDelete: (name: string) => Promise<{ success: boolean; error?: string }>
+
+      // ─── Goal Tracker ───
+      goalAdd: (title: string, description: string, category?: string, priority?: string, dueDate?: string) => Promise<{ success: boolean; error?: string }>
+      goalList: (status?: string) => Promise<{ success: boolean; goals?: Array<Record<string, unknown>>; error?: string }>
+      goalUpdate: (goalId: number, note: string, progressChange?: number) => Promise<{ success: boolean; error?: string }>
+      dailyLog: (type: string, content: string) => Promise<{ success: boolean; error?: string }>
+      dailySummary: (date?: string) => Promise<{ success: boolean; date?: string; logs?: Array<Record<string, unknown>>; activeGoals?: Array<Record<string, unknown>>; error?: string }>
     }
   }
 }

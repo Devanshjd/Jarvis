@@ -172,7 +172,43 @@ const desktopApi = {
   awarenessStatus: () =>
     ipcRenderer.invoke('awareness-status'),
   awarenessAnalyzeNow: () =>
-    ipcRenderer.invoke('awareness-analyze-now')
+    ipcRenderer.invoke('awareness-analyze-now'),
+
+  // ─── Knowledge Vault ───
+  vaultSaveEntity: (name: string, type: string, description: string) =>
+    ipcRenderer.invoke('vault-save-entity', name, type, description),
+  vaultSaveFact: (entityName: string, fact: string, source?: string) =>
+    ipcRenderer.invoke('vault-save-fact', entityName, fact, source),
+  vaultSaveRelationship: (from: string, to: string, relation: string) =>
+    ipcRenderer.invoke('vault-save-relationship', from, to, relation),
+  vaultQuery: (query: string) =>
+    ipcRenderer.invoke('vault-query', query),
+  vaultList: () =>
+    ipcRenderer.invoke('vault-list'),
+  vaultLogConversation: (role: string, content: string, tool?: string) =>
+    ipcRenderer.invoke('vault-log-conversation', role, content, tool),
+
+  // ─── Workflow Builder ───
+  workflowSave: (name: string, steps: Array<{ tool: string; params: Record<string, unknown> }>) =>
+    ipcRenderer.invoke('workflow-save', name, steps),
+  workflowList: () =>
+    ipcRenderer.invoke('workflow-list'),
+  workflowGet: (name: string) =>
+    ipcRenderer.invoke('workflow-get', name),
+  workflowDelete: (name: string) =>
+    ipcRenderer.invoke('workflow-delete', name),
+
+  // ─── Goal Tracker ───
+  goalAdd: (title: string, description: string, category?: string, priority?: string, dueDate?: string) =>
+    ipcRenderer.invoke('goal-add', title, description, category, priority, dueDate),
+  goalList: (status?: string) =>
+    ipcRenderer.invoke('goal-list', status),
+  goalUpdate: (goalId: number, note: string, progressChange?: number) =>
+    ipcRenderer.invoke('goal-update', goalId, note, progressChange),
+  dailyLog: (type: string, content: string) =>
+    ipcRenderer.invoke('daily-log', type, content),
+  dailySummary: (date?: string) =>
+    ipcRenderer.invoke('daily-summary', date)
 }
 
 if (process.contextIsolated) {

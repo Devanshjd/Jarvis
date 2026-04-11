@@ -826,6 +826,78 @@ export class JarvisGeminiLive {
                       name: 'awareness_analyze',
                       description: 'Analyze the screen right now. Use when user says "what am I doing", "look at my screen", "what is on my screen right now".',
                       parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    // ─── Knowledge Vault Tools ───
+                    {
+                      name: 'vault_remember',
+                      description: 'Save a fact, entity, or piece of knowledge to permanent memory. Use when user says "remember that...", "save this...", "note that...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          entity: { type: 'STRING', description: 'The entity or topic (e.g. "John", "Project X", "Python").' },
+                          fact: { type: 'STRING', description: 'The fact to remember about this entity.' }
+                        },
+                        required: ['entity', 'fact']
+                      }
+                    },
+                    {
+                      name: 'vault_recall',
+                      description: 'Search permanent memory for knowledge. Use when user says "what do you know about...", "recall...", "remember...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          query: { type: 'STRING', description: 'What to search for in the knowledge vault.' }
+                        },
+                        required: ['query']
+                      }
+                    },
+                    // ─── Workflow Tools ───
+                    {
+                      name: 'workflow_create',
+                      description: 'Create an automation workflow. Use when user says "create a workflow", "automate this...", "every morning do...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          name: { type: 'STRING', description: 'Workflow name.' },
+                          steps_json: { type: 'STRING', description: 'JSON array of steps: [{"tool":"tool_name","params":{...}}]' }
+                        },
+                        required: ['name', 'steps_json']
+                      }
+                    },
+                    {
+                      name: 'workflow_run',
+                      description: 'Run a saved workflow. Use when user says "run the workflow", "execute automation...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          name: { type: 'STRING', description: 'Workflow name to run.' }
+                        },
+                        required: ['name']
+                      }
+                    },
+                    // ─── Goal Tracker Tools ───
+                    {
+                      name: 'goal_set',
+                      description: 'Set a new goal. Use when user says "I want to...", "my goal is...", "add a goal...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          title: { type: 'STRING', description: 'Goal title.' },
+                          description: { type: 'STRING', description: 'Goal description and details.' },
+                          priority: { type: 'STRING', description: 'Priority: high, medium, or low.' }
+                        },
+                        required: ['title']
+                      }
+                    },
+                    {
+                      name: 'goal_check',
+                      description: 'Check goal progress. Use when user says "how are my goals", "what are my goals", "progress update".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'daily_briefing',
+                      description: 'Get a daily briefing. Use when user says "morning briefing", "what is my day like", "daily summary".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
                     }
                   ]
                 }
@@ -1503,6 +1575,96 @@ export class JarvisGeminiLive {
             output = r.success
               ? `Screen analysis: ${r.text}`
               : 'Could not analyze screen.'
+            break
+          }
+
+          // ─── Knowledge Vault Tools ───
+          case 'vault_remember': {
+            const r = await api.vaultSaveFact(args.entity, args.fact, 'voice')
+            output = r.success
+              ? `Remembered: "${args.fact}" about ${args.entity}. Stored in permanent memory.`
+              : `Could not save: ${r.error}`
+            break
+          }
+
+          case 'vault_recall': {
+            const r = await api.vaultQuery(args.query)
+            if (r.success && r.entities?.length) {
+              const facts = r.entities.map((e: Record<string, unknown>) =>
+                `${e.name} (${e.type}): ${e.facts || e.description || 'no details'}`
+              ).join('\n')
+              const rels = r.relations?.map((rel: Record<string, unknown>) =>
+                `${rel.from_name} → ${rel.relation} → ${rel.to_name}`
+              ).join('\n') || ''
+              output = `Knowledge about "${args.query}":\n${facts}${rels ? '\n\nRelationships:\n' + rels : ''}`
+            } else {
+              output = `No knowledge found about "${args.query}". I haven't learned about this yet.`
+            }
+            break
+          }
+
+          // ─── Workflow Tools ───
+          case 'workflow_create': {
+            try {
+              const steps = JSON.parse(args.steps_json)
+              const r = await api.workflowSave(args.name, steps)
+              output = r.success
+                ? `Workflow "${args.name}" created with ${steps.length} steps.`
+                : `Could not create workflow: ${r.error}`
+            } catch {
+              output = 'Invalid workflow steps JSON format.'
+            }
+            break
+          }
+
+          case 'workflow_run': {
+            const r = await api.workflowGet(args.name)
+            if (!r.success || !r.workflow) {
+              output = `Workflow "${args.name}" not found.`
+            } else {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const wf = r.workflow as any
+              output = `Running workflow "${wf.name}" with ${wf.steps.length} steps...\n`
+              // Note: actual execution happens through voice tool chaining
+              output += wf.steps.map((s: { tool: string; description?: string }, i: number) =>
+                `  Step ${i + 1}: ${s.description || s.tool}`
+              ).join('\n')
+            }
+            break
+          }
+
+          // ─── Goal Tracker Tools ───
+          case 'goal_set': {
+            const r = await api.goalAdd(args.title, args.description || '', 'general', args.priority || 'medium')
+            output = r.success
+              ? `Goal set: "${args.title}" (${args.priority || 'medium'} priority). I'll track your progress.`
+              : `Could not set goal: ${r.error}`
+            break
+          }
+
+          case 'goal_check': {
+            const r = await api.goalList('active')
+            if (r.success && r.goals?.length) {
+              output = `Active Goals (${r.goals.length}):\n` + r.goals.map((g: Record<string, unknown>, i: number) =>
+                `${i + 1}. ${g.title} — ${g.progress}% complete (${g.priority} priority)`
+              ).join('\n')
+            } else {
+              output = 'No active goals. Set one by saying "I want to..."'
+            }
+            break
+          }
+
+          case 'daily_briefing': {
+            const r = await api.dailySummary()
+            if (r.success) {
+              const goalsSummary = r.activeGoals?.length
+                ? r.activeGoals.map((g: Record<string, unknown>) => `• ${g.title}: ${g.progress}%`).join('\n')
+                : 'No active goals'
+              const logCount = r.logs?.length || 0
+              output = `Daily Briefing for ${r.date}:\n\nActive Goals:\n${goalsSummary}\n\nActivity log: ${logCount} entries today.`
+            } else {
+              output = 'Could not generate briefing.'
+            }
             break
           }
 

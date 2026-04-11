@@ -79,33 +79,43 @@ class GlassCard:
 
     def __init__(self, parent, title=None, accent_color=None):
         self.accent = accent_color or COLORS["primary"]
-        self.frame = tk.Frame(parent, bg=COLORS["card"])
+        self.frame = tk.Frame(
+            parent,
+            bg=COLORS["border_soft"],
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+            highlightcolor=COLORS["border"],
+        )
+        self.inner = tk.Frame(self.frame, bg=COLORS["card"])
+        self.inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
         if title:
-            # Minimal header with accent line
-            header = tk.Frame(self.frame, bg=COLORS["card"])
-            header.pack(fill=tk.X, padx=16, pady=(12, 0))
+            header = tk.Frame(self.inner, bg=COLORS["card"])
+            header.pack(fill=tk.X, padx=14, pady=(12, 0))
 
-            # Small accent dot
             tk.Label(
-                header, text="●", font=("Segoe UI", 6),
+                header, text="*", font=FONTS["label_md"],
                 fg=self.accent, bg=COLORS["card"],
             ).pack(side=tk.LEFT, padx=(0, 6))
 
             tk.Label(
                 header, text=title.upper(),
-                font=FONTS["label_md"], fg=COLORS["text_dim"],
+                font=FONTS["label"], fg=COLORS["text_dim"],
                 bg=COLORS["card"],
             ).pack(side=tk.LEFT)
 
-        # Content area
-        self.content = tk.Frame(self.frame, bg=COLORS["card"])
-        self.content.pack(fill=tk.BOTH, expand=True, padx=12, pady=8)
+            tk.Frame(
+                header,
+                bg=COLORS["border"],
+                height=1,
+            ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0), pady=7)
+
+        self.content = tk.Frame(self.inner, bg=COLORS["card"])
+        self.content.pack(fill=tk.BOTH, expand=True, padx=12, pady=10)
 
     def pack(self, **kwargs):
-        # Add subtle spacing between cards
         if "pady" not in kwargs:
-            kwargs["pady"] = (0, 6)
+            kwargs["pady"] = (0, 8)
         self.frame.pack(**kwargs)
 
     def grid(self, **kwargs):
@@ -175,14 +185,15 @@ class AnimatedButton(tk.Canvas):
 class StatusDot(tk.Frame):
     """Animated pulsing status indicator."""
 
-    def __init__(self, parent, text="ONLINE", color="green"):
-        super().__init__(parent, bg=COLORS["bg2"])
+    def __init__(self, parent, text="ONLINE", color="green", bg_color=None):
+        self.bg_color = bg_color or COLORS["bg2"]
+        super().__init__(parent, bg=self.bg_color)
         self.color = COLORS.get(color, color)
-        self.dot = tk.Label(self, text="●", font=("Segoe UI", 7),
-                           fg=self.color, bg=COLORS["bg2"])
+        self.dot = tk.Label(self, text="*", font=FONTS["label_md"],
+                           fg=self.color, bg=self.bg_color)
         self.dot.pack(side=tk.LEFT, padx=(0, 4))
         self.label = tk.Label(self, text=text, font=FONTS["label"],
-                             fg=self.color, bg=COLORS["bg2"])
+                             fg=self.color, bg=self.bg_color)
         self.label.pack(side=tk.LEFT)
         self._pulse_dot()
 
@@ -190,10 +201,61 @@ class StatusDot(tk.Frame):
         # Subtle pulse between dim and bright
         import time
         phase = (math.sin(time.time() * 2) + 1) / 2
-        r = int(16 + 239 * phase) if self.color == COLORS["green"] else 200
-        g = int(185 + 70 * phase) if self.color == COLORS["green"] else 200
-        b = int(129 + 50 * phase) if self.color == COLORS["green"] else 200
-
-        if self.color == COLORS["green"]:
+        base_color = self.color
+        if base_color.startswith("#") and len(base_color) == 7:
+            r = int(base_color[1:3], 16)
+            g = int(base_color[3:5], 16)
+            b = int(base_color[5:7], 16)
+            bright = 0.68 + (0.32 * phase)
+            r = min(int(r * bright), 255)
+            g = min(int(g * bright), 255)
+            b = min(int(b * bright), 255)
             self.dot.config(fg=f"#{r:02x}{g:02x}{b:02x}")
         self.after(100, self._pulse_dot)
+
+
+class StatusPill(tk.Frame):
+    """Compact operator pill for live shell status."""
+
+    def __init__(self, parent, label, value, accent="primary", bg_color=None):
+        self._bg = bg_color or COLORS["bg2"]
+        super().__init__(
+            parent,
+            bg=self._bg,
+            highlightthickness=1,
+            highlightbackground=COLORS["border"],
+            highlightcolor=COLORS["border"],
+            padx=10,
+            pady=5,
+        )
+        self._accent_key = accent
+
+        label_color = COLORS["text_muted"]
+        value_color = COLORS.get(accent, accent)
+
+        self.label_widget = tk.Label(
+            self,
+            text=label,
+            font=FONTS["label"],
+            fg=label_color,
+            bg=self._bg,
+        )
+        self.label_widget.pack(side=tk.LEFT)
+
+        self.value_widget = tk.Label(
+            self,
+            text=value,
+            font=FONTS["label_md"],
+            fg=value_color,
+            bg=self._bg,
+        )
+        self.value_widget.pack(side=tk.LEFT, padx=(8, 0))
+
+    def set(self, label=None, value=None, accent=None):
+        if label is not None:
+            self.label_widget.config(text=label)
+        if value is not None:
+            self.value_widget.config(text=value)
+        if accent is not None:
+            self._accent_key = accent
+            self.value_widget.config(fg=COLORS.get(accent, accent))

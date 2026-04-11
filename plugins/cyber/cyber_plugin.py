@@ -42,6 +42,7 @@ import time
 from datetime import datetime
 
 from core.plugin_manager import PluginBase
+from core.subprocess_utils import run_text
 
 
 def _fetch(url: str, timeout: int = 10) -> dict | str:
@@ -254,8 +255,8 @@ class CyberPlugin(PluginBase):
             return "Network scan currently supports Windows only."
 
         try:
-            output = subprocess.run(
-                "arp -a", shell=True, capture_output=True, text=True, timeout=10
+            output = run_text(
+                "arp -a", shell=True, capture_output=True, timeout=10
             ).stdout
 
             result = "Local Network Devices\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -313,9 +314,9 @@ class CyberPlugin(PluginBase):
         # Use nslookup for more details on Windows
         if platform.system() == "Windows":
             try:
-                ns_out = subprocess.run(
+                ns_out = run_text(
                     f"nslookup -type=MX {domain}", shell=True,
-                    capture_output=True, text=True, timeout=5
+                    capture_output=True, timeout=5
                 ).stdout
                 for line in ns_out.split("\n"):
                     if "mail exchanger" in line.lower() or "MX" in line:
@@ -639,8 +640,8 @@ class CyberPlugin(PluginBase):
         # Network interfaces (Windows)
         if platform.system() == "Windows":
             try:
-                ipconfig = subprocess.run(
-                    "ipconfig", shell=True, capture_output=True, text=True, timeout=5
+                ipconfig = run_text(
+                    "ipconfig", shell=True, capture_output=True, timeout=5
                 ).stdout
                 # Extract gateway
                 gw_match = re.search(r"Default Gateway.*?:\s*([\d.]+)", ipconfig)
@@ -651,8 +652,8 @@ class CyberPlugin(PluginBase):
                 if sub_match:
                     result += f"  Subnet: {sub_match.group(1)}\n"
                 # DNS
-                dns_out = subprocess.run(
-                    "ipconfig /all", shell=True, capture_output=True, text=True, timeout=5
+                dns_out = run_text(
+                    "ipconfig /all", shell=True, capture_output=True, timeout=5
                 ).stdout
                 dns_matches = re.findall(r"DNS Servers.*?:\s*([\d.]+)", dns_out)
                 if dns_matches:
@@ -672,9 +673,9 @@ class CyberPlugin(PluginBase):
             return "WiFi scan currently supports Windows only."
 
         try:
-            output = subprocess.run(
+            output = run_text(
                 'netsh wlan show networks mode=Bssid',
-                shell=True, capture_output=True, text=True, timeout=10,
+                shell=True, capture_output=True, timeout=10,
             ).stdout
 
             result = "WiFi Networks\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -743,9 +744,9 @@ class CyberPlugin(PluginBase):
             return "Process scan currently supports Windows only."
 
         try:
-            output = subprocess.run(
+            output = run_text(
                 'netstat -b -n', shell=True, capture_output=True,
-                text=True, timeout=10,
+                timeout=10,
             ).stdout
 
             result = "Processes with Network Connections\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1063,9 +1064,9 @@ class CyberPlugin(PluginBase):
         # 1. Windows Firewall
         total += 1
         try:
-            fw = subprocess.run(
+            fw = run_text(
                 'netsh advfirewall show allprofiles state',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             if "ON" in fw.upper():
                 result += "  ✓ Firewall: ENABLED\n"
@@ -1078,9 +1079,9 @@ class CyberPlugin(PluginBase):
         # 2. Windows Defender / Antivirus
         total += 1
         try:
-            av = subprocess.run(
+            av = run_text(
                 'powershell -c "Get-MpComputerStatus | Select-Object -Property AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated"',
-                shell=True, capture_output=True, text=True, timeout=10,
+                shell=True, capture_output=True, timeout=10,
             ).stdout
             if "True" in av:
                 result += "  ✓ Antivirus: ACTIVE\n"
@@ -1097,9 +1098,9 @@ class CyberPlugin(PluginBase):
         # 3. Windows Update
         total += 1
         try:
-            upd = subprocess.run(
+            upd = run_text(
                 'powershell -c "(Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn"',
-                shell=True, capture_output=True, text=True, timeout=15,
+                shell=True, capture_output=True, timeout=15,
             ).stdout.strip()
             if upd:
                 result += f"  ✓ Last update: {upd}\n"
@@ -1112,9 +1113,9 @@ class CyberPlugin(PluginBase):
         # 4. Auto-login check
         total += 1
         try:
-            autologin = subprocess.run(
+            autologin = run_text(
                 'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" /v AutoAdminLogon',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             if "0x1" in autologin:
                 result += "  ✗ Auto-login: ENABLED — security risk!\n"
@@ -1128,9 +1129,9 @@ class CyberPlugin(PluginBase):
         # 5. Remote Desktop
         total += 1
         try:
-            rdp = subprocess.run(
+            rdp = run_text(
                 'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             if "0x1" in rdp:
                 result += "  ✓ Remote Desktop: Disabled\n"
@@ -1143,9 +1144,9 @@ class CyberPlugin(PluginBase):
         # 6. UAC (User Account Control)
         total += 1
         try:
-            uac = subprocess.run(
+            uac = run_text(
                 'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v EnableLUA',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             if "0x1" in uac:
                 result += "  ✓ UAC: Enabled\n"
@@ -1158,9 +1159,9 @@ class CyberPlugin(PluginBase):
         # 7. Open ports check
         total += 1
         try:
-            netstat = subprocess.run(
+            netstat = run_text(
                 'netstat -an | findstr LISTENING',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             listening = len(netstat.strip().split("\n")) if netstat.strip() else 0
             if listening < 20:
@@ -1174,9 +1175,9 @@ class CyberPlugin(PluginBase):
         # 8. Guest account
         total += 1
         try:
-            guest = subprocess.run(
+            guest = run_text(
                 'net user guest',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
             if "Account active               No" in guest:
                 result += "  ✓ Guest account: Disabled\n"
@@ -1391,9 +1392,9 @@ class CyberPlugin(PluginBase):
         """Get current network connections as a set of tuples."""
         connections = set()
         try:
-            output = subprocess.run(
+            output = run_text(
                 'netstat -b -n' if platform.system() == "Windows" else 'netstat -tunp',
-                shell=True, capture_output=True, text=True, timeout=5,
+                shell=True, capture_output=True, timeout=5,
             ).stdout
 
             current_proc = None

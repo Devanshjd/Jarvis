@@ -30,6 +30,8 @@ from datetime import datetime
 from typing import Optional, Callable, Any
 from pathlib import Path
 
+from core.subprocess_utils import run_text
+
 logger = logging.getLogger("jarvis.resilient")
 
 
@@ -686,9 +688,9 @@ class ResilientExecutor:
                 f.write(code)
                 temp_path = f.name
 
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, temp_path],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, timeout=30,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
 

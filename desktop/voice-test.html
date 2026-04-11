@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JARVIS Gemini Live — Direct Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      color: #00ff88;
+      font-family: 'Courier New', monospace;
+      padding: 24px;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    #status { color: #ff4444; font-size: 14px; margin-bottom: 16px; }
+    #status.connected { color: #00ff88; }
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; }
+    button {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #startBtn { background: #00cc66; color: #000; }
+    #startBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #stopBtn { background: #cc0000; color: #fff; }
+    #log {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 16px;
+      height: calc(100vh - 200px);
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-error { color: #ff4444; }
+    .log-info { color: #00ff88; }
+    .log-warn { color: #ffaa00; }
+    .log-audio { color: #44aaff; }
+    .log-mic { color: #ff88ff; }
+    .log-tool { color: #ffff44; }
+
+    .config-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .config-row label {
+      color: #888;
+      font-size: 12px;
+      min-width: 80px;
+    }
+    .config-row input, .config-row select {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #00ff88;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 JARVIS Gemini Live — Direct Test</h1>
+  <div id="status">Status: DISCONNECTED</div>
+
+  <div class="config-row">
+    <label>API Key:</label>
+    <input type="password" id="apiKey" placeholder="Paste your Gemini API key..." />
+  </div>
+  <div class="config-row">
+    <label>Model:</label>
+    <select id="modelSelect">
+      <option value="models/gemini-2.5-flash-native-audio-latest">gemini-2.5-flash-native-audio-latest (recommended)</option>
+      <option value="models/gemini-2.5-flash-preview-native-audio-dialog">gemini-2.5-flash-preview-native-audio-dialog</option>
+      <option value="models/gemini-2.0-flash-live-001">gemini-2.0-flash-live-001</option>
+    </select>
+  </div>
+  <div class="config-row">
+    <label>Voice:</label>
+    <select id="voiceSelect">
+      <option value="Kore">Kore</option>
+      <option value="Puck">Puck</option>
+      <option value="Charon">Charon</option>
+      <option value="Fenrir">Fenrir</option>
+      <option value="Aoede">Aoede</option>
+    </select>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn" onclick="startVoice()">► START VOICE</button>
+    <button id="stopBtn" onclick="stopVoice()">■ STOP</button>
+  </div>
+  <div id="log"></div>
+
+<script>
+let socket = null;
+let audioContext = null;
+let mediaStream = null;
+let workletNode = null;
+let nextStartTime = 0;
+
+const logEl = document.getElementById('log');
+const statusEl = document.getElementById('status');
+
+// Try to load the API key from the config file
+try {
+  // Try reading .jarvis_config.json from user's home directory
+  const configPath = (navigator.userAgent.includes('Win')
+    ? (process?.env?.USERPROFILE || 'C:\\Users\\Devansh')
+    : (process?.env?.HOME || '/home/user')) + '\\.jarvis_config.json';
+  // Can't read files from a plain HTML page — user must paste the key
+} catch (e) {}
+
+function log(msg, cls = 'log-info') {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = `[${time}] ${msg}`;
+  logEl.prepend(line);
+}
+
+function floatTo16BitPCM(float32) {
+  const buf = new ArrayBuffer(float32.length * 2);
+  const view = new DataView(buf);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buf;
+}
+
+function downsampleTo16000(data, inputRate) {
+  if (inputRate === 16000) return data;
+  const ratio = inputRate / 16000;
+  const len = Math.floor(data.length / ratio);
+  const result = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    result[i] = data[Math.floor(i * ratio)] ?? 0;
+  }
+  return result;
+}
+
+function base64ToFloat32(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+  const f32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768.0;
+  return f32;
+}
+
+async function startVoice() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    log('❌ Please enter your Gemini API key!', 'log-error');
+    return;
+  }
+
+  const model = document.getElementById('modelSelect').value;
+  const voice = document.getElementById('voiceSelect').value;
+
+  document.getElementById('startBtn').disabled = true;
+  log(`🚀 Starting voice... Model: ${model}, Voice: ${voice}`);
+
+  try {
+    // Create AudioContext
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    log(`🔊 AudioContext ready, sampleRate: ${audioContext.sampleRate}`);
+
+    // Create AudioWorklet for mic capture
+    const workletCode = `
+      class PCMProcessor extends AudioWorkletProcessor {
+        process(inputs) {
+          const input = inputs[0];
+          if (input && input.length > 0 && input[0]) {
+            this.port.postMessage(input[0]);
+          }
+          return true;
+        }
+      }
+      registerProcessor('test-pcm-processor', PCMProcessor);
+    `;
+    const blob = new Blob([workletCode], { type: 'application/javascript' });
+    const workletUrl = URL.createObjectURL(blob);
+    await audioContext.audioWorklet.addModule(workletUrl);
+    URL.revokeObjectURL(workletUrl);
+
+    // Connect WebSocket
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${encodeURIComponent(apiKey)}`;
+    log('🔌 Connecting WebSocket...');
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = async () => {
+      log('✅ WebSocket connected!', 'log-info');
+      statusEl.textContent = 'Status: CONNECTED';
+      statusEl.className = 'connected';
+
+      // Send setup
+      const setupMsg = {
+        setup: {
+          model: model,
+          systemInstruction: {
+            parts: [{
+              text: 'You are JARVIS — a witty, confident AI assistant. Be concise and helpful. Respond naturally to greetings and questions.'
+            }]
+          },
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: voice }
+              }
+            }
+          },
+          inputAudioTranscription: {},
+          outputAudioTranscription: {}
+        }
+      };
+
+      socket.send(JSON.stringify(setupMsg));
+      log(`📤 Setup sent — model: ${model}, voice: ${voice}`);
+
+      // Start microphone
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 }
+      });
+      log('🎤 Microphone opened');
+
+      const source = audioContext.createMediaStreamSource(mediaStream);
+      const inputRate = audioContext.sampleRate;
+      workletNode = new AudioWorkletNode(audioContext, 'test-pcm-processor');
+
+      let micCount = 0;
+      workletNode.port.onmessage = (event) => {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return;
+        const inputData = event.data;
+        const downsampled = downsampleTo16000(inputData, inputRate);
+        const pcm = floatTo16BitPCM(downsampled);
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(pcm)));
+
+        socket.send(JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [{ mimeType: 'audio/pcm;rate=16000', data: b64 }]
+          }
+        }));
+
+        micCount++;
+        if (micCount % 100 === 0) log(`🎤 Mic chunks: ${micCount}`, 'log-mic');
+      };
+
+      source.connect(workletNode);
+      workletNode.connect(audioContext.destination);
+      log('🎤 Mic streaming started — speak now!', 'log-info');
+    };
+
+    socket.onmessage = async (event) => {
+      try {
+        const raw = event.data instanceof Blob ? await event.data.text() : String(event.data);
+        const data = JSON.parse(raw);
+
+        if (data.setupComplete) {
+          log('✅ Setup acknowledged by server', 'log-info');
+        }
+
+        if (data.error) {
+          log(`❌ Server error: ${JSON.stringify(data.error)}`, 'log-error');
+          return;
+        }
+
+        if (data.toolCall?.functionCalls) {
+          log(`🔧 Tool call: ${data.toolCall.functionCalls.map(f => f.name).join(', ')}`, 'log-tool');
+        }
+
+        const sc = data.serverContent;
+        if (!sc) return;
+
+        if (sc.modelTurn?.parts) {
+          for (const part of sc.modelTurn.parts) {
+            if (part.inlineData?.data) {
+              // Play audio
+              const f32 = base64ToFloat32(part.inlineData.data);
+              const buf = audioContext.createBuffer(1, f32.length, 24000);
+              buf.getChannelData(0).set(f32);
+              const src = audioContext.createBufferSource();
+              src.buffer = buf;
+              src.connect(audioContext.destination);
+              const now = audioContext.currentTime;
+              if (nextStartTime < now) nextStartTime = now + 0.05;
+              src.start(nextStartTime);
+              nextStartTime += buf.duration;
+              log(`🔊 Audio chunk playing (${f32.length} samples)`, 'log-audio');
+            }
+          }
+        }
+
+        if (sc.inputTranscription?.text) {
+          log(`🎤 Heard: "${sc.inputTranscription.text}"`, 'log-info');
+        }
+
+        if (sc.outputTranscription?.text) {
+          log(`🔊 JARVIS: "${sc.outputTranscription.text}"`, 'log-audio');
+        }
+
+        if (sc.turnComplete) {
+          log('— Turn complete —', 'log-warn');
+        }
+
+        if (sc.interrupted) {
+          log('⚡ Interrupted', 'log-warn');
+        }
+      } catch (err) {
+        log(`❌ Message parse error: ${err.message}`, 'log-error');
+      }
+    };
+
+    socket.onerror = (err) => {
+      log(`❌ WebSocket error: ${err.type || err}`, 'log-error');
+      statusEl.textContent = 'Status: ERROR';
+      statusEl.className = '';
+    };
+
+    socket.onclose = (event) => {
+      log(`🔴 WebSocket closed: ${event.code} ${event.reason || ''}`, 'log-error');
+      statusEl.textContent = 'Status: DISCONNECTED';
+      statusEl.className = '';
+      document.getElementById('startBtn').disabled = false;
+    };
+
+  } catch (err) {
+    log(`❌ Start failed: ${err.message}`, 'log-error');
+    document.getElementById('startBtn').disabled = false;
+  }
+}
+
+function stopVoice() {
+  log('🛑 Stopping voice...');
+
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    try {
+      socket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+    } catch {}
+    socket.close();
+  }
+  socket = null;
+
+  if (workletNode) {
+    try { workletNode.disconnect(); } catch {}
+    workletNode = null;
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
+
+  nextStartTime = 0;
+  statusEl.textContent = 'Status: DISCONNECTED';
+  statusEl.className = '';
+  document.getElementById('startBtn').disabled = false;
+  log('🟡 Voice stopped');
+}
+</script>
+</body>
+</html>

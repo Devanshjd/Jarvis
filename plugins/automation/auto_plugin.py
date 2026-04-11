@@ -17,6 +17,7 @@ import platform
 import threading
 
 from core.plugin_manager import PluginBase
+from core.subprocess_utils import run_text
 
 try:
     import pyautogui
@@ -66,6 +67,25 @@ APP_MAP = {
     "teams": "teams",
     "snipping tool": "snippingtool",
     "control panel": "control",
+    # Games & launchers
+    "steam": "steam://open/main",
+    "epic games": "com.epicgames.launcher:",
+    "epic": "com.epicgames.launcher:",
+    # Messaging
+    "whatsapp": "whatsapp:",
+    "telegram": "telegram:",
+    # Media
+    "vlc": "vlc",
+    "obs": "obs64",
+    "obs studio": "obs64",
+    # Dev tools
+    "git bash": "git-bash",
+    "postman": "postman",
+    "docker": "docker",
+    # Misc
+    "zoom": "zoom",
+    "notion": "notion",
+    "obsidian": "obsidian",
 }
 
 
@@ -276,9 +296,9 @@ class AutomationPlugin(PluginBase):
 
         def _exec():
             try:
-                result = subprocess.run(
+                result = run_text(
                     command, shell=True, capture_output=True,
-                    text=True, timeout=30,
+                    timeout=30,
                 )
                 output = result.stdout or result.stderr or "(no output)"
                 # Truncate long output

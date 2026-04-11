@@ -14,6 +14,7 @@ import json
 import threading
 import logging
 import subprocess
+import ctypes
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional, Callable
@@ -393,15 +394,7 @@ class AwarenessEngine:
     def _check_clipboard(self):
         """Check clipboard for new content and classify it."""
         try:
-            import tkinter as tk
-            # Use the existing root's clipboard
-            if not hasattr(self.app, 'root'):
-                return
-
-            try:
-                content = self.app.root.clipboard_get()
-            except tk.TclError:
-                return  # No text in clipboard
+            content = self._read_clipboard_text()
 
             if not content or content == self._last_clipboard:
                 return
@@ -452,6 +445,56 @@ class AwarenessEngine:
 
         except Exception:
             pass
+
+    def _read_clipboard_text(self) -> str:
+        """
+        Read clipboard text without touching Tk from a worker thread.
+
+        Tk clipboard calls from background threads can terminate the app on
+        Windows without a clean traceback, so the awareness monitor uses the
+        native clipboard API instead.
+        """
+        if os.name != "nt":
+            return ""
+
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        cf_unicode_text = 13
+
+        user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+        user32.OpenClipboard.restype = ctypes.c_int
+        user32.GetClipboardData.argtypes = [ctypes.c_uint]
+        user32.GetClipboardData.restype = ctypes.c_void_p
+        user32.CloseClipboard.argtypes = []
+        user32.CloseClipboard.restype = ctypes.c_int
+
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.restype = ctypes.c_int
+
+        for _ in range(3):
+            if user32.OpenClipboard(None):
+                break
+            time.sleep(0.05)
+        else:
+            return ""
+
+        try:
+            handle = user32.GetClipboardData(cf_unicode_text)
+            if not handle:
+                return ""
+
+            pointer = kernel32.GlobalLock(handle)
+            if not pointer:
+                return ""
+
+            try:
+                return ctypes.wstring_at(pointer) or ""
+            finally:
+                kernel32.GlobalUnlock(handle)
+        finally:
+            user32.CloseClipboard()
 
     def _classify_clipboard(self, text: str) -> str:
         """Classify clipboard content type."""

@@ -71,7 +71,12 @@ class PresenceEngine:
         self._monitor_thread.start()
 
         # Start system tray
-        self._start_tray()
+        if self.config.get("presence", {}).get("enable_tray", False):
+            print("[JARVIS] System tray enabled")
+            self._start_tray()
+        else:
+            print("[JARVIS] System tray disabled")
+            logger.info("System tray disabled by config")
 
         logger.info("Presence engine online")
 
@@ -185,11 +190,11 @@ class PresenceEngine:
         # Pending tasks
         tasks = self.config.get("tasks", [])
         pending = [t for t in tasks if not t.get("done")]
-        if pending and len(pending) <= 3:
-            task_list = ", ".join(t["text"] for t in pending[:3])
-            parts.append(f"Pending: {task_list}.")
-        elif len(pending) > 3:
-            parts.append(f"{len(pending)} tasks waiting for your attention.")
+        if pending:
+            if len(pending) == 1:
+                parts.append("You have 1 pending task.")
+            else:
+                parts.append(f"You have {len(pending)} pending tasks.")
 
         # Late night awareness
         if hour >= 23 or hour < 5:
@@ -286,6 +291,9 @@ class PresenceEngine:
 
     def _start_tray(self):
         """Create system tray icon for background presence."""
+        if not self.config.get("presence", {}).get("enable_tray", False):
+            logger.info("Tray start skipped (disabled)")
+            return
         try:
             import pystray
             from PIL import Image, ImageDraw

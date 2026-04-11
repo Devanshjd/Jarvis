@@ -12,6 +12,8 @@ Recommended models:
     - llama3.2        (8B, good all-round)
     - mistral         (7B, fast and capable)
     - qwen2.5         (7B, strong reasoning)
+    - gemma3:4b       (great local-first JARVIS default)
+    - gemma3:1b       (faster, lighter)
     - llava           (vision support)
     - deepseek-coder  (coding tasks)
 """
@@ -35,7 +37,7 @@ class OllamaProvider(BaseProvider):
         self.model = ollama_cfg.get("model", "llama3.2")
 
         # Vision models
-        vision_models = ["llava", "llava-phi3", "bakllava", "moondream"]
+        vision_models = ["llava", "llava-phi3", "bakllava", "moondream", "gemma3:4b", "gemma3:12b", "gemma3:27b", "gemma3"]
         self.supports_vision = any(v in self.model.lower() for v in vision_models)
 
     def is_available(self) -> bool:

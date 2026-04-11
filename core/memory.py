@@ -22,6 +22,7 @@ import json
 from collections import deque
 from datetime import datetime
 from core.config import save_config
+from core.runtime_hygiene import filter_operator_memories, sanitize_operator_memory
 
 
 # ═══════════════════════════════════════════════════════════
@@ -385,7 +386,7 @@ class MemorySystem:
             parts.append(ctx)
 
         # Legacy memories (operator-provided facts)
-        mems = self.config.get("memories", [])
+        mems = filter_operator_memories(self.config.get("memories", []))
         if mems:
             lines = [f"{i+1}. {m}" for i, m in enumerate(mems)]
             parts.append("[OPERATOR MEMORIES]\n" + "\n".join(lines))
@@ -410,7 +411,8 @@ class MemoryBank:
         return self.config.get("memories", [])
 
     def add(self, text: str) -> bool:
-        text = text.strip().strip("\"'")
+        text = (text or "").strip().strip("\"'")
+        text = sanitize_operator_memory(text, limit=180) or ""
         if not text:
             return False
         if text.lower() in [m.lower() for m in self.memories]:
@@ -443,7 +445,7 @@ class MemoryBank:
         return [(i, m) for i, m in enumerate(self.memories) if query_lower in m.lower()]
 
     def get_context_string(self) -> str:
-        mems = self.memories
+        mems = filter_operator_memories(self.memories)
         if not mems:
             return ""
         lines = [f"{i+1}. {m}" for i, m in enumerate(mems)]

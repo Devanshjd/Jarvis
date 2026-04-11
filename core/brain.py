@@ -17,7 +17,9 @@ tries the next available provider in the chain.
 Switch providers via config or /provider command.
 """
 
+import copy
 import threading
+import re
 
 from core.providers.base import BaseProvider
 from core.providers.anthropic_provider import AnthropicProvider
@@ -43,6 +45,26 @@ PROVIDERS = {
 DEFAULT_FALLBACK_ORDER = [
     "anthropic", "gemini", "groq", "deepseek", "openai", "ollama", "lmstudio",
 ]
+
+LOCAL_PROVIDER_ALIASES = {
+    "gemma": {"provider": "ollama", "model": "gemma3:4b", "label": "Gemma 3 4B"},
+    "gemma-fast": {"provider": "ollama", "model": "gemma3:1b", "label": "Gemma 3 1B"},
+    "gemma_vision": {"provider": "ollama", "model": "gemma3:4b", "label": "Gemma 3 4B Vision"},
+    "gemma-vision": {"provider": "ollama", "model": "gemma3:4b", "label": "Gemma 3 4B Vision"},
+}
+
+UNCERTAIN_REPLY_RE = re.compile(
+    r"(?:i\s+(?:couldn't|could not)\s+(?:quite\s+)?(?:catch|understand|figure)|"
+    r"i\s+didn'?t\s+(?:catch|understand)|"
+    r"i'?m\s+not\s+sure|"
+    r"not\s+enough\s+(?:detail|details|information)|"
+    r"could\s+you\s+(?:clarify|repeat|say\s+that\s+again)|"
+    r"please\s+(?:clarify|repeat|rephrase)|"
+    r"i\s+need\s+more\s+(?:detail|details|information)|"
+    r"unclear\s+(?:request|intent)|"
+    r"i\s+don'?t\s+understand)",
+    re.IGNORECASE,
+)
 
 # ── JARVIS Identity & Modes ──────────────────────────────────
 JARVIS_IDENTITY = (
@@ -90,9 +112,67 @@ JARVIS_IDENTITY = (
     "CAPABILITIES:\n"
     "You have voice, screen scanning, system automation, web intelligence, "
     "smart home control, email, scheduling, file management, code execution, "
-    "cybersecurity tools, and a cognitive core that learns from every interaction. "
+    "cybersecurity tools, penetration testing suite, bug bounty toolkit, "
+    "and a cognitive core that learns from every interaction. "
     "You monitor system health, clipboard, active windows, and proactively "
-    "warn about threats and suggest actions."
+    "warn about threats and suggest actions.\n\n"
+
+    "CYBERSECURITY & PENTEST EXPERTISE:\n"
+    "You are Dev's cyber ops partner. You know offensive and defensive security deeply.\n"
+    "You understand the full bug bounty and pentest workflow:\n\n"
+
+    "1. RECONNAISSANCE — Always start here. Gather intel before attacking.\n"
+    "   - Passive recon: WHOIS, DNS records, certificate transparency (crt.sh), "
+    "Google dorking, Wayback Machine, OSINT.\n"
+    "   - Active recon: subdomain enumeration, port scanning, tech stack fingerprinting, "
+    "directory fuzzing, spider/crawl.\n"
+    "   - Your tools: /recon, /subdomains, /dorking, /wayback, /techstack, /portscan, "
+    "/dirfuzz, /dnslookup, /whois.\n\n"
+
+    "2. VULNERABILITY SCANNING — Test for weaknesses methodically.\n"
+    "   - Injection: SQL injection (error-based, blind, time-based), "
+    "command injection, LDAP injection, template injection (SSTI).\n"
+    "   - Client-side: reflected XSS, stored XSS, DOM XSS, open redirects, clickjacking.\n"
+    "   - Server-side: SSRF, IDOR, broken auth, rate limiting bypass, file upload bypass.\n"
+    "   - Misconfig: CORS, missing security headers, SSL/TLS issues, exposed .env/.git, "
+    "default credentials, directory listing.\n"
+    "   - Your tools: /xssparam, /sqlitest, /cors, /openredirect, /headeraudit, "
+    "/sslcheck, /headers.\n\n"
+
+    "3. EXPLOITATION & PROOF — Prove impact, don't just find bugs.\n"
+    "   - Always think about CVSS scoring: what's the impact? Confidentiality? Integrity? Availability?\n"
+    "   - Chain vulnerabilities — a low-severity bug can become critical when chained.\n"
+    "   - Write clean PoCs (proof of concept). Show steps to reproduce.\n"
+    "   - Your tools: /cve, /exploit, /hashid, /hashcrack.\n\n"
+
+    "4. REPORTING — Professional bug reports win bounties.\n"
+    "   - Structure: Title, Severity, Description, Steps to Reproduce, Impact, Remediation.\n"
+    "   - Rate severity: Critical (RCE, auth bypass, data breach), High (XSS+session theft, SQLi), "
+    "Medium (CSRF, info disclosure), Low (missing headers, verbose errors), Info (best practices).\n"
+    "   - Your tools: /finding, /findings, /report, /scope.\n\n"
+
+    "5. OWASP TOP 10 — Know these cold:\n"
+    "   A01: Broken Access Control — IDOR, privilege escalation, forced browsing.\n"
+    "   A02: Cryptographic Failures — weak TLS, plaintext secrets, bad hashing.\n"
+    "   A03: Injection — SQLi, XSS, command injection, SSTI.\n"
+    "   A04: Insecure Design — business logic flaws, race conditions.\n"
+    "   A05: Security Misconfiguration — default creds, unnecessary features, verbose errors.\n"
+    "   A06: Vulnerable Components — outdated libraries, known CVEs.\n"
+    "   A07: Auth Failures — weak passwords, broken session management.\n"
+    "   A08: Software Integrity Failures — unsigned updates, CI/CD compromise.\n"
+    "   A09: Logging Failures — no monitoring, blind to attacks.\n"
+    "   A10: SSRF — server-side request forgery to internal services.\n\n"
+
+    "HOW TO GUIDE DEV THROUGH TESTING:\n"
+    "- When Dev gives you a target, suggest a systematic approach: recon first, then scan, then test.\n"
+    "- Explain WHY each finding matters — don't just dump output. 'This CORS misconfiguration means "
+    "an attacker on evil.com could steal user session tokens via...'\n"
+    "- Suggest next steps: 'Now that we found this subdomain running old Apache, let's check for "
+    "known CVEs and test the headers.'\n"
+    "- Know common bounty platforms: HackerOne, Bugcrowd, Intigriti, YesWeHack.\n"
+    "- Know responsible disclosure: always have authorization, never exfiltrate real data, "
+    "report privately first, respect scope.\n"
+    "- Help write reports that actually get paid — clear, professional, with impact.\n"
 )
 
 MODES = {
@@ -104,7 +184,25 @@ MODES = {
     "Screen":    JARVIS_IDENTITY + "\n\nMode: Screen — describe what you see on screen naturally, identify the app and context, and suggest how you can help. Be specific about what you notice.",
     "File Edit": JARVIS_IDENTITY + "\n\nMode: File Edit — read, understand, and improve the file. Return complete edited versions with brief explanation of changes.",
     "Advisor":   JARVIS_IDENTITY + "\n\nMode: Advisor — be the trusted friend who gives honest advice. Empathetic but real. Don't sugarcoat, but be kind about it.",
-    "Cyber":     JARVIS_IDENTITY + "\n\nMode: Cybersecurity — think like a defender. Threat analysis, vulnerability assessment, incident response. Be thorough but explain it so Dev can act on it.",
+    "Cyber":     JARVIS_IDENTITY + (
+        "\n\nMode: Cybersecurity & Pentesting — you are Dev's offensive security partner.\n"
+        "Think like both attacker AND defender.\n\n"
+        "When Dev names a target:\n"
+        "1. First ask: 'Do we have authorization to test this?' — never skip this.\n"
+        "2. Suggest starting with passive recon — /recon gives a full overview.\n"
+        "3. Based on findings, recommend next tests: 'I see they're running WordPress — "
+        "let me check for xmlrpc, wp-login brute, and known plugin CVEs.'\n"
+        "4. For each finding, explain: what it is, why it matters, how to exploit (PoC), "
+        "how to fix it, and what CVSS severity it rates.\n"
+        "5. Help chain low findings into high-impact attack paths.\n"
+        "6. Track everything with /scope and /finding.\n"
+        "7. When ready, generate clean reports with /report.\n\n"
+        "Be proactive: 'Hey, that open redirect could chain with the OAuth flow — "
+        "want me to test if we can steal tokens?' Think like a real pentester.\n"
+        "Reference OWASP, MITRE ATT&CK, and CWE when relevant.\n"
+        "Know bug bounty etiquette: scope, responsible disclosure, duplicate handling.\n"
+        "Be thorough but explain things so Dev builds his skills too."
+    ),
 }
 
 MODE_LABELS = {
@@ -133,6 +231,7 @@ class Brain:
             "fallback_order", DEFAULT_FALLBACK_ORDER
         )
         self._last_fallback_msg = ""  # Track which provider served the request
+        self._apply_startup_provider_preference()
 
     def _create_provider(self, name: str = None) -> BaseProvider:
         """Create a provider by name, or use config default."""
@@ -140,17 +239,227 @@ class Brain:
         provider_class = PROVIDERS.get(provider_name, AnthropicProvider)
         return provider_class(self.config)
 
+    def _create_provider_from_config(self, config: dict, name: str = None) -> BaseProvider:
+        """Create a provider from an explicit config snapshot."""
+        provider_name = (name or config.get("provider", "anthropic")).lower()
+        provider_class = PROVIDERS.get(provider_name, AnthropicProvider)
+        return provider_class(config)
+
+    def _apply_startup_provider_preference(self) -> None:
+        """
+        Prefer a configured local startup profile when it's available.
+        This makes JARVIS boot into Gemma/Ollama by default without removing
+        the ability to switch providers later at runtime.
+        """
+        startup_cfg = self.config.get("startup_provider", {})
+        if not startup_cfg.get("prefer_local", True):
+            return
+
+        current = str(self.config.get("provider", "anthropic")).lower().strip()
+        if current in ("ollama", "lmstudio"):
+            return
+
+        profile_name = startup_cfg.get("profile") or self.config.get(
+            "smart_local_recovery", {}
+        ).get("profile", "gemma")
+        profile = self._get_named_local_profile(profile_name)
+        if not profile:
+            return
+
+        try:
+            provider = self._build_local_provider(profile)
+            if not provider.is_available():
+                return
+            self._apply_local_profile(profile)
+            self.provider = provider
+            info = provider.get_info()
+            print(
+                f"[BRAIN] Startup provider set to "
+                f"{profile.get('label', info.get('name', 'local model'))} "
+                f"via {info.get('name', 'local')}"
+            )
+        except Exception:
+            return
+
+    def _resolve_local_profile(self, provider_name: str) -> dict | None:
+        """Resolve friendly local-model aliases like 'gemma' or 'gemma:12b'."""
+        name = provider_name.lower().strip()
+
+        profile = LOCAL_PROVIDER_ALIASES.get(name)
+        if profile:
+            return dict(profile)
+
+        match = re.fullmatch(r"gemma(?:3)?(?::|[-_])?(270m|1b|4b|12b|27b)", name)
+        if match:
+            size = match.group(1)
+            return {
+                "provider": "ollama",
+                "model": f"gemma3:{size}",
+                "label": f"Gemma 3 {size.upper()}",
+            }
+
+        return None
+
+    def _apply_local_profile(self, profile: dict) -> None:
+        """Apply a local model profile to the active config."""
+        provider = profile.get("provider", "ollama")
+        model = profile.get("model", "")
+        base_url = profile.get("base_url")
+
+        self.config["provider"] = provider
+        section = self.config.setdefault(provider, {})
+        if model:
+            section["model"] = model
+        if base_url:
+            section["base_url"] = base_url
+
+    def _get_named_local_profile(self, name: str) -> dict | None:
+        """Get a local profile from aliases or config-defined local profiles."""
+        if not name:
+            return None
+        alias = self._resolve_local_profile(name)
+        if alias:
+            return alias
+
+        profiles = self.config.get("local_profiles", {})
+        profile = profiles.get(name)
+        if profile:
+            result = dict(profile)
+            result.setdefault("label", name.replace("_", " ").title())
+            return result
+        return None
+
+    def _build_local_provider(self, profile: dict) -> BaseProvider:
+        """Build a temporary provider instance for a local profile without mutating active config."""
+        temp_cfg = copy.deepcopy(self.config)
+        provider = profile.get("provider", "ollama")
+        temp_cfg["provider"] = provider
+        section = temp_cfg.setdefault(provider, {})
+        if profile.get("model"):
+            section["model"] = profile["model"]
+        if profile.get("base_url"):
+            section["base_url"] = profile["base_url"]
+        return self._create_provider_from_config(temp_cfg, provider)
+
+    def _is_gemma_model(self, provider: BaseProvider) -> bool:
+        info = provider.get_info()
+        model = str(info.get("model", "")).lower()
+        return "gemma" in model
+
+    def _looks_uncertain(self, reply: str) -> bool:
+        """Detect low-confidence / confused replies that should trigger a smarter retry."""
+        if not reply or not reply.strip():
+            return True
+        return bool(UNCERTAIN_REPLY_RE.search(reply.strip()))
+
+    def _get_gemma_recovery_candidate(self) -> tuple[str, BaseProvider] | tuple[None, None]:
+        """Build the configured Gemma recovery provider if available."""
+        recovery_cfg = self.config.get("smart_local_recovery", {})
+        if not recovery_cfg.get("enabled", True):
+            return None, None
+        profile_name = recovery_cfg.get("profile", "gemma")
+        profile = self._get_named_local_profile(profile_name)
+        if not profile:
+            return None, None
+        try:
+            provider = self._build_local_provider(profile)
+            if provider.is_available():
+                return profile.get("label", "Gemma"), provider
+        except Exception:
+            return None, None
+        return None, None
+
+    def _try_provider(self, provider: BaseProvider, messages: list, system_prompt: str,
+                      max_tokens: int, *, tag: str, allow_gemma_retry: bool = True) -> tuple[bool, str, int, str]:
+        """
+        Execute a provider attempt.
+        Returns (success, reply, latency, error_reason).
+        A confused/uncertain answer is treated as a soft failure.
+        """
+        try:
+            reply, latency = provider.chat(
+                messages=messages,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+            )
+
+            if self.config.get("smart_local_recovery", {}).get("retry_on_uncertain", True):
+                if self._looks_uncertain(reply):
+                    provider_name = provider.get_info().get("name", tag)
+                    print(f"[BRAIN] {provider_name} returned an uncertain reply; treating as soft failure.")
+
+                    if allow_gemma_retry and not self._is_gemma_model(provider):
+                        gemma_label, gemma_provider = self._get_gemma_recovery_candidate()
+                        if gemma_provider:
+                            try:
+                                gemma_reply, gemma_latency = gemma_provider.chat(
+                                    messages=messages,
+                                    system_prompt=system_prompt,
+                                    max_tokens=max_tokens,
+                                )
+                                if not self._looks_uncertain(gemma_reply):
+                                    self._last_fallback_msg = (
+                                        f"(Retried with {gemma_label} because {provider_name} looked unsure)"
+                                    )
+                                    print(f"[BRAIN] Gemma recovery succeeded after {provider_name} was unsure.")
+                                    return True, gemma_reply, gemma_latency, ""
+                                print(f"[BRAIN] Gemma recovery also returned an uncertain reply.")
+                                return (
+                                    False,
+                                    "",
+                                    0,
+                                    f"{provider_name}: uncertain reply; {gemma_label} recovery also looked unsure",
+                                )
+                            except Exception as gemma_exc:
+                                print(f"[BRAIN] Gemma recovery failed: {gemma_exc}")
+                                return False, "", 0, f"{provider_name}: uncertain reply; Gemma recovery failed: {gemma_exc}"
+
+                    return False, "", 0, f"{provider_name}: uncertain reply"
+
+            return True, reply, latency, ""
+        except Exception as exc:
+            return False, "", 0, f"{tag}: {exc}"
+
+    def _local_provider_help(self, profile: dict, info: dict) -> str:
+        """Helpful startup guidance when a local provider profile is selected but unavailable."""
+        model = profile.get("model", info.get("model", "local-model"))
+        if info.get("name") == "Ollama":
+            return (
+                f"Switched to {profile.get('label', info['name'])}, but Ollama is not running yet.\n"
+                f"Start it with `ollama serve` and pull the model with `ollama pull {model}`."
+            )
+        return (
+            f"Switched to {profile.get('label', info['name'])}, but the local server is not running.\n"
+            f"Load a Gemma model in LM Studio, start the local server, then try again."
+        )
+
     def _get_fallback_providers(self) -> list[BaseProvider]:
         """Build ordered list of available fallback providers (excluding current)."""
         current = self.config.get("provider", "anthropic").lower()
         fallbacks = []
+        seen = set()
+
+        _gemma_label, gemma_provider = self._get_gemma_recovery_candidate()
+        if gemma_provider:
+            profile_name = self.config.get("smart_local_recovery", {}).get("profile", "gemma")
+            profile = self._get_named_local_profile(profile_name) or {}
+            provider_name = profile.get("provider", "ollama").lower()
+            if provider_name != current:
+                gemma_info = gemma_provider.get_info()
+                fallbacks.append((provider_name, gemma_provider))
+                seen.add((provider_name, gemma_info.get("model", "")))
         for name in self._fallback_order:
             if name == current:
                 continue  # Skip the primary — it already failed
             try:
                 p = self._create_provider(name)
                 if p.is_available():
+                    info = p.get_info()
+                    key = (name, info.get("model", ""))
+                    if key in seen:
+                        continue
                     fallbacks.append((name, p))
+                    seen.add(key)
             except Exception:
                 continue
         return fallbacks
@@ -166,13 +475,22 @@ class Brain:
         # Try primary
         if self.provider.is_available():
             try:
-                reply, latency = self.provider.chat(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    max_tokens=max_tokens,
+                success, reply, latency, error = self._try_provider(
+                    self.provider,
+                    messages,
+                    system_prompt,
+                    max_tokens,
+                    tag=self.provider.get_info()["name"],
+                    allow_gemma_retry=True,
                 )
+                if success:
+                    if not self._last_fallback_msg:
+                        self._last_fallback_msg = ""
+                    return reply, latency
                 self._last_fallback_msg = ""
-                return reply, latency
+                primary_name = self.provider.get_info()["name"]
+                errors.append(error)
+                print(f"[BRAIN] Primary provider {primary_name} failed: {error}")
             except Exception as e:
                 primary_name = self.provider.get_info()["name"]
                 errors.append(f"{primary_name}: {e}")
@@ -188,17 +506,31 @@ class Brain:
                 "Enable auto-fallback in config or switch provider with /provider"
             )
 
+        gemma_already_tried = any("Gemma" in err or "gemma" in err for err in errors)
         for name, fallback in self._get_fallback_providers():
+            if gemma_already_tried and name == "ollama" and self._is_gemma_model(fallback):
+                continue
             try:
                 print(f"[BRAIN] Falling back to {name}...")
-                reply, latency = fallback.chat(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    max_tokens=max_tokens,
+                success, reply, latency, error = self._try_provider(
+                    fallback,
+                    messages,
+                    system_prompt,
+                    max_tokens,
+                    tag=name,
+                    allow_gemma_retry=not gemma_already_tried,
                 )
+                if not success:
+                    errors.append(error)
+                    print(f"[BRAIN] Fallback {name} failed: {error}")
+                    gemma_already_tried = gemma_already_tried or ("gemma" in error.lower())
+                    continue
+                if self._last_fallback_msg and "Retried with" in self._last_fallback_msg:
+                    print(f"[BRAIN] Fallback {name} succeeded via Gemma recovery in {latency}ms")
+                    return reply, latency
                 self._last_fallback_msg = (
                     f"(Served by {fallback.get_info()['name']} — "
-                    f"primary provider was unavailable)"
+                    f"primary provider failed or was unavailable)"
                 )
                 print(f"[BRAIN] Fallback {name} succeeded in {latency}ms")
                 return reply, latency
@@ -214,12 +546,14 @@ class Brain:
             "Configure at least one provider:\n"
             "  - Gemini (free): aistudio.google.dev/apikey\n"
             "  - Groq (free): console.groq.com/keys\n"
-            "  - Anthropic: console.anthropic.com/settings/keys"
+            "  - Anthropic: console.anthropic.com/settings/keys\n"
+            "  - Local Gemma via Ollama: install Ollama, run `ollama pull gemma3:4b`, then use `/provider gemma`"
         )
 
     def switch_provider(self, provider_name: str) -> str:
         """Switch to a different AI provider at runtime."""
         provider_name = provider_name.lower().strip()
+        local_profile = self._resolve_local_profile(provider_name)
 
         # Handle special commands
         if provider_name == "status":
@@ -230,9 +564,15 @@ class Brain:
             status = "ON" if self.fallback_enabled else "OFF"
             return f"Auto-fallback: {status}"
 
-        if provider_name not in PROVIDERS:
+        if local_profile:
+            self._apply_local_profile(local_profile)
+            provider_name = local_profile["provider"]
+        elif provider_name not in PROVIDERS:
             available = ", ".join(PROVIDERS.keys())
-            return f"Unknown provider '{provider_name}'. Available: {available}"
+            return (
+                f"Unknown provider '{provider_name}'. Available: {available}\n"
+                "Local shortcuts: gemma, gemma-fast, gemma:1b, gemma:4b, gemma:12b"
+            )
 
         self.config["provider"] = provider_name
         self.provider = self._create_provider()
@@ -240,6 +580,8 @@ class Brain:
         if not self.provider.is_available():
             info = self.provider.get_info()
             if info.get("local"):
+                if local_profile:
+                    return self._local_provider_help(local_profile, info)
                 return (
                     f"Switched to {info['name']}, but it's not running.\n"
                     f"Start it first, then try again."
@@ -258,6 +600,11 @@ class Brain:
             )
 
         info = self.provider.get_info()
+        if local_profile:
+            return (
+                f"Switched to {local_profile.get('label', info['name'])} via {info['name']} — "
+                f"model: {info['model']}"
+            )
         return f"Switched to {info['name']} — model: {info['model']}"
 
     def _provider_status(self) -> str:
@@ -287,10 +634,20 @@ class Brain:
 
         lines.append(f"\nAuto-fallback: {'ON' if self.fallback_enabled else 'OFF'}")
         lines.append(f"Fallback order: {' > '.join(self._fallback_order)}")
+        recovery_cfg = self.config.get("smart_local_recovery", {})
+        if recovery_cfg.get("enabled", True):
+            lines.append(f"Smart recovery: ON — unclear replies retry with {recovery_cfg.get('profile', 'gemma')}")
         lines.append(
             f"\nFree providers:\n"
             f"  Gemini  — aistudio.google.dev/apikey\n"
             f"  Groq    — console.groq.com/keys (fastest)"
+        )
+        lines.append(
+            f"\nLocal Gemma shortcuts:\n"
+            f"  /provider gemma      — Ollama gemma3:4b\n"
+            f"  /provider gemma-fast — Ollama gemma3:1b\n"
+            f"  /provider gemma:12b  — Ollama gemma3:12b\n"
+            f"  Install first: ollama pull gemma3:4b"
         )
         return "\n".join(lines)
 
@@ -316,11 +673,15 @@ class Brain:
         return prompt
 
     def add_user_message(self, text: str):
-        self.history.append({"role": "user", "content": text})
+        if not text or not text.strip():
+            return  # Never add empty messages — APIs reject them
+        self.history.append({"role": "user", "content": text.strip()})
         self._trim_history()
 
     def add_assistant_message(self, text: str):
-        self.history.append({"role": "assistant", "content": text})
+        if not text or not text.strip():
+            return
+        self.history.append({"role": "assistant", "content": text.strip()})
         self._trim_history()
 
     def _trim_history(self):
@@ -334,8 +695,11 @@ class Brain:
         """Send current history to providers with auto-fallback."""
         def _run():
             try:
+                # Filter out any empty messages before sending
+                clean_msgs = [m for m in self.history
+                              if m.get("content") and m["content"].strip()]
                 reply, latency = self._chat_with_fallback(
-                    messages=self.history,
+                    messages=clean_msgs,
                     system_prompt=system_prompt,
                     max_tokens=self.config.get("max_tokens", 2048),
                 )

@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
+from core.runtime_hygiene import sanitize_learning_text, should_cache_learning
 
 
 # ── Storage Path ─────────────────────────────────────────────
@@ -148,6 +149,8 @@ class CognitiveCore:
         best_ratio = 0.0
 
         for entry in self._data["cache"]:
+            if not should_cache_learning(entry.get("question", ""), entry.get("answer", "")):
+                continue
             ratio = SequenceMatcher(
                 None, question_lower, entry["question"].lower()
             ).ratio()
@@ -180,9 +183,14 @@ class CognitiveCore:
             provider:  Which backend generated the answer.
             rating:    Optional quality score (0-1).
         """
+        safe_question = sanitize_learning_text(question, limit=220)
+        safe_answer = sanitize_learning_text(answer, limit=700)
+        if not should_cache_learning(safe_question, safe_answer):
+            return
+
         entry = {
-            "question": question.strip(),
-            "answer": answer.strip(),
+            "question": safe_question,
+            "answer": safe_answer,
             "provider_used": provider,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "times_used": 1,
@@ -308,6 +316,9 @@ class CognitiveCore:
             (user_msg, "user"),
             (ai_response, "ai"),
         ]:
+            text = sanitize_learning_text(text, limit=500)
+            if not text:
+                continue
             for pattern, entity, relation in self._EXTRACTION_RULES:
                 for match in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
                     groups = match.groups()

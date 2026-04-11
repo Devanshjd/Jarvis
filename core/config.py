@@ -19,9 +19,14 @@ DEFAULT_CONFIG = {
         "tts_voice": "default",
         "wake_word": "jarvis",
         "listen_timeout": 5,
+        "engine": "classic",       # "classic" (STT+LLM+TTS) or "gemini" (real-time streaming)
+        "tts_engine": "auto",      # "auto", "edge", "pyttsx3", "elevenlabs"
+        "stt_engine": "auto",      # "auto", "whisper", "google"
+        "gemini_voice_name": "Kore",
+        "gemini_language_code": "en-US",
     },
     # Provider system — swap AI backends freely
-    "provider": "anthropic",       # anthropic, ollama, lmstudio, openai
+    "provider": "anthropic",       # anthropic, gemini, groq, deepseek, openai, ollama, lmstudio
     "model": "claude-sonnet-4-20250514",
     "max_tokens": 2048,
     # Ollama (local)
@@ -44,6 +49,7 @@ DEFAULT_CONFIG = {
     "gemini": {
         "api_key": "",
         "model": "gemini-2.0-flash",
+        "live_model": "gemini-2.0-flash-live",  # for real-time voice
     },
     # Groq (cloud — free tier, ultra-fast)
     "groq": {
@@ -57,6 +63,56 @@ DEFAULT_CONFIG = {
     },
     # Auto-fallback: try other providers if primary fails
     "auto_fallback": True,
+    "smart_local_recovery": {
+        "enabled": True,
+        "profile": "gemma",
+        "retry_on_uncertain": True,
+    },
+    "startup_provider": {
+        "prefer_local": True,
+        "profile": "gemma",
+    },
+    "screen": {
+        "live_interval": 3.0,
+        "analysis_interval": 12.0,
+        "live_frame_ttl": 5.0,
+    },
+    "ui": {
+        "external_core_window": False,
+        "window_geometry": "1280x820",
+        "min_width": 960,
+        "min_height": 620,
+        "enable_global_hide_hotkey": False,
+    },
+    "presence": {
+        "enable_tray": False,
+    },
+    "auto_repair": {
+        "enabled": True,
+        "failure_threshold": 3,
+        "failure_window_sec": 600,
+        "cooldown_sec": 300,
+        "max_repairs_per_target": 2,
+        "announce_success": True,
+    },
+    # Local model shortcuts for quick switching
+    "local_profiles": {
+        "gemma": {
+            "provider": "ollama",
+            "model": "gemma3:4b",
+            "base_url": "http://localhost:11434",
+        },
+        "gemma_fast": {
+            "provider": "ollama",
+            "model": "gemma3:1b",
+            "base_url": "http://localhost:11434",
+        },
+        "gemma_vision": {
+            "provider": "ollama",
+            "model": "gemma3:4b",
+            "base_url": "http://localhost:11434",
+        },
+    },
     "theme": "stark",
 }
 

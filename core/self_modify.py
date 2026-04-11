@@ -28,6 +28,8 @@ from datetime import datetime
 from typing import Optional
 from pathlib import Path
 
+from core.subprocess_utils import run_text
+
 logger = logging.getLogger("jarvis.self_modify")
 
 # Files that JARVIS can NEVER modify (safety-critical)
@@ -251,10 +253,9 @@ class SelfModificationEngine:
                 f.write(code)
 
             # Execute with timeout
-            import subprocess
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, str(sandbox_file)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, timeout=10,
                 cwd=str(self.project_root),
             )
 

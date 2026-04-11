@@ -24,6 +24,7 @@ from datetime import datetime
 
 from core.plugin_manager import PluginBase
 from core.config import save_config
+from core.subprocess_utils import run_text
 
 MAX_OUTPUT = 3000
 
@@ -360,9 +361,9 @@ class CodeAssistPlugin(PluginBase):
 
         # Fallback: direct execution without resilience
         try:
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, "-c", code],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, timeout=15,
                 cwd=os.path.expanduser("~"),
             )
             output = result.stdout
@@ -383,9 +384,9 @@ class CodeAssistPlugin(PluginBase):
             return f"Unsupported language: {lang}"
 
         try:
-            result = subprocess.run(
+            result = run_text(
                 cmd_parts + [code],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, timeout=15,
                 cwd=os.path.expanduser("~"),
             )
             output = result.stdout
@@ -465,8 +466,8 @@ class CodeAssistPlugin(PluginBase):
 
         cmd = cmd_map.get(git_cmd, ["git", git_cmd])
         try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=15,
+            result = run_text(
+                cmd, capture_output=True, timeout=15,
                 cwd=os.getcwd(),
             )
             output = result.stdout
@@ -487,9 +488,9 @@ class CodeAssistPlugin(PluginBase):
     def _run_pip(self, jarvis, package: str) -> str:
         """Install a pip package."""
         try:
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, "-m", "pip", "install", package],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, timeout=120,
             )
             output = result.stdout
             if result.stderr:
@@ -523,9 +524,9 @@ class CodeAssistPlugin(PluginBase):
 
         # Pip version
         try:
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, "-m", "pip", "--version"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, timeout=10,
             )
             pip_ver = result.stdout.strip().split("\n")[0] if result.stdout else "unknown"
             lines.append(f"  Pip:             {pip_ver}")
@@ -534,9 +535,9 @@ class CodeAssistPlugin(PluginBase):
 
         # Installed packages count
         try:
-            result = subprocess.run(
+            result = run_text(
                 [sys.executable, "-m", "pip", "list", "--format=json"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True, timeout=15,
             )
             if result.returncode == 0:
                 packages = json.loads(result.stdout)

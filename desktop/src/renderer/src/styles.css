@@ -1,0 +1,304 @@
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+:root {
+  color-scheme: dark;
+  font-family:
+    'Segoe UI', 'Inter', 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #000000;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000000;
+  color: #f3f4f6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+/* ─── Window chrome ─── */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag,
+button,
+input,
+textarea {
+  -webkit-app-region: no-drag;
+}
+
+/* ─── IRIS glassmorphism panels ─── */
+.iris-panel {
+  background: rgba(10, 12, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 20px 70px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(18px);
+}
+
+.iris-panel-tight {
+  background: rgba(10, 12, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  backdrop-filter: blur(18px);
+}
+
+.iris-label {
+  color: rgba(161, 161, 170, 0.9);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.iris-setting-card {
+  background: rgba(10, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.75rem;
+  padding: 1.75rem;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.iris-setting-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.iris-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.iris-input-label {
+  color: rgb(161 161 170);
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.iris-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.9rem;
+  background: #050505;
+  padding: 0.95rem 1rem;
+  color: #f4f4f5;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.iris-input:focus {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: #070808;
+}
+
+/* ─── Scrollbars ─── */
+.scrollbar-small {
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-width: thin;
+}
+
+.scrollbar-small::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-small::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-small::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+/* ─── IRIS glow effects ─── */
+.iris-glow-emerald {
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+}
+
+.iris-glow-emerald-strong {
+  box-shadow: 0 0 50px rgba(16, 185, 129, 0.25), 0 0 100px rgba(16, 185, 129, 0.08);
+}
+
+/* ─── Metric card ─── */
+.iris-metric-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: border-color 200ms ease;
+}
+
+.iris-metric-card:hover {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+/* ─── Scan line overlay (CRT effect) ─── */
+.iris-scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.5) 2px,
+    rgba(255, 255, 255, 0.5) 4px
+  );
+  background-size: 100% 4px;
+}
+
+/* ─── Macro/workflow grid background ─── */
+.iris-grid-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ─── Status dot animations ─── */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.iris-status-dot {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ─── Corner bracket styles ─── */
+.iris-bracket {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.iris-bracket-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+.iris-bracket-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+.iris-bracket-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+.iris-bracket-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* ─── Widget styles ─── */
+.widget-shell-glow {
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.65),
+    0 0 1px rgba(16, 185, 129, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* ─── GSAP page transition base ─── */
+.gsap-page-enter {
+  will-change: transform, opacity, filter;
+}
+
+/* ─── Shimmer sweep for loading skeletons ─── */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Enhanced hover micro-animations ─── */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.25), 0 0 80px rgba(16, 185, 129, 0.08);
+  }
+}
+
+.iris-glow-animate {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Text shimmer effect ─── */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.iris-text-shimmer {
+  background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/* ─── Markdown Prose Theme ─── */
+.prose-jarvis {
+  color: #d4d4d8;
+  line-height: 1.65;
+}
+
+.prose-jarvis p {
+  margin: 0.25rem 0;
+}
+
+.prose-jarvis pre {
+  margin: 0;
+  padding: 0;
+}
+
+.prose-jarvis > :first-child {
+  margin-top: 0;
+}
+
+.prose-jarvis > :last-child {
+  margin-bottom: 0;
+}
+
+/* ─── Loading spinner ─── */
+@keyframes iris-spin {
+  to { transform: rotate(360deg); }
+}
+
+.iris-spinner {
+  animation: iris-spin 1s linear infinite;
+  border: 2px solid rgba(16, 185, 129, 0.15);
+  border-top-color: #10b981;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+}
+
+/* ─── Notification badge pulse ─── */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.iris-badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+

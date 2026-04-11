@@ -26,7 +26,22 @@ Desktop.ini
 .jarvis_config.json
 *.env
 credentials.*
+training_data/
+.tmp_task_brain_test.json*
 
 # Compiled
 *.pyc
 *.pyo
+
+# Node / Electron
+node_modules/
+desktop/node_modules/
+desktop/out/
+desktop/dist/
+*.tsbuildinfo
+
+# JARVIS runtime data
+.jarvis_sandbox/
+.jarvis_backups/
+.jarvis_modifications.log
+.claude/

@@ -109,6 +109,11 @@ class ProactiveEngine:
         if not self._can_notify(etype):
             return
 
+        # Intelligence-based suppression (user dismissed this type too many times)
+        intel = getattr(self.app, "intelligence", None)
+        if intel and intel.feedback.should_suppress_notification(etype):
+            return
+
         # Generate notification
         notification = self._generate_notification(event)
         if notification:

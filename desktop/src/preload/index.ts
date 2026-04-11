@@ -30,7 +30,7 @@ const desktopApi = {
     }
   },
 
-  // ─── Native Voice Tools (Phase 1) ───
+  // ─── Native Voice Tools (Phase 1 — Batch A) ───
   toolReadFile: (filePath: string) => ipcRenderer.invoke('tool-read-file', filePath),
   toolWriteFile: (fileName: string, content: string) =>
     ipcRenderer.invoke('tool-write-file', fileName, content),
@@ -55,7 +55,30 @@ const desktopApi = {
   // ─── Native Voice Tools (Phase 1 — Batch C: Memory & Tools) ───
   toolSaveCoreMemory: (fact: string) => ipcRenderer.invoke('tool-save-core-memory', fact),
   toolRetrieveCoreMemory: () => ipcRenderer.invoke('tool-retrieve-core-memory'),
-  toolOpenProject: (folderPath: string) => ipcRenderer.invoke('tool-open-project', folderPath)
+  toolOpenProject: (folderPath: string) => ipcRenderer.invoke('tool-open-project', folderPath),
+
+  // ─── Batch D: Window Management, Macros & Lock ───
+  toolSnapWindow: (appName: string, position: string) =>
+    ipcRenderer.invoke('tool-snap-window', appName, position),
+  toolExecuteMacro: (macroName: string) =>
+    ipcRenderer.invoke('tool-execute-macro', macroName),
+  toolLockSystem: () => ipcRenderer.invoke('tool-lock-system'),
+
+  // ─── Macro CRUD ───
+  macrosList: () => ipcRenderer.invoke('macros-list'),
+  macrosSave: (macro: { id: string; name: string; steps: Array<{ type: string; params: Record<string, string> }> }) =>
+    ipcRenderer.invoke('macros-save', macro),
+  macrosDelete: (id: string) => ipcRenderer.invoke('macros-delete', id),
+
+  // ─── Phase 2: Communications ───
+  toolSendWhatsapp: (contact: string, message: string) =>
+    ipcRenderer.invoke('tool-send-whatsapp', contact, message),
+  toolOpenWhatsappChat: (contact: string) =>
+    ipcRenderer.invoke('tool-open-whatsapp-chat', contact),
+  toolSendTelegram: (contact: string, message: string) =>
+    ipcRenderer.invoke('tool-send-telegram', contact, message),
+  toolSendEmail: (to: string, subject: string, body: string) =>
+    ipcRenderer.invoke('tool-send-email', to, subject, body)
 }
 
 if (process.contextIsolated) {

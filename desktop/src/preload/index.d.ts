@@ -54,6 +54,17 @@ declare global {
     updatedAt: string
   }
 
+  interface MacroStep {
+    type: string
+    params: Record<string, string>
+  }
+
+  interface MacroItem {
+    id: string
+    name: string
+    steps: MacroStep[]
+  }
+
   interface Window {
     electron: {
       ipcRenderer: {
@@ -112,6 +123,22 @@ declare global {
       toolSaveCoreMemory: (fact: string) => Promise<{ success: boolean; message?: string; total?: number; error?: string }>
       toolRetrieveCoreMemory: () => Promise<{ success: boolean; memories: Array<{ fact: string; savedAt: string }>; total: number; message?: string }>
       toolOpenProject: (folderPath: string) => Promise<{ success: boolean; message?: string; error?: string }>
+
+      // ─── Batch D: Window Management, Macros & Lock ───
+      toolSnapWindow: (appName: string, position: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolExecuteMacro: (macroName: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolLockSystem: () => Promise<{ success: boolean; message?: string; error?: string }>
+
+      // ─── Macro CRUD ───
+      macrosList: () => Promise<MacroItem[]>
+      macrosSave: (macro: MacroItem) => Promise<{ success: boolean }>
+      macrosDelete: (id: string) => Promise<{ success: boolean }>
+
+      // ─── Phase 2: Communications ───
+      toolSendWhatsapp: (contact: string, message: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolOpenWhatsappChat: (contact: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolSendTelegram: (contact: string, message: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolSendEmail: (to: string, subject: string, body: string) => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }

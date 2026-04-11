@@ -357,6 +357,84 @@ export class JarvisGeminiLive {
                         required: ['query']
                       }
                     },
+                    // ─── Batch D: Window Management, Macros & Lock ───
+                    {
+                      name: 'snap_window',
+                      description: 'Move and resize a window to a specific screen position. Positions: left, right, top-left, top-right, bottom-left, bottom-right, center, maximize, minimize.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          app_name: { type: 'STRING', description: 'The application name (e.g. chrome, discord, notepad, vscode).' },
+                          position: { type: 'STRING', description: 'Target position: left, right, top-left, top-right, bottom-left, bottom-right, center, maximize, minimize.' }
+                        },
+                        required: ['app_name', 'position']
+                      }
+                    },
+                    {
+                      name: 'execute_macro',
+                      description: 'Run a saved JARVIS macro sequence by name. Macros contain ordered steps like opening apps, running commands, typing text, etc.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          macro_name: { type: 'STRING', description: 'The name of the macro to execute.' }
+                        },
+                        required: ['macro_name']
+                      }
+                    },
+                    {
+                      name: 'lock_system',
+                      description: 'Lock the computer screen immediately.',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    // ─── Phase 2: Communications ───
+                    {
+                      name: 'send_whatsapp',
+                      description: 'Send a WhatsApp message to a contact. Can use phone number (+44xxx) or contact name.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          contact: { type: 'STRING', description: 'Contact name or phone number (with country code like +44).' },
+                          message: { type: 'STRING', description: 'The message text to send.' }
+                        },
+                        required: ['contact', 'message']
+                      }
+                    },
+                    {
+                      name: 'open_whatsapp_chat',
+                      description: 'Open a WhatsApp chat with a specific contact without sending a message.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          contact: { type: 'STRING', description: 'Contact name or phone number.' }
+                        },
+                        required: ['contact']
+                      }
+                    },
+                    {
+                      name: 'send_telegram',
+                      description: 'Send a Telegram message to a contact.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          contact: { type: 'STRING', description: 'Contact name or username.' },
+                          message: { type: 'STRING', description: 'The message text to send.' }
+                        },
+                        required: ['contact', 'message']
+                      }
+                    },
+                    {
+                      name: 'send_email',
+                      description: 'Send an email. Uses SMTP if configured, otherwise opens the default email app.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          to: { type: 'STRING', description: 'Recipient email address.' },
+                          subject: { type: 'STRING', description: 'Email subject line.' },
+                          body: { type: 'STRING', description: 'Email body text.' }
+                        },
+                        required: ['to', 'subject', 'body']
+                      }
+                    },
                     {
                       name: 'jarvis_chat',
                       description: 'Fallback: Send a complex request to the JARVIS AI backend.',
@@ -701,6 +779,52 @@ export class JarvisGeminiLive {
 
           case 'open_project': {
             const r = await api.toolOpenProject(args.folder_path)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          // ─── Batch D: Window Management, Macros & Lock ───
+
+          case 'snap_window': {
+            const r = await api.toolSnapWindow(args.app_name, args.position)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'execute_macro': {
+            const r = await api.toolExecuteMacro(args.macro_name)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'lock_system': {
+            const r = await api.toolLockSystem()
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          // ─── Phase 2: Communications ───
+
+          case 'send_whatsapp': {
+            const r = await api.toolSendWhatsapp(args.contact, args.message)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'open_whatsapp_chat': {
+            const r = await api.toolOpenWhatsappChat(args.contact)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'send_telegram': {
+            const r = await api.toolSendTelegram(args.contact, args.message)
+            output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'send_email': {
+            const r = await api.toolSendEmail(args.to, args.subject, args.body)
             output = r.success ? `✅ ${r.message}` : `Error: ${r.error}`
             break
           }

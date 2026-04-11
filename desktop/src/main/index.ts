@@ -1043,11 +1043,335 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── BATCH D: Window Management, Macros & Lock ────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  ipcMain.handle('tool-snap-window', async (_event, appName: string, position: string) => {
+    try {
+      // Get screen dimensions
+      const { screen } = await import('electron')
+      const primary = screen.getPrimaryDisplay()
+      const { width: sw, height: sh } = primary.workAreaSize
+      const { x: ox, y: oy } = primary.workArea
+
+      const positions: Record<string, { x: number; y: number; w: number; h: number }> = {
+        left:          { x: ox, y: oy, w: Math.round(sw / 2), h: sh },
+        right:         { x: ox + Math.round(sw / 2), y: oy, w: Math.round(sw / 2), h: sh },
+        'top-left':    { x: ox, y: oy, w: Math.round(sw / 2), h: Math.round(sh / 2) },
+        'top-right':   { x: ox + Math.round(sw / 2), y: oy, w: Math.round(sw / 2), h: Math.round(sh / 2) },
+        'bottom-left': { x: ox, y: oy + Math.round(sh / 2), w: Math.round(sw / 2), h: Math.round(sh / 2) },
+        'bottom-right':{ x: ox + Math.round(sw / 2), y: oy + Math.round(sh / 2), w: Math.round(sw / 2), h: Math.round(sh / 2) },
+        center:        { x: ox + Math.round(sw / 4), y: oy + Math.round(sh / 4), w: Math.round(sw / 2), h: Math.round(sh / 2) },
+        maximize:      { x: ox, y: oy, w: sw, h: sh },
+        minimize:      { x: 0, y: 0, w: 0, h: 0 }
+      }
+
+      const pos = positions[position.toLowerCase()]
+      if (!pos) {
+        return { success: false, error: `Unknown position "${position}". Use: left, right, top-left, top-right, bottom-left, bottom-right, center, maximize, minimize` }
+      }
+
+      if (position.toLowerCase() === 'minimize') {
+        // Minimize the window
+        const psCmd = `(Get-Process -Name '*${appName.replace(/'/g, "''")}*' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1).MainWindowHandle`
+        const result = spawnSync('powershell', ['-NoProfile', '-Command', `
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public class WinAPI { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }
+"@
+          $h = ${psCmd}
+          if ($h) { [WinAPI]::ShowWindow($h, 6) }
+        `], { encoding: 'utf8', windowsHide: true, timeout: 5000 })
+        return { success: true, message: `Minimized ${appName}` }
+      }
+
+      // Move and resize window using PowerShell + Win32
+      const psScript = `
+        Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public class WinAPI {
+            [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int W, int H, bool repaint);
+            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+          }
+"@
+        $proc = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*${appName.replace(/'/g, "''")}*' -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+        if ($proc) {
+          [WinAPI]::ShowWindow($proc.MainWindowHandle, 9)
+          [WinAPI]::MoveWindow($proc.MainWindowHandle, ${pos.x}, ${pos.y}, ${pos.w}, ${pos.h}, $true)
+          [WinAPI]::SetForegroundWindow($proc.MainWindowHandle)
+          "OK"
+        } else { "NOT_FOUND" }
+      `
+      const result = spawnSync('powershell', ['-NoProfile', '-Command', psScript], {
+        encoding: 'utf8', windowsHide: true, timeout: 8000
+      })
+      const output = (result.stdout || '').trim()
+      if (output === 'NOT_FOUND') {
+        return { success: false, error: `No window found for "${appName}". Is it running?` }
+      }
+      return { success: true, message: `Snapped ${appName} to ${position}` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ─── Macro CRUD + Execute ───
+
+  const macrosPath = join(getJarvisRoot(), '.jarvis_sandbox', 'macros.json')
+
+  async function loadMacros(): Promise<Array<{ id: string; name: string; steps: Array<{ type: string; params: Record<string, string> }> }>> {
+    try {
+      const raw = await fs.readFile(macrosPath, 'utf8')
+      return JSON.parse(raw)
+    } catch {
+      return []
+    }
+  }
+
+  async function saveMacros(macros: unknown) {
+    await fs.mkdir(join(getJarvisRoot(), '.jarvis_sandbox'), { recursive: true })
+    await fs.writeFile(macrosPath, JSON.stringify(macros, null, 2), 'utf8')
+  }
+
+  ipcMain.handle('macros-list', async () => loadMacros())
+
+  ipcMain.handle('macros-save', async (_event, macro: { id: string; name: string; steps: Array<{ type: string; params: Record<string, string> }> }) => {
+    const macros = await loadMacros()
+    const idx = macros.findIndex(m => m.id === macro.id)
+    if (idx >= 0) macros[idx] = macro
+    else macros.push(macro)
+    await saveMacros(macros)
+    return { success: true }
+  })
+
+  ipcMain.handle('macros-delete', async (_event, id: string) => {
+    const macros = await loadMacros()
+    await saveMacros(macros.filter(m => m.id !== id))
+    return { success: true }
+  })
+
+  ipcMain.handle('tool-execute-macro', async (_event, macroName: string) => {
+    try {
+      const macros = await loadMacros()
+      const macro = macros.find(m => m.name.toLowerCase() === macroName.toLowerCase())
+      if (!macro) {
+        const available = macros.map(m => m.name).join(', ')
+        return { success: false, error: `Macro "${macroName}" not found. Available: ${available || 'none'}` }
+      }
+
+      const results: string[] = []
+      for (const step of macro.steps) {
+        try {
+          switch (step.type) {
+            case 'open_app':
+              spawn(step.params.cmd || 'start', (step.params.args || step.params.app || '').split(' ').filter(Boolean), { shell: true, detached: true, stdio: 'ignore' })
+              results.push(`✅ Opened ${step.params.app || step.params.cmd}`)
+              break
+            case 'run_terminal': {
+              const r = spawnSync(step.params.command || '', { shell: true, encoding: 'utf8', timeout: 10000, cwd: step.params.path || undefined })
+              results.push(`✅ Ran: ${step.params.command} (exit ${r.status})`)
+              break
+            }
+            case 'wait': {
+              const ms = parseInt(step.params.seconds || '1') * 1000
+              await new Promise(resolve => setTimeout(resolve, Math.min(ms, 30000)))
+              results.push(`✅ Waited ${step.params.seconds}s`)
+              break
+            }
+            case 'ghost_type':
+              spawnSync('powershell', ['-Command', `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${(step.params.text || '').replace(/'/g, "''")}')`], { shell: true, timeout: 5000 })
+              results.push(`✅ Typed: "${(step.params.text || '').slice(0, 30)}"`)
+              break
+            case 'press_shortcut': {
+              let combo = ''
+              const mods = (step.params.modifiers || '').split(',').filter(Boolean)
+              if (mods.includes('ctrl')) combo += '^'
+              if (mods.includes('alt')) combo += '%'
+              if (mods.includes('shift')) combo += '+'
+              combo += step.params.key || ''
+              spawnSync('powershell', ['-Command', `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${combo}')`], { shell: true, timeout: 5000 })
+              results.push(`✅ Pressed ${step.params.modifiers || ''}+${step.params.key}`)
+              break
+            }
+            case 'google_search':
+              await shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(step.params.query || '')}`)
+              results.push(`✅ Searched: ${step.params.query}`)
+              break
+            default:
+              results.push(`⚠️ Unknown step type: ${step.type}`)
+          }
+        } catch (stepErr) {
+          results.push(`❌ Step "${step.type}" failed: ${(stepErr as Error).message}`)
+        }
+        // Small delay between steps
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+
+      return { success: true, message: `Macro "${macro.name}" completed (${macro.steps.length} steps):\n${results.join('\n')}` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-lock-system', async () => {
+    try {
+      spawnSync('rundll32.exe', ['user32.dll,LockWorkStation'], { shell: false, timeout: 3000 })
+      return { success: true, message: 'System locked.' }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── PHASE 2: Communications ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  ipcMain.handle('tool-send-whatsapp', async (_event, contact: string, message: string) => {
+    try {
+      // If contact looks like a phone number, use wa.me direct link
+      const cleaned = contact.replace(/[\s\-()]/g, '')
+      if (/^\+?\d{7,15}$/.test(cleaned)) {
+        const num = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned
+        const url = `https://wa.me/${num}?text=${encodeURIComponent(message)}`
+        await shell.openExternal(url)
+        return { success: true, message: `Opened WhatsApp chat with ${contact}. Message pre-filled — press Send in WhatsApp.` }
+      }
+
+      // For contact names, open WhatsApp desktop and search
+      spawn('start', ['whatsapp:'], { shell: true, detached: true, stdio: 'ignore' })
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Use pyautogui via backend to search + send
+      try {
+        const resp = await new Promise<string>((resolve, reject) => {
+          const req = http.request({
+            host: '127.0.0.1', port: BACKEND_PORT, path: '/api/chat',
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+          }, (res) => {
+            let data = ''
+            res.on('data', chunk => { data += chunk })
+            res.on('end', () => resolve(data))
+          })
+          req.on('error', reject)
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+          req.write(JSON.stringify({ text: `send whatsapp message to ${contact} saying: ${message}`, approve_desktop: true }))
+          req.end()
+        })
+        const result = JSON.parse(resp)
+        return { success: true, message: result.reply || `WhatsApp message queued for ${contact}` }
+      } catch {
+        return { success: true, message: `Opened WhatsApp. Search for "${contact}" and send your message manually.` }
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-open-whatsapp-chat', async (_event, contact: string) => {
+    try {
+      const cleaned = contact.replace(/[\s\-()]/g, '')
+      if (/^\+?\d{7,15}$/.test(cleaned)) {
+        const num = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned
+        await shell.openExternal(`https://wa.me/${num}`)
+        return { success: true, message: `Opened WhatsApp chat with ${contact}` }
+      }
+      // Open WhatsApp app
+      spawn('start', ['whatsapp:'], { shell: true, detached: true, stdio: 'ignore' })
+      return { success: true, message: `Opened WhatsApp. Search for "${contact}" to open their chat.` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-send-telegram', async (_event, contact: string, message: string) => {
+    try {
+      // Open Telegram desktop
+      spawn('start', ['telegram:'], { shell: true, detached: true, stdio: 'ignore' })
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Route through backend messaging plugin
+      try {
+        const resp = await new Promise<string>((resolve, reject) => {
+          const req = http.request({
+            host: '127.0.0.1', port: BACKEND_PORT, path: '/api/chat',
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+          }, (res) => {
+            let data = ''
+            res.on('data', chunk => { data += chunk })
+            res.on('end', () => resolve(data))
+          })
+          req.on('error', reject)
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+          req.write(JSON.stringify({ text: `send telegram message to ${contact} saying: ${message}`, approve_desktop: true }))
+          req.end()
+        })
+        const result = JSON.parse(resp)
+        return { success: true, message: result.reply || `Telegram message queued for ${contact}` }
+      } catch {
+        return { success: true, message: `Opened Telegram. Search for "${contact}" and send your message manually.` }
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('tool-send-email', async (_event, to: string, subject: string, body: string) => {
+    try {
+      const config = await readJarvisConfig()
+      const emailConf = config.email || {}
+      const smtpHost = emailConf.smtp_host
+      const smtpUser = emailConf.smtp_user
+
+      // If SMTP is configured, try native send via PowerShell
+      if (smtpHost && smtpUser) {
+        const smtpPort = emailConf.smtp_port || 587
+        const smtpPass = emailConf.smtp_pass || ''
+        const fromName = emailConf.from_name || config.identity?.name || 'JARVIS'
+
+        const psScript = `
+          $smtp = New-Object Net.Mail.SmtpClient("${smtpHost}", ${smtpPort})
+          $smtp.EnableSsl = $true
+          $smtp.Credentials = New-Object System.Net.NetworkCredential("${smtpUser}", "${smtpPass}")
+          $msg = New-Object Net.Mail.MailMessage
+          $msg.From = New-Object Net.Mail.MailAddress("${smtpUser}", "${fromName}")
+          $msg.To.Add("${to}")
+          $msg.Subject = "${subject.replace(/"/g, '`"')}"
+          $msg.Body = "${body.replace(/"/g, '`"').replace(/\n/g, '`n')}"
+          $smtp.Send($msg)
+          "SENT"
+        `
+        const result = spawnSync('powershell', ['-NoProfile', '-Command', psScript], {
+          encoding: 'utf8', windowsHide: true, timeout: 15000
+        })
+        const output = (result.stdout || '').trim()
+        if (output === 'SENT') {
+          return { success: true, message: `✉️ Email sent to ${to} with subject "${subject}"` }
+        }
+        const err = (result.stderr || '').trim()
+        if (err) {
+          return { success: false, error: `SMTP error: ${err.slice(0, 200)}` }
+        }
+      }
+
+      // Fallback: mailto link
+      const mailtoUrl = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      await shell.openExternal(mailtoUrl)
+      return { success: true, message: `Opened email compose to ${to} in your default email app. ${!smtpHost ? '(Configure SMTP in settings for direct send)' : ''}` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return
     mainWindow.webContents.send('overlay-mode-toggled')
   })
+
 
   if (is.dev && process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)

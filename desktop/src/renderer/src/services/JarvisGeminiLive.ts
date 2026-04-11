@@ -78,6 +78,7 @@ export class JarvisGeminiLive {
   private visionVideo: HTMLVideoElement | null = null
   private visionTimer: number | null = null
   private visionSource: VisionSource = 'none'
+  private lastOptions: StartOptions | null = null
   private state: VoiceBridgeState = {
     loaded: false,
     active: false,
@@ -115,6 +116,7 @@ export class JarvisGeminiLive {
       console.log('[GeminiLive] Already connecting or active, skipping start')
       return
     }
+    this.lastOptions = options
     const apiKey = options.apiKey.trim()
     console.log('[GeminiLive] Starting voice session', {
       hasKey: Boolean(apiKey),
@@ -771,9 +773,32 @@ export class JarvisGeminiLive {
           (event.code ? `Gemini Live session closed (${event.code}).` : 'Gemini Live session closed unexpectedly.')
         console.warn('[GeminiLive] WebSocket closed:', event.code, closeReason || '(no reason)')
         this.cleanupSocketState(false)
-        this.updateState({
-          error: message
-        })
+
+        // ─── Auto-reconnect if session drops unexpectedly ───
+        // Don't reconnect if user manually stopped (code 1000 = normal close)
+        if (event.code !== 1000 && !this.state.mic_muted) {
+          console.log('[GeminiLive] 🔄 Auto-reconnecting in 3 seconds...')
+          this.updateState({
+            error: 'Reconnecting...',
+            connecting: true
+          })
+          setTimeout(() => {
+            if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+              console.log('[GeminiLive] 🔄 Reconnecting now...')
+              this.start(this.lastOptions!).catch((err) => {
+                console.error('[GeminiLive] ❌ Reconnect failed:', err)
+                this.updateState({
+                  error: message,
+                  connecting: false
+                })
+              })
+            }
+          }, 3000)
+        } else {
+          this.updateState({
+            error: message
+          })
+        }
       }
     }).catch(async (error) => {
       await this.stop(false)

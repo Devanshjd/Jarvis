@@ -1,0 +1,11 @@
+{
+  "total_entries": 667,
+  "generated_at": "2026-04-11T20:28:13.748868",
+  "tools_covered": 38,
+  "types": {
+    "direct": 166,
+    "augmented": 487,
+    "chain": 6,
+    "reasoning": 8
+  }
+}

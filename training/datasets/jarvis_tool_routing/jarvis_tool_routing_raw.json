@@ -1,0 +1,4004 @@
+[
+  {
+    "instruction": "read the file config.json",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"config.json\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo read the file config.json right now",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"config.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis read the file config.json for me",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"config.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please read the file config.json for me",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"config.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show me what's in main.py",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "please show me what's in main.py please",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to show me what's in main.py right now",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey show me what's in main.py please",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open and display README.md",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"README.md\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you open and display readme.md",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"README.md\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to open and display readme.md",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"README.md\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please open and display readme.md",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"README.md\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "cat the contents of index.ts",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo cat the contents of index.ts",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to cat the contents of index.ts for me",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you cat the contents of index.ts right now",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what does package.json contain",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"package.json\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "please what does package.json contain asap",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"package.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo what does package.json contain please",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"package.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to what does package.json contain",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"package.json\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "read my notes.txt file",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"notes.txt\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo read my notes.txt file quickly",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"notes.txt\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to read my notes.txt file",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"notes.txt\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo read my notes.txt file",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"notes.txt\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "display the log file at logs/app.log",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"logs/app.log\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to display the log file at logs/app.log quickly",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"logs/app.log\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis display the log file at logs/app.log for me",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"logs/app.log\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo display the log file at logs/app.log quickly",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"logs/app.log\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show the CSS file styles.css",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"styles.css\"}}",
+    "tool_name": "read_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey show the css file styles.css quickly",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"styles.css\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey show the css file styles.css quickly",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"styles.css\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to show the css file styles.css",
+    "output": "{\"tool\": \"read_file\", \"params\": {\"file_path\": \"styles.css\"}}",
+    "tool_name": "read_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create a file called hello.py with print hello world",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"hello.py\", \"content\": \"print('hello world')\"}}",
+    "tool_name": "write_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to create a file called hello.py with print hello world right now",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"hello.py\", \"content\": \"print('hello world')\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create a file called hello.py with print hello world please",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"hello.py\", \"content\": \"print('hello world')\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo create a file called hello.py with print hello world right now",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"hello.py\", \"content\": \"print('hello world')\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "write a todo list to tasks.txt",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"tasks.txt\", \"content\": \"1. Complete project\\n2. Review code\\n3. Deploy\"}}",
+    "tool_name": "write_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you write a todo list to tasks.txt",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"tasks.txt\", \"content\": \"1. Complete project\\n2. Review code\\n3. Deploy\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you write a todo list to tasks.txt for me",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"tasks.txt\", \"content\": \"1. Complete project\\n2. Review code\\n3. Deploy\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo write a todo list to tasks.txt quickly",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"tasks.txt\", \"content\": \"1. Complete project\\n2. Review code\\n3. Deploy\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "save this code to script.js: console.log('hi')",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"script.js\", \"content\": \"console.log('hi')\"}}",
+    "tool_name": "write_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to save this code to script.js: console.log('hi')",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"script.js\", \"content\": \"console.log('hi')\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis save this code to script.js: console.log('hi') for me",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"script.js\", \"content\": \"console.log('hi')\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create notes.md with meeting notes heading",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"notes.md\", \"content\": \"# Meeting Notes\\n\\n\"}}",
+    "tool_name": "write_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis create notes.md with meeting notes heading quickly",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"notes.md\", \"content\": \"# Meeting Notes\\n\\n\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to create notes.md with meeting notes heading",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"notes.md\", \"content\": \"# Meeting Notes\\n\\n\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create notes.md with meeting notes heading for me",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"notes.md\", \"content\": \"# Meeting Notes\\n\\n\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "make a new file config.yaml with name: jarvis",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"config.yaml\", \"content\": \"name: jarvis\"}}",
+    "tool_name": "write_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey make a new file config.yaml with name: jarvis please",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"config.yaml\", \"content\": \"name: jarvis\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey make a new file config.yaml with name: jarvis quickly",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"config.yaml\", \"content\": \"name: jarvis\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis make a new file config.yaml with name: jarvis right now",
+    "output": "{\"tool\": \"write_file\", \"params\": {\"file_name\": \"config.yaml\", \"content\": \"name: jarvis\"}}",
+    "tool_name": "write_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "delete the file temp.txt",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"temp.txt\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo delete the file temp.txt",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"temp.txt\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you delete the file temp.txt for me",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"temp.txt\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis delete the file temp.txt please",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"temp.txt\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "rename report.docx to final_report.docx",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"rename\", \"source_path\": \"report.docx\", \"dest_path\": \"final_report.docx\"}}",
+    "tool_name": "manage_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you rename report.docx to final_report.docx asap",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"rename\", \"source_path\": \"report.docx\", \"dest_path\": \"final_report.docx\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis rename report.docx to final_report.docx right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"rename\", \"source_path\": \"report.docx\", \"dest_path\": \"final_report.docx\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis rename report.docx to final_report.docx right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"rename\", \"source_path\": \"report.docx\", \"dest_path\": \"final_report.docx\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "copy main.py to backup/main.py",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"copy\", \"source_path\": \"main.py\", \"dest_path\": \"backup/main.py\"}}",
+    "tool_name": "manage_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey copy main.py to backup/main.py right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"copy\", \"source_path\": \"main.py\", \"dest_path\": \"backup/main.py\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please copy main.py to backup/main.py",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"copy\", \"source_path\": \"main.py\", \"dest_path\": \"backup/main.py\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to copy main.py to backup/main.py",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"copy\", \"source_path\": \"main.py\", \"dest_path\": \"backup/main.py\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "move old.log to archive/old.log",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"move\", \"source_path\": \"old.log\", \"dest_path\": \"archive/old.log\"}}",
+    "tool_name": "manage_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you move old.log to archive/old.log for me",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"move\", \"source_path\": \"old.log\", \"dest_path\": \"archive/old.log\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you move old.log to archive/old.log",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"move\", \"source_path\": \"old.log\", \"dest_path\": \"archive/old.log\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis move old.log to archive/old.log right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"move\", \"source_path\": \"old.log\", \"dest_path\": \"archive/old.log\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "remove the temporary file cache.db",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"cache.db\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to remove the temporary file cache.db right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"cache.db\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "remove the temporary file cache.db right now",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"cache.db\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis remove the temporary file cache.db",
+    "output": "{\"tool\": \"manage_file\", \"params\": {\"operation\": \"delete\", \"source_path\": \"cache.db\", \"dest_path\": \"\"}}",
+    "tool_name": "manage_file",
+    "type": "augmented"
+  },
+  {
+    "instruction": "list files in the current directory",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \".\"}}",
+    "tool_name": "read_directory",
+    "type": "direct"
+  },
+  {
+    "instruction": "please list files in the current directory right now",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \".\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please list files in the current directory quickly",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \".\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to list files in the current directory please",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \".\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show me what's in the downloads folder",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Downloads\"}}",
+    "tool_name": "read_directory",
+    "type": "direct"
+  },
+  {
+    "instruction": "show me what's in the downloads folder for me",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Downloads\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show me what's in the downloads folder for me",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Downloads\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you show me what's in the downloads folder quickly",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Downloads\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "list everything in src/",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"src/\"}}",
+    "tool_name": "read_directory",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you list everything in src/ asap",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"src/\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis list everything in src/ for me",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"src/\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis list everything in src/ quickly",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"src/\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what files are in the desktop folder",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Desktop\"}}",
+    "tool_name": "read_directory",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you what files are in the desktop folder quickly",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Desktop\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you what files are in the desktop folder right now",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Desktop\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to what files are in the desktop folder",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Desktop\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show the documents directory",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Documents\"}}",
+    "tool_name": "read_directory",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey show the documents directory right now",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Documents\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you show the documents directory",
+    "output": "{\"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Documents\"}}",
+    "tool_name": "read_directory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create a folder called projects",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"projects\"}}",
+    "tool_name": "create_folder",
+    "type": "direct"
+  },
+  {
+    "instruction": "please create a folder called projects asap",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"projects\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create a folder called projects please",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"projects\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please create a folder called projects right now",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"projects\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "make a new directory src/components",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"src/components\"}}",
+    "tool_name": "create_folder",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis make a new directory src/components quickly",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"src/components\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo make a new directory src/components",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"src/components\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis make a new directory src/components right now",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"src/components\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create the backup folder",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"backup\"}}",
+    "tool_name": "create_folder",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis create the backup folder asap",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"backup\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please create the backup folder please",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"backup\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to create the backup folder right now",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"backup\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "make a directory called output",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"output\"}}",
+    "tool_name": "create_folder",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you make a directory called output for me",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"output\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to make a directory called output please",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"output\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "make a directory called output quickly",
+    "output": "{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"output\"}}",
+    "tool_name": "create_folder",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open chrome",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "open chrome right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to open chrome",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis open chrome asap",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "launch visual studio code",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"code\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you launch visual studio code quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"code\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to launch visual studio code asap",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"code\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey launch visual studio code for me",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"code\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open notepad",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey open notepad",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please open notepad asap",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "start discord",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis start discord for me",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you start discord",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to start discord asap",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open the calculator",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"calc\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you open the calculator right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"calc\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open the calculator quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"calc\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis open the calculator",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"calc\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "launch spotify",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis launch spotify",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis launch spotify right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis launch spotify please",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open file explorer",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"explorer\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you open file explorer right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"explorer\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis open file explorer",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"explorer\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you open file explorer please",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"explorer\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "start firefox browser",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis start firefox browser please",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis start firefox browser please",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "start firefox browser for me",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open terminal",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"cmd\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to open terminal right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"cmd\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey open terminal right now",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"cmd\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to open terminal quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"cmd\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "launch task manager",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"taskmgr\"}}",
+    "tool_name": "open_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to launch task manager quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"taskmgr\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to launch task manager quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"taskmgr\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please launch task manager quickly",
+    "output": "{\"tool\": \"open_app\", \"params\": {\"app_name\": \"taskmgr\"}}",
+    "tool_name": "open_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "close chrome",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "close_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to close chrome asap",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis close chrome",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to close chrome",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"chrome\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "kill notepad",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "close_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis kill notepad",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to kill notepad for me",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to kill notepad quickly",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"notepad\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "close spotify",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "close_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to close spotify",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis close spotify asap",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis close spotify",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"spotify\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "shut down discord",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "close_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey shut down discord",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you shut down discord quickly",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo shut down discord quickly",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"discord\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "exit firefox",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "close_app",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you exit firefox for me",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo exit firefox",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis exit firefox",
+    "output": "{\"tool\": \"close_app\", \"params\": {\"app_name\": \"firefox\"}}",
+    "tool_name": "close_app",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run pip install requests",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"pip install requests\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo run pip install requests please",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"pip install requests\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run pip install requests for me",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"pip install requests\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please run pip install requests please",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"pip install requests\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "execute dir in the terminal",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"dir\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis execute dir in the terminal asap",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"dir\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey execute dir in the terminal",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"dir\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you execute dir in the terminal right now",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"dir\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run npm install",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"npm install\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to run npm install please",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"npm install\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to run npm install asap",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"npm install\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to run npm install for me",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"npm install\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check the IP address",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ipconfig\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "please check the ip address right now",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ipconfig\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you check the ip address quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ipconfig\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please check the ip address quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ipconfig\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show system information",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"systeminfo\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "show system information quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"systeminfo\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to show system information please",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"systeminfo\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you show system information for me",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"systeminfo\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "ping google.com",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ping google.com -n 4\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to ping google.com asap",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ping google.com -n 4\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please ping google.com",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ping google.com -n 4\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to ping google.com",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"ping google.com -n 4\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check disk usage",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"wmic logicaldisk get size,freespace,caption\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to check disk usage right now",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"wmic logicaldisk get size,freespace,caption\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please check disk usage quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"wmic logicaldisk get size,freespace,caption\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please check disk usage right now",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"wmic logicaldisk get size,freespace,caption\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "list running processes",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"tasklist\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey list running processes quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"tasklist\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please list running processes quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"tasklist\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to list running processes quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"tasklist\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run git status",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"git status\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis run git status",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"git status\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to run git status quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"git status\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run git status quickly",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"git status\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run python --version",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"python --version\"}}",
+    "tool_name": "run_terminal",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you run python --version",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"python --version\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis run python --version for me",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"python --version\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you run python --version for me",
+    "output": "{\"tool\": \"run_terminal\", \"params\": {\"command\": \"python --version\"}}",
+    "tool_name": "run_terminal",
+    "type": "augmented"
+  },
+  {
+    "instruction": "search for python tutorials",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"python tutorials\"}}",
+    "tool_name": "google_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to search for python tutorials right now",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"python tutorials\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo search for python tutorials please",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"python tutorials\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo search for python tutorials please",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"python tutorials\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "google how to fix blue screen error",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"how to fix blue screen error\"}}",
+    "tool_name": "google_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey google how to fix blue screen error",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"how to fix blue screen error\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "google how to fix blue screen error asap",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"how to fix blue screen error\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis google how to fix blue screen error asap",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"how to fix blue screen error\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "look up latest cybersecurity news",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"latest cybersecurity news 2026\"}}",
+    "tool_name": "google_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo look up latest cybersecurity news please",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"latest cybersecurity news 2026\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis look up latest cybersecurity news right now",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"latest cybersecurity news 2026\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "search what is machine learning",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"what is machine learning\"}}",
+    "tool_name": "google_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo search what is machine learning quickly",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"what is machine learning\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to search what is machine learning right now",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"what is machine learning\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "search what is machine learning quickly",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"what is machine learning\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find react component best practices",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"react component best practices\"}}",
+    "tool_name": "google_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "please find react component best practices please",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"react component best practices\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you find react component best practices right now",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"react component best practices\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you find react component best practices for me",
+    "output": "{\"tool\": \"google_search\", \"params\": {\"query\": \"react component best practices\"}}",
+    "tool_name": "google_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find all python files",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.py\"}}",
+    "tool_name": "smart_file_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis find all python files",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.py\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey find all python files",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.py\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis find all python files",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.py\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "search for files named report",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"report\"}}",
+    "tool_name": "smart_file_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to search for files named report please",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"report\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to search for files named report",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"report\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo search for files named report",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"report\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find large files on my computer",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.zip\"}}",
+    "tool_name": "smart_file_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to find large files on my computer please",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.zip\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo find large files on my computer",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.zip\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis find large files on my computer quickly",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"*.zip\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "locate the config file",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"config\"}}",
+    "tool_name": "smart_file_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis locate the config file quickly",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"config\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis locate the config file",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"config\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to locate the config file right now",
+    "output": "{\"tool\": \"smart_file_search\", \"params\": {\"query\": \"config\"}}",
+    "tool_name": "smart_file_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "type hello world",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"hello world\"}}",
+    "tool_name": "ghost_type",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to type hello world asap",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"hello world\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you type hello world right now",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"hello world\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis type hello world",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"hello world\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "type my email address john@gmail.com",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"john@gmail.com\"}}",
+    "tool_name": "ghost_type",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to type my email address john@gmail.com asap",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"john@gmail.com\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey type my email address john@gmail.com please",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"john@gmail.com\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please type my email address john@gmail.com asap",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"john@gmail.com\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "auto type this message: meeting at 3pm",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"meeting at 3pm\"}}",
+    "tool_name": "ghost_type",
+    "type": "direct"
+  },
+  {
+    "instruction": "auto type this message: meeting at 3pm quickly",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"meeting at 3pm\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey auto type this message: meeting at 3pm right now",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"meeting at 3pm\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you auto type this message: meeting at 3pm right now",
+    "output": "{\"tool\": \"ghost_type\", \"params\": {\"text\": \"meeting at 3pm\"}}",
+    "tool_name": "ghost_type",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+c",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"c\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you press ctrl+c",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"c\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis press ctrl+c please",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"c\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+v to paste",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"v\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you press ctrl+v to paste",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"v\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to press ctrl+v to paste for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"v\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo press ctrl+v to paste please",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"v\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press alt+tab",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"tab\", \"modifiers\": [\"alt\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "please press alt+tab",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"tab\", \"modifiers\": [\"alt\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you press alt+tab",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"tab\", \"modifiers\": [\"alt\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+s to save",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"s\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to press ctrl+s to save right now",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"s\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo press ctrl+s to save",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"s\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to press ctrl+s to save right now",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"s\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+z to undo",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"z\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to press ctrl+z to undo for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"z\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis press ctrl+z to undo asap",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"z\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+z to undo for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"z\", \"modifiers\": [\"ctrl\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "take a screenshot with print screen",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"printscreen\", \"modifiers\": []}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you take a screenshot with print screen quickly",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"printscreen\", \"modifiers\": []}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you take a screenshot with print screen asap",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"printscreen\", \"modifiers\": []}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you take a screenshot with print screen asap",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"printscreen\", \"modifiers\": []}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press ctrl+shift+escape",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"escape\", \"modifiers\": [\"ctrl\", \"shift\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis press ctrl+shift+escape for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"escape\", \"modifiers\": [\"ctrl\", \"shift\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to press ctrl+shift+escape asap",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"escape\", \"modifiers\": [\"ctrl\", \"shift\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to press ctrl+shift+escape for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"escape\", \"modifiers\": [\"ctrl\", \"shift\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "press windows+d to show desktop",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"d\", \"modifiers\": [\"win\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo press windows+d to show desktop for me",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"d\", \"modifiers\": [\"win\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to press windows+d to show desktop quickly",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"d\", \"modifiers\": [\"win\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo press windows+d to show desktop asap",
+    "output": "{\"tool\": \"press_shortcut\", \"params\": {\"key\": \"d\", \"modifiers\": [\"win\"]}}",
+    "tool_name": "press_shortcut",
+    "type": "augmented"
+  },
+  {
+    "instruction": "take a screenshot",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis take a screenshot",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to take a screenshot please",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo take a screenshot",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "capture my screen",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey capture my screen asap",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you capture my screen right now",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey capture my screen please",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "screenshot this",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "direct"
+  },
+  {
+    "instruction": "please screenshot this please",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo screenshot this please",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you screenshot this right now",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "take a screen capture",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you take a screen capture",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you take a screen capture quickly",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis take a screen capture for me",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "grab a screenshot for me",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "direct"
+  },
+  {
+    "instruction": "grab a screenshot for me asap",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "grab a screenshot for me right now",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to grab a screenshot for me",
+    "output": "{\"tool\": \"take_screenshot\", \"params\": {}}",
+    "tool_name": "take_screenshot",
+    "type": "augmented"
+  },
+  {
+    "instruction": "set volume to 50",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 50}}",
+    "tool_name": "set_volume",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis set volume to 50",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 50}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis set volume to 50",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 50}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo set volume to 50 right now",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 50}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "turn volume to max",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 100}}",
+    "tool_name": "set_volume",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to turn volume to max",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 100}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "turn volume to max quickly",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 100}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey turn volume to max for me",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 100}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "mute the volume",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 0}}",
+    "tool_name": "set_volume",
+    "type": "direct"
+  },
+  {
+    "instruction": "please mute the volume quickly",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 0}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "mute the volume right now",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 0}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "set volume to 75 percent",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 75}}",
+    "tool_name": "set_volume",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you set volume to 75 percent",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 75}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis set volume to 75 percent right now",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 75}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lower volume to 30",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 30}}",
+    "tool_name": "set_volume",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you lower volume to 30 right now",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 30}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to lower volume to 30 asap",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 30}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey lower volume to 30",
+    "output": "{\"tool\": \"set_volume\", \"params\": {\"level\": 30}}",
+    "tool_name": "set_volume",
+    "type": "augmented"
+  },
+  {
+    "instruction": "remember that my birthday is March 15",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's birthday is March 15\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you remember that my birthday is march 15 right now",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's birthday is March 15\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo remember that my birthday is march 15",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's birthday is March 15\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo remember that my birthday is march 15 quickly",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's birthday is March 15\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "save that the wifi password is MyPass123",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"WiFi password is MyPass123\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey save that the wifi password is mypass123 quickly",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"WiFi password is MyPass123\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to save that the wifi password is mypass123 for me",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"WiFi password is MyPass123\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis save that the wifi password is mypass123 right now",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"WiFi password is MyPass123\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "remember I prefer dark mode",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User prefers dark mode\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey remember i prefer dark mode please",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User prefers dark mode\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you remember i prefer dark mode",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User prefers dark mode\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you remember i prefer dark mode for me",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User prefers dark mode\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "note that the project deadline is Friday",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Project deadline is Friday\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "note that the project deadline is friday please",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Project deadline is Friday\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo note that the project deadline is friday right now",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Project deadline is Friday\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to note that the project deadline is friday quickly",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Project deadline is Friday\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "remember my favorite color is blue",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's favorite color is blue\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you remember my favorite color is blue please",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's favorite color is blue\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you remember my favorite color is blue for me",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's favorite color is blue\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis remember my favorite color is blue please",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User's favorite color is blue\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "save that the server IP is 10.0.0.5",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Server IP address is 10.0.0.5\"}}",
+    "tool_name": "save_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis save that the server ip is 10.0.0.5 quickly",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Server IP address is 10.0.0.5\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you save that the server ip is 10.0.0.5 asap",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Server IP address is 10.0.0.5\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis save that the server ip is 10.0.0.5 please",
+    "output": "{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"Server IP address is 10.0.0.5\"}}",
+    "tool_name": "save_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what do you remember about me",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you what do you remember about me",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis what do you remember about me asap",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis what do you remember about me",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show my saved memories",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you show my saved memories",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis show my saved memories please",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please show my saved memories asap",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "recall everything you know",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to recall everything you know",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis recall everything you know please",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please recall everything you know asap",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what facts have I told you",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you what facts have i told you",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to what facts have i told you right now",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please what facts have i told you right now",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check your memory",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey check your memory",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please check your memory quickly",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis check your memory",
+    "output": "{\"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open the jarvis project",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"D:/my pross/Jarvis\"}}",
+    "tool_name": "open_project",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you open the jarvis project right now",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"D:/my pross/Jarvis\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you open the jarvis project",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"D:/my pross/Jarvis\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you open the jarvis project for me",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"D:/my pross/Jarvis\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open my website project in VS Code",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/projects/website\"}}",
+    "tool_name": "open_project",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to open my website project in vs code quickly",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/projects/website\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey open my website project in vs code",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/projects/website\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey open my website project in vs code right now",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/projects/website\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open the desktop folder in code",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/Desktop\"}}",
+    "tool_name": "open_project",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to open the desktop folder in code for me",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/Desktop\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you open the desktop folder in code",
+    "output": "{\"tool\": \"open_project\", \"params\": {\"folder_path\": \"~/Desktop\"}}",
+    "tool_name": "open_project",
+    "type": "augmented"
+  },
+  {
+    "instruction": "snap chrome to the left",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"chrome\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to snap chrome to the left",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"chrome\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey snap chrome to the left asap",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"chrome\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis snap chrome to the left",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"chrome\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "move VS Code to the right half",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"code\", \"position\": \"right\"}}",
+    "tool_name": "snap_window",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you move vs code to the right half",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"code\", \"position\": \"right\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis move vs code to the right half right now",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"code\", \"position\": \"right\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you move vs code to the right half right now",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"code\", \"position\": \"right\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "maximize notepad",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"notepad\", \"position\": \"maximize\"}}",
+    "tool_name": "snap_window",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey maximize notepad right now",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"notepad\", \"position\": \"maximize\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please maximize notepad right now",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"notepad\", \"position\": \"maximize\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to maximize notepad quickly",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"notepad\", \"position\": \"maximize\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "put discord on the left side",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"discord\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you put discord on the left side quickly",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"discord\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you put discord on the left side right now",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"discord\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis put discord on the left side",
+    "output": "{\"tool\": \"snap_window\", \"params\": {\"app_name\": \"discord\", \"position\": \"left\"}}",
+    "tool_name": "snap_window",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run the morning routine macro",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"morning_routine\"}}",
+    "tool_name": "execute_macro",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo run the morning routine macro asap",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"morning_routine\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to run the morning routine macro",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"morning_routine\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run the morning routine macro please",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"morning_routine\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "execute the dev setup macro",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"dev_setup\"}}",
+    "tool_name": "execute_macro",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you execute the dev setup macro",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"dev_setup\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo execute the dev setup macro asap",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"dev_setup\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you execute the dev setup macro for me",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"dev_setup\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "play the gaming macro",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"gaming\"}}",
+    "tool_name": "execute_macro",
+    "type": "direct"
+  },
+  {
+    "instruction": "please play the gaming macro for me",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"gaming\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to play the gaming macro quickly",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"gaming\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey play the gaming macro please",
+    "output": "{\"tool\": \"execute_macro\", \"params\": {\"macro_name\": \"gaming\"}}",
+    "tool_name": "execute_macro",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lock my computer",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you lock my computer for me",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to lock my computer please",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you lock my computer please",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lock the screen",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you lock the screen right now",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to lock the screen",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you lock the screen asap",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lock the system",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey lock the system please",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lock the system asap",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey lock the system for me",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "lock it",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to lock it",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis lock it quickly",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please lock it asap",
+    "output": "{\"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "augmented"
+  },
+  {
+    "instruction": "send a WhatsApp to Mom saying I'll be late",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Mom\", \"message\": \"I'll be late\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo send a whatsapp to mom saying i'll be late for me",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Mom\", \"message\": \"I'll be late\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you send a whatsapp to mom saying i'll be late for me",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Mom\", \"message\": \"I'll be late\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please send a whatsapp to mom saying i'll be late asap",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Mom\", \"message\": \"I'll be late\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "message John on WhatsApp that the meeting is at 3",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"John\", \"message\": \"The meeting is at 3\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you message john on whatsapp that the meeting is at 3 right now",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"John\", \"message\": \"The meeting is at 3\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to message john on whatsapp that the meeting is at 3",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"John\", \"message\": \"The meeting is at 3\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you message john on whatsapp that the meeting is at 3",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"John\", \"message\": \"The meeting is at 3\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "WhatsApp Dad saying happy birthday",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Dad\", \"message\": \"Happy birthday!\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "direct"
+  },
+  {
+    "instruction": "please whatsapp dad saying happy birthday",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Dad\", \"message\": \"Happy birthday!\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you whatsapp dad saying happy birthday right now",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Dad\", \"message\": \"Happy birthday!\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "whatsapp dad saying happy birthday please",
+    "output": "{\"tool\": \"send_whatsapp\", \"params\": {\"contact\": \"Dad\", \"message\": \"Happy birthday!\"}}",
+    "tool_name": "send_whatsapp",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open WhatsApp chat with Mom",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"Mom\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you open whatsapp chat with mom for me",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"Mom\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to open whatsapp chat with mom",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"Mom\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you open whatsapp chat with mom asap",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"Mom\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "go to John's WhatsApp",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"John\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo go to john's whatsapp for me",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"John\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to go to john's whatsapp",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"John\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you go to john's whatsapp",
+    "output": "{\"tool\": \"open_whatsapp_chat\", \"params\": {\"contact\": \"John\"}}",
+    "tool_name": "open_whatsapp_chat",
+    "type": "augmented"
+  },
+  {
+    "instruction": "send a Telegram to Alex saying hi",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"Alex\", \"message\": \"Hi\"}}",
+    "tool_name": "send_telegram",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to send a telegram to alex saying hi",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"Alex\", \"message\": \"Hi\"}}",
+    "tool_name": "send_telegram",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis send a telegram to alex saying hi",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"Alex\", \"message\": \"Hi\"}}",
+    "tool_name": "send_telegram",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please send a telegram to alex saying hi",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"Alex\", \"message\": \"Hi\"}}",
+    "tool_name": "send_telegram",
+    "type": "augmented"
+  },
+  {
+    "instruction": "telegram my group that I'm running late",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"my group\", \"message\": \"I'm running late\"}}",
+    "tool_name": "send_telegram",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you telegram my group that i'm running late right now",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"my group\", \"message\": \"I'm running late\"}}",
+    "tool_name": "send_telegram",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis telegram my group that i'm running late",
+    "output": "{\"tool\": \"send_telegram\", \"params\": {\"contact\": \"my group\", \"message\": \"I'm running late\"}}",
+    "tool_name": "send_telegram",
+    "type": "augmented"
+  },
+  {
+    "instruction": "email john@company.com about the project update",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"john@company.com\", \"subject\": \"Project Update\", \"body\": \"Hi John, here's the project update.\"}}",
+    "tool_name": "send_email",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis email john@company.com about the project update for me",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"john@company.com\", \"subject\": \"Project Update\", \"body\": \"Hi John, here's the project update.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey email john@company.com about the project update",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"john@company.com\", \"subject\": \"Project Update\", \"body\": \"Hi John, here's the project update.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis email john@company.com about the project update asap",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"john@company.com\", \"subject\": \"Project Update\", \"body\": \"Hi John, here's the project update.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "send an email to boss@work.com saying I'm sick today",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"boss@work.com\", \"subject\": \"Sick Day\", \"body\": \"Hi, I'm not feeling well and need to take the day off.\"}}",
+    "tool_name": "send_email",
+    "type": "direct"
+  },
+  {
+    "instruction": "please send an email to boss@work.com saying i'm sick today please",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"boss@work.com\", \"subject\": \"Sick Day\", \"body\": \"Hi, I'm not feeling well and need to take the day off.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey send an email to boss@work.com saying i'm sick today right now",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"boss@work.com\", \"subject\": \"Sick Day\", \"body\": \"Hi, I'm not feeling well and need to take the day off.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to send an email to boss@work.com saying i'm sick today asap",
+    "output": "{\"tool\": \"send_email\", \"params\": {\"to\": \"boss@work.com\", \"subject\": \"Sick Day\", \"body\": \"Hi, I'm not feeling well and need to take the day off.\"}}",
+    "tool_name": "send_email",
+    "type": "augmented"
+  },
+  {
+    "instruction": "scan ports on 192.168.1.1",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-1024\"}}",
+    "tool_name": "port_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "please scan ports on 192.168.1.1 right now",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-1024\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo scan ports on 192.168.1.1 for me",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-1024\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check if port 80 is open on google.com",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"google.com\", \"ports\": \"80\"}}",
+    "tool_name": "port_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "check if port 80 is open on google.com quickly",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"google.com\", \"ports\": \"80\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to check if port 80 is open on google.com please",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"google.com\", \"ports\": \"80\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis check if port 80 is open on google.com",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"google.com\", \"ports\": \"80\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "scan common ports on 10.0.0.1",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"10.0.0.1\", \"ports\": \"22,80,443,8080\"}}",
+    "tool_name": "port_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to scan common ports on 10.0.0.1 right now",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"10.0.0.1\", \"ports\": \"22,80,443,8080\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo scan common ports on 10.0.0.1 quickly",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"10.0.0.1\", \"ports\": \"22,80,443,8080\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis scan common ports on 10.0.0.1 quickly",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"10.0.0.1\", \"ports\": \"22,80,443,8080\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "scan the local network gateway",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-100\"}}",
+    "tool_name": "port_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey scan the local network gateway for me",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-100\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis scan the local network gateway please",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-100\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to scan the local network gateway",
+    "output": "{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.1\", \"ports\": \"1-100\"}}",
+    "tool_name": "port_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "nmap scan 192.168.1.0/24",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.0/24\", \"flags\": \"-sV\"}}",
+    "tool_name": "nmap_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis nmap scan 192.168.1.0/24",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.0/24\", \"flags\": \"-sV\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you nmap scan 192.168.1.0/24 quickly",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.0/24\", \"flags\": \"-sV\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis nmap scan 192.168.1.0/24 quickly",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.0/24\", \"flags\": \"-sV\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "run a stealth scan on 10.0.0.5",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"10.0.0.5\", \"flags\": \"-sS\"}}",
+    "tool_name": "nmap_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis run a stealth scan on 10.0.0.5 asap",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"10.0.0.5\", \"flags\": \"-sS\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis run a stealth scan on 10.0.0.5 please",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"10.0.0.5\", \"flags\": \"-sS\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis run a stealth scan on 10.0.0.5",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"10.0.0.5\", \"flags\": \"-sS\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "scan for OS detection on the target",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.1\", \"flags\": \"-O\"}}",
+    "tool_name": "nmap_scan",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to scan for os detection on the target please",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.1\", \"flags\": \"-O\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to scan for os detection on the target",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.1\", \"flags\": \"-O\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey scan for os detection on the target please",
+    "output": "{\"tool\": \"nmap_scan\", \"params\": {\"target\": \"192.168.1.1\", \"flags\": \"-O\"}}",
+    "tool_name": "nmap_scan",
+    "type": "augmented"
+  },
+  {
+    "instruction": "whois google.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"google.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "whois google.com for me",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"google.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you whois google.com please",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"google.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis whois google.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"google.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "look up domain info for github.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"github.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis look up domain info for github.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"github.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey look up domain info for github.com please",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"github.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey look up domain info for github.com right now",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"github.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "who owns example.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"example.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis who owns example.com for me",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"example.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you who owns example.com",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"example.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you who owns example.com for me",
+    "output": "{\"tool\": \"whois_lookup\", \"params\": {\"target\": \"example.com\"}}",
+    "tool_name": "whois_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "DNS lookup for google.com",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"google.com\", \"record_type\": \"A\"}}",
+    "tool_name": "dns_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to dns lookup for google.com asap",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"google.com\", \"record_type\": \"A\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you dns lookup for google.com for me",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"google.com\", \"record_type\": \"A\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you dns lookup for google.com please",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"google.com\", \"record_type\": \"A\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check MX records for gmail.com",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"gmail.com\", \"record_type\": \"MX\"}}",
+    "tool_name": "dns_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis check mx records for gmail.com for me",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"gmail.com\", \"record_type\": \"MX\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis check mx records for gmail.com",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"gmail.com\", \"record_type\": \"MX\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis check mx records for gmail.com for me",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"gmail.com\", \"record_type\": \"MX\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find the nameservers for example.com",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"example.com\", \"record_type\": \"NS\"}}",
+    "tool_name": "dns_lookup",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to find the nameservers for example.com for me",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"example.com\", \"record_type\": \"NS\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis find the nameservers for example.com quickly",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"example.com\", \"record_type\": \"NS\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please find the nameservers for example.com for me",
+    "output": "{\"tool\": \"dns_lookup\", \"params\": {\"target\": \"example.com\", \"record_type\": \"NS\"}}",
+    "tool_name": "dns_lookup",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find subdomains of example.com",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"example.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo find subdomains of example.com",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"example.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis find subdomains of example.com",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"example.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please find subdomains of example.com please",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"example.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "enumerate subdomains for target.com",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"target.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis enumerate subdomains for target.com quickly",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"target.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis enumerate subdomains for target.com for me",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"target.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please enumerate subdomains for target.com right now",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"target.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "subdomain scan on google.com",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"google.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you subdomain scan on google.com please",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"google.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to subdomain scan on google.com right now",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"google.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you subdomain scan on google.com for me",
+    "output": "{\"tool\": \"subdomain_enum\", \"params\": {\"domain\": \"google.com\"}}",
+    "tool_name": "subdomain_enum",
+    "type": "augmented"
+  },
+  {
+    "instruction": "identify this hash: 5d41402abc4b2a76b9719d911017c592",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"5d41402abc4b2a76b9719d911017c592\"}}",
+    "tool_name": "hash_identify",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey identify this hash: 5d41402abc4b2a76b9719d911017c592",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"5d41402abc4b2a76b9719d911017c592\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis identify this hash: 5d41402abc4b2a76b9719d911017c592 for me",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"5d41402abc4b2a76b9719d911017c592\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis identify this hash: 5d41402abc4b2a76b9719d911017c592 right now",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"5d41402abc4b2a76b9719d911017c592\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what type of hash is e3b0c44298fc1c149afbf4c8996fb924",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"e3b0c44298fc1c149afbf4c8996fb924\"}}",
+    "tool_name": "hash_identify",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo what type of hash is e3b0c44298fc1c149afbf4c8996fb924 for me",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"e3b0c44298fc1c149afbf4c8996fb924\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey what type of hash is e3b0c44298fc1c149afbf4c8996fb924 quickly",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"e3b0c44298fc1c149afbf4c8996fb924\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey what type of hash is e3b0c44298fc1c149afbf4c8996fb924 right now",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"e3b0c44298fc1c149afbf4c8996fb924\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "identify: $2b$12$LJ3m4ysDF.kmNMGV",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"$2b$12$LJ3m4ysDF.kmNMGV\"}}",
+    "tool_name": "hash_identify",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you identify: $2b$12$lj3m4ysdf.kmnmgv quickly",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"$2b$12$LJ3m4ysDF.kmNMGV\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey identify: $2b$12$lj3m4ysdf.kmnmgv for me",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"$2b$12$LJ3m4ysDF.kmNMGV\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to identify: $2b$12$lj3m4ysdf.kmnmgv please",
+    "output": "{\"tool\": \"hash_identify\", \"params\": {\"hash\": \"$2b$12$LJ3m4ysDF.kmNMGV\"}}",
+    "tool_name": "hash_identify",
+    "type": "augmented"
+  },
+  {
+    "instruction": "locate IP 8.8.8.8",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"8.8.8.8\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey locate ip 8.8.8.8 for me",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"8.8.8.8\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to locate ip 8.8.8.8 for me",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"8.8.8.8\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to locate ip 8.8.8.8 please",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"8.8.8.8\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "where is the IP 1.1.1.1 located",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"1.1.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis where is the ip 1.1.1.1 located asap",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"1.1.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "where is the ip 1.1.1.1 located please",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"1.1.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you where is the ip 1.1.1.1 located right now",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"1.1.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "geolocate 192.168.1.1",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"192.168.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "direct"
+  },
+  {
+    "instruction": "please geolocate 192.168.1.1 please",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"192.168.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please geolocate 192.168.1.1 for me",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"192.168.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you geolocate 192.168.1.1 right now",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"192.168.1.1\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find the location of IP 104.26.10.78",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"104.26.10.78\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "direct"
+  },
+  {
+    "instruction": "find the location of ip 104.26.10.78 asap",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"104.26.10.78\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you find the location of ip 104.26.10.78 right now",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"104.26.10.78\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to find the location of ip 104.26.10.78 asap",
+    "output": "{\"tool\": \"ip_geolocation\", \"params\": {\"ip\": \"104.26.10.78\"}}",
+    "tool_name": "ip_geolocation",
+    "type": "augmented"
+  },
+  {
+    "instruction": "ingest the file research.pdf into knowledge base",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"research.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis ingest the file research.pdf into knowledge base",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"research.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to ingest the file research.pdf into knowledge base",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"research.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to ingest the file research.pdf into knowledge base for me",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"research.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "add notes.md to the knowledge base",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"notes.md\"}}",
+    "tool_name": "ingest_document",
+    "type": "direct"
+  },
+  {
+    "instruction": "add notes.md to the knowledge base right now",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"notes.md\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you add notes.md to the knowledge base please",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"notes.md\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "add notes.md to the knowledge base quickly",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"notes.md\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "learn from this document report.txt",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"report.txt\"}}",
+    "tool_name": "ingest_document",
+    "type": "direct"
+  },
+  {
+    "instruction": "please learn from this document report.txt please",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"report.txt\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis learn from this document report.txt right now",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"report.txt\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to learn from this document report.txt",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"report.txt\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "import manual.pdf into your brain",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"manual.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you import manual.pdf into your brain quickly",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"manual.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo import manual.pdf into your brain right now",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"manual.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you import manual.pdf into your brain",
+    "output": "{\"tool\": \"ingest_document\", \"params\": {\"file_path\": \"manual.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "augmented"
+  },
+  {
+    "instruction": "search knowledge base for network security",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"network security\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you search knowledge base for network security quickly",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"network security\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to search knowledge base for network security for me",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"network security\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you search knowledge base for network security quickly",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"network security\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "find information about python decorators",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"python decorators\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey find information about python decorators asap",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"python decorators\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please find information about python decorators asap",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"python decorators\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please find information about python decorators",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"python decorators\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what do my documents say about machine learning",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"machine learning\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you what do my documents say about machine learning quickly",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"machine learning\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to what do my documents say about machine learning asap",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"machine learning\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey what do my documents say about machine learning quickly",
+    "output": "{\"tool\": \"semantic_search\", \"params\": {\"query\": \"machine learning\", \"top_k\": 5}}",
+    "tool_name": "semantic_search",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what documents are in the knowledge base",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to what documents are in the knowledge base",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "what documents are in the knowledge base for me",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to what documents are in the knowledge base please",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "list all ingested documents",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis list all ingested documents right now",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis list all ingested documents",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you list all ingested documents asap",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "show my knowledge base",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "direct"
+  },
+  {
+    "instruction": "please show my knowledge base for me",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey show my knowledge base please",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey show my knowledge base",
+    "output": "{\"tool\": \"list_documents\", \"params\": {}}",
+    "tool_name": "list_documents",
+    "type": "augmented"
+  },
+  {
+    "instruction": "generate an image of a cyberpunk city",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cyberpunk city at night with neon lights\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you generate an image of a cyberpunk city for me",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cyberpunk city at night with neon lights\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis generate an image of a cyberpunk city for me",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cyberpunk city at night with neon lights\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to generate an image of a cyberpunk city for me",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cyberpunk city at night with neon lights\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "create a picture of a robot assistant",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a friendly robot assistant in a modern office\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you create a picture of a robot assistant for me",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a friendly robot assistant in a modern office\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please create a picture of a robot assistant",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a friendly robot assistant in a modern office\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis create a picture of a robot assistant",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a friendly robot assistant in a modern office\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "make an image of a mountain landscape",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"beautiful mountain landscape at sunset\", \"width\": 1024, \"height\": 768}}",
+    "tool_name": "generate_image",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis make an image of a mountain landscape right now",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"beautiful mountain landscape at sunset\", \"width\": 1024, \"height\": 768}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please make an image of a mountain landscape asap",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"beautiful mountain landscape at sunset\", \"width\": 1024, \"height\": 768}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you make an image of a mountain landscape quickly",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"beautiful mountain landscape at sunset\", \"width\": 1024, \"height\": 768}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "draw a cat wearing a space suit",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cat wearing a space suit floating in space\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "direct"
+  },
+  {
+    "instruction": "I want to draw a cat wearing a space suit quickly",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cat wearing a space suit floating in space\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis draw a cat wearing a space suit for me",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cat wearing a space suit floating in space\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please draw a cat wearing a space suit right now",
+    "output": "{\"tool\": \"generate_image\", \"params\": {\"prompt\": \"a cat wearing a space suit floating in space\", \"width\": 1024, \"height\": 1024}}",
+    "tool_name": "generate_image",
+    "type": "augmented"
+  },
+  {
+    "instruction": "analyze the code in main.py",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis analyze the code in main.py quickly",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis analyze the code in main.py",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please analyze the code in main.py",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"main.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "check index.ts for security issues",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "analyze_code",
+    "type": "direct"
+  },
+  {
+    "instruction": "jarvis check index.ts for security issues",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey check index.ts for security issues right now",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis check index.ts for security issues right now",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"index.ts\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "review the quality of app.js",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"app.js\"}}",
+    "tool_name": "analyze_code",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey review the quality of app.js please",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"app.js\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to review the quality of app.js quickly",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"app.js\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I need you to review the quality of app.js quickly",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"app.js\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "scan server.py for vulnerabilities",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"server.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "direct"
+  },
+  {
+    "instruction": "please scan server.py for vulnerabilities",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"server.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis scan server.py for vulnerabilities asap",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"server.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "please scan server.py for vulnerabilities quickly",
+    "output": "{\"tool\": \"analyze_code\", \"params\": {\"file_path\": \"server.py\"}}",
+    "tool_name": "analyze_code",
+    "type": "augmented"
+  },
+  {
+    "instruction": "summarize the file report.md",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"report.md\"}}",
+    "tool_name": "summarize_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you summarize the file report.md asap",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"report.md\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis summarize the file report.md for me",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"report.md\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis summarize the file report.md",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"report.md\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "give me a summary of notes.txt",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"notes.txt\"}}",
+    "tool_name": "summarize_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "could you give me a summary of notes.txt",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"notes.txt\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you give me a summary of notes.txt for me",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"notes.txt\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you give me a summary of notes.txt",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"notes.txt\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "summarize this: AI is transforming the world of technology rapidly",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"AI is transforming the world of technology rapidly\"}}",
+    "tool_name": "summarize_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis summarize this: ai is transforming the world of technology rapidly asap",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"AI is transforming the world of technology rapidly\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you summarize this: ai is transforming the world of technology rapidly quickly",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"AI is transforming the world of technology rapidly\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you summarize this: ai is transforming the world of technology rapidly for me",
+    "output": "{\"tool\": \"summarize_text\", \"params\": {\"input\": \"AI is transforming the world of technology rapidly\"}}",
+    "tool_name": "summarize_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "translate hello to spanish",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"hello\", \"target_lang\": \"es\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to translate hello to spanish asap",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"hello\", \"target_lang\": \"es\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo translate hello to spanish",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"hello\", \"target_lang\": \"es\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo translate hello to spanish",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"hello\", \"target_lang\": \"es\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "translate good morning to french",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"good morning\", \"target_lang\": \"fr\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo translate good morning to french",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"good morning\", \"target_lang\": \"fr\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis translate good morning to french",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"good morning\", \"target_lang\": \"fr\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "translate good morning to french asap",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"good morning\", \"target_lang\": \"fr\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "say thank you in japanese",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"thank you\", \"target_lang\": \"ja\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "I need you to say thank you in japanese",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"thank you\", \"target_lang\": \"ja\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "can you say thank you in japanese please",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"thank you\", \"target_lang\": \"ja\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis say thank you in japanese asap",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"thank you\", \"target_lang\": \"ja\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "translate I love programming to german",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"I love programming\", \"target_lang\": \"de\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "can you translate i love programming to german right now",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"I love programming\", \"target_lang\": \"de\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you translate i love programming to german quickly",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"I love programming\", \"target_lang\": \"de\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "hey jarvis translate i love programming to german",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"I love programming\", \"target_lang\": \"de\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "how do you say goodbye in hindi",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"goodbye\", \"target_lang\": \"hi\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "yo how do you say goodbye in hindi",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"goodbye\", \"target_lang\": \"hi\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "could you how do you say goodbye in hindi right now",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"goodbye\", \"target_lang\": \"hi\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "I want to how do you say goodbye in hindi please",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"goodbye\", \"target_lang\": \"hi\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "translate welcome to arabic",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"welcome\", \"target_lang\": \"ar\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "direct"
+  },
+  {
+    "instruction": "hey jarvis translate welcome to arabic",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"welcome\", \"target_lang\": \"ar\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "jarvis translate welcome to arabic",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"welcome\", \"target_lang\": \"ar\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "yo translate welcome to arabic asap",
+    "output": "{\"tool\": \"translate_text\", \"params\": {\"text\": \"welcome\", \"target_lang\": \"ar\", \"source_lang\": \"en\"}}",
+    "tool_name": "translate_text",
+    "type": "augmented"
+  },
+  {
+    "instruction": "open chrome and search for python tutorials",
+    "output": "{\"tool_chain\": [{\"tool\": \"open_app\", \"params\": {\"app_name\": \"chrome\"}}, {\"tool\": \"google_search\", \"params\": {\"query\": \"python tutorials\"}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "take a screenshot and save it to desktop",
+    "output": "{\"tool_chain\": [{\"tool\": \"take_screenshot\", \"params\": {}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "create a new folder called project and create a file main.py inside it",
+    "output": "{\"tool_chain\": [{\"tool\": \"create_folder\", \"params\": {\"folder_path\": \"project\"}}, {\"tool\": \"write_file\", \"params\": {\"file_name\": \"project/main.py\", \"content\": \"# Main project file\\n\"}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "scan the network and then check who owns the suspicious IP",
+    "output": "{\"tool_chain\": [{\"tool\": \"port_scan\", \"params\": {\"target\": \"192.168.1.0/24\", \"ports\": \"1-100\"}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "read the config file and summarize it",
+    "output": "{\"tool_chain\": [{\"tool\": \"read_file\", \"params\": {\"file_path\": \"config.json\"}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "lock my computer and remember that I left at 5pm",
+    "output": "{\"tool_chain\": [{\"tool\": \"save_core_memory\", \"params\": {\"fact\": \"User left at 5pm\"}}, {\"tool\": \"lock_system\", \"params\": {}}]}",
+    "tool_name": "multi",
+    "type": "chain"
+  },
+  {
+    "instruction": "I need to back up my work",
+    "output": "{\"reasoning\": \"User wants to copy files for safety. Use manage_file with copy operation.\", \"tool\": \"manage_file\", \"params\": {\"operation\": \"copy\", \"source_path\": \".\", \"dest_path\": \"backup/\"}}",
+    "tool_name": "manage_file",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "is my website up?",
+    "output": "{\"reasoning\": \"User wants to check if a server is responding. Port scan on port 80/443.\", \"tool\": \"port_scan\", \"params\": {\"target\": \"localhost\", \"ports\": \"80,443\"}}",
+    "tool_name": "port_scan",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "clean up my desktop",
+    "output": "{\"reasoning\": \"User wants to organize files. List directory first to see what's there.\", \"tool\": \"read_directory\", \"params\": {\"dir_path\": \"~/Desktop\"}}",
+    "tool_name": "read_directory",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "I'm going to sleep",
+    "output": "{\"reasoning\": \"User is done for the day. Lock the system.\", \"tool\": \"lock_system\", \"params\": {}}",
+    "tool_name": "lock_system",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "prepare my dev environment",
+    "output": "{\"reasoning\": \"User wants their coding setup. Open VS Code.\", \"tool\": \"open_app\", \"params\": {\"app_name\": \"code\"}}",
+    "tool_name": "open_app",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "what did I tell you yesterday",
+    "output": "{\"reasoning\": \"User asking about past information. Retrieve memories.\", \"tool\": \"retrieve_core_memory\", \"params\": {}}",
+    "tool_name": "retrieve_core_memory",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "check if something is wrong with the server",
+    "output": "{\"reasoning\": \"User suspects server issues. Run a port scan to check services.\", \"tool\": \"port_scan\", \"params\": {\"target\": \"localhost\", \"ports\": \"22,80,443,3000,5000,8080\"}}",
+    "tool_name": "port_scan",
+    "type": "reasoning"
+  },
+  {
+    "instruction": "help me study this paper",
+    "output": "{\"reasoning\": \"User wants to learn from a document. Ingest it into knowledge base for semantic search.\", \"tool\": \"ingest_document\", \"params\": {\"file_path\": \"paper.pdf\"}}",
+    "tool_name": "ingest_document",
+    "type": "reasoning"
+  }
+]

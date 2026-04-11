@@ -128,6 +128,10 @@ export type WidgetType =
   | 'knowledge'
   | 'security'
   | 'memory'
+  | 'goals'
+  | 'vault'
+  | 'awareness'
+  | 'plugins'
 
 export interface WidgetInstance {
   id: string
@@ -153,6 +157,10 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; width: number;
   knowledge:     { title: 'Knowledge Graph',  width: 500, height: 400 },
   security:      { title: 'Security Suite',   width: 520, height: 460 },
   memory:        { title: 'Memory Bank',      width: 440, height: 400 },
+  goals:         { title: 'Goals',            width: 380, height: 420 },
+  vault:         { title: 'Knowledge Vault',  width: 460, height: 440 },
+  awareness:     { title: 'Screen Awareness', width: 440, height: 400 },
+  plugins:       { title: 'Plugins',          width: 400, height: 380 },
 }
 
 /* ═══════════════════════════════════════════

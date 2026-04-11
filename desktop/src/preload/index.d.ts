@@ -231,6 +231,10 @@ declare global {
       pluginList: () => Promise<{ success: boolean; plugins?: Array<Record<string, unknown>>; error?: string }>
       pluginUninstall: (name: string) => Promise<{ success: boolean; error?: string }>
       pluginToggle: (name: string) => Promise<{ success: boolean; active?: boolean; error?: string }>
+
+      // ─── Notifications ───
+      jarvisNotify: (title: string, body: string, urgency?: string) => Promise<{ success: boolean; error?: string }>
+      onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => void
     }
   }
 }

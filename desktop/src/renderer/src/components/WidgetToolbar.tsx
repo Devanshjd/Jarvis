@@ -8,7 +8,7 @@ import {
   RiCloudLine, RiCpuLine, RiTerminalBoxLine, RiSettings3Line,
   RiMapPinLine, RiStockLine, RiMailLine, RiSearchEyeLine,
   RiCodeSSlashLine, RiMindMap, RiShieldLine, RiBrainLine,
-  RiAppsLine
+  RiAppsLine, RiFocus3Line, RiDatabase2Line, RiEyeLine, RiPlugLine
 } from 'react-icons/ri'
 import { useState } from 'react'
 import { useStore, type WidgetType } from '../store/useStore'
@@ -26,6 +26,10 @@ const WIDGET_ITEMS: Array<{ type: WidgetType; label: string; icon: React.Compone
   { type: 'knowledge',     label: 'Knowledge',   icon: RiMindMap },
   { type: 'security',      label: 'Security',    icon: RiShieldLine },
   { type: 'memory',        label: 'Memory',      icon: RiBrainLine },
+  { type: 'goals',         label: 'Goals',       icon: RiFocus3Line },
+  { type: 'vault',         label: 'Vault',       icon: RiDatabase2Line },
+  { type: 'awareness',     label: 'Awareness',   icon: RiEyeLine },
+  { type: 'plugins',       label: 'Plugins',     icon: RiPlugLine },
 ]
 
 export default function WidgetToolbar() {

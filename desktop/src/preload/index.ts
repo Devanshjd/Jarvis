@@ -234,7 +234,14 @@ const desktopApi = {
   pluginUninstall: (name: string) =>
     ipcRenderer.invoke('plugin-uninstall', name),
   pluginToggle: (name: string) =>
-    ipcRenderer.invoke('plugin-toggle', name)
+    ipcRenderer.invoke('plugin-toggle', name),
+
+  // ─── Notifications ───
+  jarvisNotify: (title: string, body: string, urgency?: string) =>
+    ipcRenderer.invoke('jarvis-notify', title, body, urgency),
+  onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => {
+    ipcRenderer.on('jarvis-notification', (_event, data) => callback(data))
+  }
 }
 
 if (process.contextIsolated) {

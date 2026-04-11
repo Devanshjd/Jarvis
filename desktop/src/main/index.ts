@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, shell, session } from 'electron'
+import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, shell, session, Notification } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { join, dirname, resolve } from 'path'
 import { existsSync } from 'fs'
@@ -3233,6 +3233,29 @@ Provide the complete answer ready to submit.`
       return { success: true, active: plugin.active }
     }
     return { success: false, error: 'Plugin not loaded' }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── DESKTOP NOTIFICATIONS ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  ipcMain.handle('jarvis-notify', async (_event, title: string, body: string, urgency?: string) => {
+    try {
+      const notification = new Notification({
+        title: `J.A.R.V.I.S. — ${title}`,
+        body,
+        silent: urgency !== 'critical',
+        timeoutType: urgency === 'critical' ? 'never' : 'default'
+      })
+      notification.show()
+      // Also forward to renderer for in-app toast
+      if (mainWindow) {
+        mainWindow.webContents.send('jarvis-notification', { title, body, urgency })
+      }
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
   })
 
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───

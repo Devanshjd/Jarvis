@@ -16,6 +16,10 @@ import CodeEditorWidget from '../widgets/CodeEditorWidget'
 import KnowledgeWidget from '../widgets/KnowledgeWidget'
 import SecurityWidget from '../widgets/SecurityWidget'
 import MemoryWidget from '../widgets/MemoryWidget'
+import GoalsWidget from '../widgets/GoalsWidget'
+import VaultWidget from '../widgets/VaultWidget'
+import AwarenessWidget from '../widgets/AwarenessWidget'
+import PluginsWidget from '../widgets/PluginsWidget'
 
 const WIDGET_COMPONENTS: Record<string, React.ComponentType<{ widget: any }>> = {
   weather: WeatherWidget,
@@ -30,6 +34,10 @@ const WIDGET_COMPONENTS: Record<string, React.ComponentType<{ widget: any }>> = 
   knowledge: KnowledgeWidget,
   security: SecurityWidget,
   memory: MemoryWidget,
+  goals: GoalsWidget,
+  vault: VaultWidget,
+  awareness: AwarenessWidget,
+  plugins: PluginsWidget,
 }
 
 export default function WidgetLayer() {

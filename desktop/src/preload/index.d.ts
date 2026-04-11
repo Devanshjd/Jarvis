@@ -148,6 +148,12 @@ declare global {
       toolSubdomainEnum: (domain: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolHashIdentify: (hash: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolIpGeolocation: (ip: string) => Promise<{ success: boolean; message?: string; error?: string }>
+
+      // ─── Phase 3: RAG / Vector DB ───
+      ragIngest: (filePath: string) => Promise<{ success: boolean; message?: string; docId?: string; chunks?: number; error?: string }>
+      ragSearch: (query: string, topK?: number) => Promise<{ success: boolean; results?: Array<{ text: string; score: number; docId: string; filename: string; chunkIndex: number }>; searchType?: string; message?: string; error?: string }>
+      ragListDocuments: () => Promise<{ success: boolean; documents?: Array<{ id: string; filename: string; filePath: string; ingestedAt: string; chunks: number; size: number }>; total?: number; error?: string }>
+      ragDeleteDocument: (docId: string) => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }

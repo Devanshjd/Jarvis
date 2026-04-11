@@ -94,7 +94,17 @@ const desktopApi = {
   toolHashIdentify: (hash: string) =>
     ipcRenderer.invoke('tool-hash-identify', hash),
   toolIpGeolocation: (ip: string) =>
-    ipcRenderer.invoke('tool-ip-geolocation', ip)
+    ipcRenderer.invoke('tool-ip-geolocation', ip),
+
+  // ─── Phase 3: RAG / Vector DB ───
+  ragIngest: (filePath: string) =>
+    ipcRenderer.invoke('rag-ingest', filePath),
+  ragSearch: (query: string, topK?: number) =>
+    ipcRenderer.invoke('rag-search', query, topK),
+  ragListDocuments: () =>
+    ipcRenderer.invoke('rag-list-documents'),
+  ragDeleteDocument: (docId: string) =>
+    ipcRenderer.invoke('rag-delete-document', docId)
 }
 
 if (process.contextIsolated) {

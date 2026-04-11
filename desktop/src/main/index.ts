@@ -1600,6 +1600,276 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── PHASE 3: RAG / Vector DB ─────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const vectorStorePath = join(getJarvisRoot(), '.jarvis_sandbox', 'vector_store')
+
+  interface VectorChunk {
+    id: string
+    docId: string
+    text: string
+    embedding: number[]
+    chunkIndex: number
+  }
+
+  interface VectorDocument {
+    id: string
+    filename: string
+    filePath: string
+    ingestedAt: string
+    chunks: number
+    size: number
+  }
+
+  async function loadVectorIndex(): Promise<VectorDocument[]> {
+    try {
+      const raw = await fs.readFile(join(vectorStorePath, 'index.json'), 'utf8')
+      return JSON.parse(raw)
+    } catch { return [] }
+  }
+
+  async function saveVectorIndex(docs: VectorDocument[]): Promise<void> {
+    await fs.mkdir(vectorStorePath, { recursive: true })
+    await fs.writeFile(join(vectorStorePath, 'index.json'), JSON.stringify(docs, null, 2), 'utf8')
+  }
+
+  async function loadVectorChunks(): Promise<VectorChunk[]> {
+    try {
+      const raw = await fs.readFile(join(vectorStorePath, 'vectors.json'), 'utf8')
+      return JSON.parse(raw)
+    } catch { return [] }
+  }
+
+  async function saveVectorChunks(chunks: VectorChunk[]): Promise<void> {
+    await fs.mkdir(vectorStorePath, { recursive: true })
+    await fs.writeFile(join(vectorStorePath, 'vectors.json'), JSON.stringify(chunks), 'utf8')
+  }
+
+  function chunkText(text: string, chunkSize = 500, overlap = 100): string[] {
+    const chunks: string[] = []
+    let start = 0
+    while (start < text.length) {
+      const end = Math.min(start + chunkSize, text.length)
+      chunks.push(text.slice(start, end))
+      start += chunkSize - overlap
+      if (start >= text.length) break
+    }
+    return chunks
+  }
+
+  function cosineSimilarity(a: number[], b: number[]): number {
+    let dot = 0, magA = 0, magB = 0
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i]
+      magA += a[i] * a[i]
+      magB += b[i] * b[i]
+    }
+    return dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1)
+  }
+
+  async function getEmbeddings(texts: string[]): Promise<number[][]> {
+    const keys = await getSecureKeys()
+    const apiKey = keys.geminiKey
+    if (!apiKey) throw new Error('No Gemini API key configured')
+
+    const results: number[][] = []
+    // Process in batches of 5 to avoid rate limits
+    for (let i = 0; i < texts.length; i += 5) {
+      const batch = texts.slice(i, i + 5)
+      const responses = await Promise.all(batch.map(async (text) => {
+        const resp = await new Promise<string>((resolve, reject) => {
+          const postData = JSON.stringify({
+            model: 'models/text-embedding-004',
+            content: { parts: [{ text }] }
+          })
+          const req = require('https').request({
+            hostname: 'generativelanguage.googleapis.com',
+            path: `/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+            timeout: 30000
+          }, (res: any) => {
+            let data = ''
+            res.on('data', (chunk: string) => { data += chunk })
+            res.on('end', () => resolve(data))
+          })
+          req.on('error', reject)
+          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+          req.write(postData)
+          req.end()
+        })
+        const json = JSON.parse(resp)
+        if (json.embedding?.values) return json.embedding.values as number[]
+        throw new Error(json.error?.message || 'Embedding failed')
+      }))
+      results.push(...responses)
+    }
+    return results
+  }
+
+  // Ingest a document: read file, chunk, embed, store
+  ipcMain.handle('rag-ingest', async (_event, filePath: string) => {
+    try {
+      const resolvedPath = resolveUserPath(filePath)
+      if (!existsSync(resolvedPath)) {
+        return { success: false, error: `File not found: ${resolvedPath}` }
+      }
+
+      const content = await fs.readFile(resolvedPath, 'utf8')
+      const filename = resolvedPath.split(/[/\\]/).pop() || 'unknown'
+      const docId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+      const textChunks = chunkText(content)
+      let embeddings: number[][]
+
+      try {
+        embeddings = await getEmbeddings(textChunks)
+      } catch {
+        // Fallback: use simple hash-based "embeddings" (keyword search will be used)
+        embeddings = textChunks.map(chunk => {
+          const words = chunk.toLowerCase().split(/\s+/)
+          const vec = new Array(64).fill(0)
+          for (const w of words) {
+            for (let i = 0; i < w.length && i < 64; i++) {
+              vec[i] = (vec[i] + w.charCodeAt(i)) % 256
+            }
+          }
+          const mag = Math.sqrt(vec.reduce((a, b) => a + b * b, 0)) || 1
+          return vec.map(v => v / mag)
+        })
+      }
+
+      const newChunks: VectorChunk[] = textChunks.map((text, i) => ({
+        id: `${docId}_chunk_${i}`,
+        docId,
+        text,
+        embedding: embeddings[i],
+        chunkIndex: i
+      }))
+
+      // Save
+      const existingChunks = await loadVectorChunks()
+      await saveVectorChunks([...existingChunks, ...newChunks])
+
+      const index = await loadVectorIndex()
+      index.push({
+        id: docId,
+        filename,
+        filePath: resolvedPath,
+        ingestedAt: new Date().toISOString(),
+        chunks: textChunks.length,
+        size: content.length
+      })
+      await saveVectorIndex(index)
+
+      return {
+        success: true,
+        message: `Ingested "${filename}": ${textChunks.length} chunks, ${content.length} chars`,
+        docId,
+        chunks: textChunks.length
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Semantic search across all ingested documents
+  ipcMain.handle('rag-search', async (_event, query: string, topK?: number) => {
+    try {
+      const k = topK || 5
+      const chunks = await loadVectorChunks()
+      if (chunks.length === 0) {
+        return { success: true, results: [], message: 'No documents ingested yet.' }
+      }
+
+      let queryEmbedding: number[]
+      try {
+        const embeddings = await getEmbeddings([query])
+        queryEmbedding = embeddings[0]
+      } catch {
+        // Fallback: keyword search
+        const queryLower = query.toLowerCase()
+        const keywords = queryLower.split(/\s+/)
+        const scored = chunks.map(chunk => {
+          const textLower = chunk.text.toLowerCase()
+          let score = 0
+          for (const kw of keywords) {
+            if (textLower.includes(kw)) score += 1
+          }
+          return { chunk, score }
+        }).filter(r => r.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, k)
+
+        const index = await loadVectorIndex()
+        return {
+          success: true,
+          results: scored.map(r => ({
+            text: r.chunk.text,
+            score: r.score,
+            docId: r.chunk.docId,
+            filename: index.find(d => d.id === r.chunk.docId)?.filename || 'unknown',
+            chunkIndex: r.chunk.chunkIndex
+          })),
+          searchType: 'keyword'
+        }
+      }
+
+      // Cosine similarity search
+      const scored = chunks.map(chunk => ({
+        chunk,
+        score: cosineSimilarity(queryEmbedding, chunk.embedding)
+      })).sort((a, b) => b.score - a.score).slice(0, k)
+
+      const index = await loadVectorIndex()
+      return {
+        success: true,
+        results: scored.map(r => ({
+          text: r.chunk.text,
+          score: Math.round(r.score * 1000) / 1000,
+          docId: r.chunk.docId,
+          filename: index.find(d => d.id === r.chunk.docId)?.filename || 'unknown',
+          chunkIndex: r.chunk.chunkIndex
+        })),
+        searchType: 'semantic'
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // List all ingested documents
+  ipcMain.handle('rag-list-documents', async () => {
+    try {
+      const docs = await loadVectorIndex()
+      return { success: true, documents: docs, total: docs.length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Delete a document and its chunks
+  ipcMain.handle('rag-delete-document', async (_event, docId: string) => {
+    try {
+      const index = await loadVectorIndex()
+      const doc = index.find(d => d.id === docId)
+      if (!doc) return { success: false, error: `Document ${docId} not found` }
+
+      const newIndex = index.filter(d => d.id !== docId)
+      await saveVectorIndex(newIndex)
+
+      const chunks = await loadVectorChunks()
+      const newChunks = chunks.filter(c => c.docId !== docId)
+      await saveVectorChunks(newChunks)
+
+      return { success: true, message: `Deleted "${doc.filename}" (${doc.chunks} chunks)` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

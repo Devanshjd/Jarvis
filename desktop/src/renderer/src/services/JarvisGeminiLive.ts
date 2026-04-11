@@ -516,6 +516,39 @@ export class JarvisGeminiLive {
                         required: ['ip']
                       }
                     },
+                    // ─── Phase 3: RAG / Vector DB ───
+                    {
+                      name: 'ingest_document',
+                      description: 'Ingest a document or file into the knowledge base for later semantic search. Reads the file, chunks it, and creates vector embeddings.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          file_path: { type: 'STRING', description: 'Path to the file to ingest.' }
+                        },
+                        required: ['file_path']
+                      }
+                    },
+                    {
+                      name: 'semantic_search',
+                      description: 'Search the knowledge base for relevant information using semantic similarity. Use this when the user asks about content from ingested documents.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          query: { type: 'STRING', description: 'The search query.' },
+                          top_k: { type: 'NUMBER', description: 'Number of results to return (default 5).' }
+                        },
+                        required: ['query']
+                      }
+                    },
+                    {
+                      name: 'list_documents',
+                      description: 'List all documents that have been ingested into the knowledge base.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {},
+                        required: []
+                      }
+                    },
                     {
                       name: 'jarvis_chat',
                       description: 'Fallback: Send a complex request to the JARVIS AI backend.',
@@ -951,6 +984,40 @@ export class JarvisGeminiLive {
           case 'ip_geolocation': {
             const r = await api.toolIpGeolocation(args.ip)
             output = r.success ? `🌍 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          // ─── Phase 3: RAG / Vector DB ───
+
+          case 'ingest_document': {
+            const r = await api.ragIngest(args.file_path)
+            output = r.success ? `📥 ${r.message}` : `Error: ${r.error}`
+            break
+          }
+
+          case 'semantic_search': {
+            const r = await api.ragSearch(args.query, args.top_k)
+            if (r.success && r.results && r.results.length > 0) {
+              const results = r.results.map((res, i) =>
+                `[${i + 1}] ${res.filename} (score: ${res.score})\n${res.text.slice(0, 200)}...`
+              ).join('\n\n')
+              output = `🔎 Found ${r.results.length} results (${r.searchType}):\n\n${results}`
+            } else {
+              output = r.message || 'No matching documents found.'
+            }
+            break
+          }
+
+          case 'list_documents': {
+            const r = await api.ragListDocuments()
+            if (r.success && r.documents && r.documents.length > 0) {
+              const list = r.documents.map((d, i) =>
+                `${i + 1}. ${d.filename} (${d.chunks} chunks, ${d.size} chars)`
+              ).join('\n')
+              output = `📚 Knowledge base: ${r.total} documents\n\n${list}`
+            } else {
+              output = '📚 Knowledge base is empty. Ingest documents to get started.'
+            }
             break
           }
 

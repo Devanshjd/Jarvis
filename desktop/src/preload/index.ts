@@ -138,7 +138,15 @@ const desktopApi = {
   jarvisResearch: (query: string) =>
     ipcRenderer.invoke('jarvis-research', query),
   jarvisDiagnostics: () =>
-    ipcRenderer.invoke('jarvis-diagnostics')
+    ipcRenderer.invoke('jarvis-diagnostics'),
+
+  // ─── Clipboard & Assignment ───
+  clipboardReadImage: () =>
+    ipcRenderer.invoke('clipboard-read-image'),
+  analyzeImage: (base64: string, prompt: string) =>
+    ipcRenderer.invoke('analyze-image', base64, prompt),
+  assignmentSolve: (base64: string, instructions: string) =>
+    ipcRenderer.invoke('assignment-solve', base64, instructions)
 }
 
 if (process.contextIsolated) {

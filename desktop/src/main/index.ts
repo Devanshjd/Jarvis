@@ -2312,6 +2312,150 @@ function createWindow() {
     return await runEvolve('diagnostics')
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── CLIPBOARD IMAGE + ASSIGNMENT MODE ────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // Read clipboard image (screenshot paste)
+  ipcMain.handle('clipboard-read-image', async () => {
+    try {
+      const { clipboard, nativeImage } = require('electron')
+      const img = clipboard.readImage()
+      if (img.isEmpty()) {
+        return { success: false, error: 'No image in clipboard' }
+      }
+      const base64 = img.toPNG().toString('base64')
+      const size = img.getSize()
+      return {
+        success: true,
+        base64,
+        width: size.width,
+        height: size.height,
+        mimeType: 'image/png'
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Analyze image with Gemini Vision API (for assignments, screenshots, etc.)
+  ipcMain.handle('analyze-image', async (_event, base64: string, prompt: string) => {
+    try {
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const fs = require('fs')
+      if (!fs.existsSync(configPath)) {
+        return { success: false, error: 'Config not found' }
+      }
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      const apiKey = config.geminiApiKey
+      if (!apiKey) {
+        return { success: false, error: 'No Gemini API key' }
+      }
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+      const body = JSON.stringify({
+        contents: [{
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/png',
+                data: base64
+              }
+            },
+            {
+              text: prompt
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192
+        }
+      })
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      })
+
+      const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      return { success: true, text }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Assignment mode: analyze + humanize output
+  ipcMain.handle('assignment-solve', async (_event, base64: string, instructions: string) => {
+    try {
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const fs = require('fs')
+      if (!fs.existsSync(configPath)) {
+        return { success: false, error: 'Config not found' }
+      }
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      const apiKey = config.geminiApiKey
+      if (!apiKey) {
+        return { success: false, error: 'No Gemini API key' }
+      }
+
+      const humanizePrompt = `You are a university student completing an assignment. Study this screenshot carefully.
+
+${instructions || 'Read the assignment/question in the image and provide a complete answer.'}
+
+CRITICAL WRITING RULES — your output must read like a REAL STUDENT wrote it:
+1. Use casual academic tone — not too formal, not too casual
+2. Vary sentence lengths — mix short punchy ones with longer explanations
+3. Occasionally start sentences with "So", "Basically", "I think", "From what I understand"
+4. Make 1-2 very minor imperfections (slightly awkward phrasing, not errors)
+5. Use first person occasionally — "I believe", "In my understanding"
+6. Don't use fancy vocabulary a student wouldn't naturally use
+7. Add practical examples or relate to real-world scenarios where appropriate
+8. Structure with simple paragraphs, not bullet points (unless the assignment asks for them)
+9. Don't use words like "delve", "crucial", "furthermore", "Moreover", "In conclusion" — these are AI red flags
+10. Sound like you actually understand the topic from studying it, not from a textbook
+11. Keep formatting simple — no excessive headers or markdown
+12. If it's code, add comments a student would write, not documentation-style
+
+Provide the complete answer ready to submit.`
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+      const parts: Array<Record<string, unknown>> = []
+
+      if (base64) {
+        parts.push({
+          inlineData: {
+            mimeType: 'image/png',
+            data: base64
+          }
+        })
+      }
+      parts.push({ text: humanizePrompt })
+
+      const body = JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 8192
+        }
+      })
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      })
+
+      const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      return { success: true, text }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

@@ -654,6 +654,29 @@ export class JarvisGeminiLive {
                       name: 'run_diagnostics',
                       description: 'Run full system diagnostics. Use when user says "check yourself", "run diagnostics", "are you healthy?".',
                       parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    // ─── Screenshot & Assignment Tools ───
+                    {
+                      name: 'read_clipboard_image',
+                      description: 'Read a screenshot or image from the clipboard. Use when user says "read this screenshot", "what is on my clipboard", "look at what I copied", "I pasted a screenshot".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          prompt: { type: 'STRING', description: 'What to analyze in the image. Default: describe what you see.' }
+                        },
+                        required: []
+                      }
+                    },
+                    {
+                      name: 'solve_assignment',
+                      description: 'Solve an assignment from clipboard screenshot. Output is written in natural student style that sounds human-written. Use when user says "solve this assignment", "do my homework", "answer this question", "help with this assignment".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          instructions: { type: 'STRING', description: 'Additional instructions or specific question to answer from the image.' }
+                        },
+                        required: []
+                      }
                     }
                   ]
                 }
@@ -1218,6 +1241,34 @@ export class JarvisGeminiLive {
             output = r.success
               ? `Diagnostics complete:\n${r.output}`
               : `Diagnostics ran:\n${r.output}\n${r.error || ''}`
+            break
+          }
+
+          // ─── Screenshot & Assignment Tools ───
+          case 'read_clipboard_image': {
+            const clip = await api.clipboardReadImage()
+            if (!clip.success || !clip.base64) {
+              output = 'No image found in clipboard. Copy a screenshot first (use Snipping Tool or Print Screen), then try again.'
+            } else {
+              const prompt = args.prompt || 'Describe everything you see in this image in detail. Read all text visible.'
+              const analysis = await api.analyzeImage(clip.base64, prompt)
+              output = analysis.success
+                ? `Image (${clip.width}x${clip.height}):\n${analysis.text}`
+                : `Image captured but analysis failed: ${analysis.error}`
+            }
+            break
+          }
+
+          case 'solve_assignment': {
+            const clip = await api.clipboardReadImage()
+            if (!clip.success || !clip.base64) {
+              output = 'No screenshot in clipboard. Take a screenshot of your assignment first (Win+Shift+S), then say "solve this assignment" again.'
+            } else {
+              const result = await api.assignmentSolve(clip.base64, args.instructions || '')
+              output = result.success
+                ? `Assignment answer:\n\n${result.text}`
+                : `Could not solve: ${result.error}`
+            }
             break
           }
 

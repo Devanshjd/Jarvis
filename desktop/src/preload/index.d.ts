@@ -174,6 +174,11 @@ declare global {
       jarvisAddFeature: (description: string) => Promise<{ success: boolean; output: string; error?: string }>
       jarvisResearch: (query: string) => Promise<{ success: boolean; output: string; error?: string }>
       jarvisDiagnostics: () => Promise<{ success: boolean; output: string; error?: string }>
+
+      // ─── Clipboard & Assignment ───
+      clipboardReadImage: () => Promise<{ success: boolean; base64?: string; width?: number; height?: number; error?: string }>
+      analyzeImage: (base64: string, prompt: string) => Promise<{ success: boolean; text?: string; error?: string }>
+      assignmentSolve: (base64: string, instructions: string) => Promise<{ success: boolean; text?: string; error?: string }>
     }
   }
 }

@@ -1,0 +1,164 @@
+{
+  "timestamp": "2026-04-11T20:10:53.696318",
+  "total": 38,
+  "passed": 32,
+  "failed": 4,
+  "skipped": 2,
+  "results": [
+    {
+      "name": "TypeScript compiles",
+      "status": "FAIL",
+      "error": "[WinError 2] The system cannot find the file specified"
+    },
+    {
+      "name": "Main bundle exists",
+      "status": "PASS"
+    },
+    {
+      "name": "Preload bundle exists",
+      "status": "PASS"
+    },
+    {
+      "name": "Renderer bundle exists",
+      "status": "PASS"
+    },
+    {
+      "name": "Port scan (localhost)",
+      "status": "PASS"
+    },
+    {
+      "name": "DNS lookup",
+      "status": "PASS"
+    },
+    {
+      "name": "IP geolocation API",
+      "status": "PASS"
+    },
+    {
+      "name": "Translation API",
+      "status": "PASS"
+    },
+    {
+      "name": "Open-Meteo API",
+      "status": "PASS"
+    },
+    {
+      "name": "File write",
+      "status": "FAIL"
+    },
+    {
+      "name": "File read",
+      "status": "FAIL"
+    },
+    {
+      "name": "File delete",
+      "status": "PASS"
+    },
+    {
+      "name": "Create directory",
+      "status": "PASS"
+    },
+    {
+      "name": "Read directory",
+      "status": "PASS"
+    },
+    {
+      "name": "MD5 hash identify",
+      "status": "PASS"
+    },
+    {
+      "name": "SHA-256 hash identify",
+      "status": "PASS"
+    },
+    {
+      "name": "WHOIS lookup",
+      "status": "PASS"
+    },
+    {
+      "name": "crt.sh subdomain API",
+      "status": "SKIP",
+      "reason": "crt.sh can be slow/unreliable"
+    },
+    {
+      "name": "Pollinations.ai URL",
+      "status": "SKIP",
+      "reason": "Image gen takes 30-60s"
+    },
+    {
+      "name": "Code analysis regex",
+      "status": "PASS"
+    },
+    {
+      "name": "Translation en\u2192es",
+      "status": "FAIL"
+    },
+    {
+      "name": "Translation en\u2192fr",
+      "status": "PASS"
+    },
+    {
+      "name": "Vector store dir structure",
+      "status": "PASS"
+    },
+    {
+      "name": "JSON serialization",
+      "status": "PASS"
+    },
+    {
+      "name": "Cosine similarity (identical vectors)",
+      "status": "PASS"
+    },
+    {
+      "name": "Text chunking (500 char, 100 overlap)",
+      "status": "PASS"
+    },
+    {
+      "name": "WeatherWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "StockWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "TerminalWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "MapWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "ToolsWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "SecurityWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "MemoryWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "KnowledgeWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "CodeEditorWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "ResearchWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "EmailWidget.tsx exists",
+      "status": "PASS"
+    },
+    {
+      "name": "SystemWidget.tsx exists",
+      "status": "PASS"
+    }
+  ]
+}

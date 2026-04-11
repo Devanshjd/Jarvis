@@ -79,6 +79,8 @@ export class JarvisGeminiLive {
   private visionTimer: number | null = null
   private visionSource: VisionSource = 'none'
   private lastOptions: StartOptions | null = null
+  private reconnectAttempts = 0
+  private readonly MAX_RECONNECTS = 3
   private state: VoiceBridgeState = {
     loaded: false,
     active: false,
@@ -117,6 +119,7 @@ export class JarvisGeminiLive {
       return
     }
     this.lastOptions = options
+    this.reconnectAttempts = 0  // Reset on manual start
     const apiKey = options.apiKey.trim()
     console.log('[GeminiLive] Starting voice session', {
       hasKey: Boolean(apiKey),
@@ -798,25 +801,32 @@ export class JarvisGeminiLive {
         this.cleanupSocketState(false)
 
         // ─── Auto-reconnect if session drops unexpectedly ───
-        // Don't reconnect if user manually stopped (code 1000 = normal close)
-        if (event.code !== 1000 && !this.state.mic_muted) {
-          console.log('[GeminiLive] 🔄 Auto-reconnecting in 3 seconds...')
+        // Max 3 retries with exponential backoff (3s, 6s, 12s)
+        if (event.code !== 1000 && !this.state.mic_muted && this.reconnectAttempts < this.MAX_RECONNECTS) {
+          this.reconnectAttempts++
+          const delay = 3000 * Math.pow(2, this.reconnectAttempts - 1)
+          console.log(`[GeminiLive] 🔄 Auto-reconnect attempt ${this.reconnectAttempts}/${this.MAX_RECONNECTS} in ${delay/1000}s...`)
           this.updateState({
-            error: 'Reconnecting...',
+            error: `Reconnecting (${this.reconnectAttempts}/${this.MAX_RECONNECTS})...`,
             connecting: true
           })
           setTimeout(() => {
             if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-              console.log('[GeminiLive] 🔄 Reconnecting now...')
-              this.start(this.lastOptions!).catch((err) => {
+              console.log(`[GeminiLive] 🔄 Reconnecting now (attempt ${this.reconnectAttempts})...`)
+              this.start(this.lastOptions!).then(() => {
+                // Reset counter on success
+                this.reconnectAttempts = 0
+              }).catch((err) => {
                 console.error('[GeminiLive] ❌ Reconnect failed:', err)
                 this.updateState({
-                  error: message,
+                  error: this.reconnectAttempts >= this.MAX_RECONNECTS
+                    ? 'Connection lost. Click the phone button to reconnect.'
+                    : message,
                   connecting: false
                 })
               })
             }
-          }, 3000)
+          }, delay)
         } else {
           this.updateState({
             error: message

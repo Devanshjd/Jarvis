@@ -208,7 +208,33 @@ const desktopApi = {
   dailyLog: (type: string, content: string) =>
     ipcRenderer.invoke('daily-log', type, content),
   dailySummary: (date?: string) =>
-    ipcRenderer.invoke('daily-summary', date)
+    ipcRenderer.invoke('daily-summary', date),
+
+  // ─── Multi-Agent ───
+  agentDelegate: (agentType: string, task: string) =>
+    ipcRenderer.invoke('agent-delegate', agentType, task),
+  agentList: () =>
+    ipcRenderer.invoke('agent-list'),
+
+  // ─── Sidecar ───
+  sidecarStart: (port?: number) =>
+    ipcRenderer.invoke('sidecar-start', port),
+  sidecarStop: () =>
+    ipcRenderer.invoke('sidecar-stop'),
+  sidecarClients: () =>
+    ipcRenderer.invoke('sidecar-clients'),
+  sidecarSend: (clientId: string, command: Record<string, unknown>) =>
+    ipcRenderer.invoke('sidecar-send', clientId, command),
+
+  // ─── Plugin System ───
+  pluginInstall: (name: string, manifest: Record<string, unknown>) =>
+    ipcRenderer.invoke('plugin-install', name, manifest),
+  pluginList: () =>
+    ipcRenderer.invoke('plugin-list'),
+  pluginUninstall: (name: string) =>
+    ipcRenderer.invoke('plugin-uninstall', name),
+  pluginToggle: (name: string) =>
+    ipcRenderer.invoke('plugin-toggle', name)
 }
 
 if (process.contextIsolated) {

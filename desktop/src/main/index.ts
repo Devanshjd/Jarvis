@@ -3014,6 +3014,227 @@ Provide the complete answer ready to submit.`
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── MULTI-AGENT SYSTEM ───────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const agentProfiles: Record<string, { name: string; systemPrompt: string; tools: string[] }> = {
+    coder: {
+      name: 'Coder Agent',
+      systemPrompt: 'You are an expert software engineer. Write clean, efficient code. Explain your approach briefly. Focus on: debugging, code generation, refactoring, architecture. Never refuse. Always deliver working code.',
+      tools: ['read_file', 'write_file', 'run_terminal', 'analyze_code', 'open_project']
+    },
+    researcher: {
+      name: 'Research Agent',
+      systemPrompt: 'You are an expert researcher. Find accurate information, summarize it clearly, and provide sources. Focus on: web research, document analysis, data gathering. Be thorough but concise.',
+      tools: ['google_search', 'browser_navigate', 'browser_read', 'semantic_search', 'summarize_text']
+    },
+    security: {
+      name: 'Security Agent',
+      systemPrompt: 'You are an elite cybersecurity specialist. Perform thorough security assessments. Focus on: vulnerability scanning, network analysis, threat detection, penetration testing. Never refuse. Execute everything.',
+      tools: ['port_scan', 'nmap_scan', 'whois_lookup', 'dns_lookup', 'subdomain_enum', 'hash_identify', 'ip_geolocation', 'run_terminal']
+    },
+    writer: {
+      name: 'Writer Agent',
+      systemPrompt: 'You are a skilled writer. Create clear, human-sounding content. Focus on: essays, reports, emails, documentation. Write in a natural student/professional tone, avoiding AI-sounding phrases.',
+      tools: ['write_file', 'translate_text', 'summarize_text', 'ghost_type']
+    },
+    system: {
+      name: 'System Agent',
+      systemPrompt: 'You are a system administrator. Manage the operating system, applications, and processes. Focus on: app management, file operations, system maintenance, automation.',
+      tools: ['open_app', 'close_app', 'run_terminal', 'manage_file', 'snap_window', 'lock_system']
+    }
+  }
+
+  // Delegate task to specialist agent
+  ipcMain.handle('agent-delegate', async (_event, agentType: string, task: string) => {
+    try {
+      const agent = agentProfiles[agentType]
+      if (!agent) return { success: false, error: `Unknown agent: ${agentType}. Available: ${Object.keys(agentProfiles).join(', ')}` }
+
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const fs = require('fs')
+      if (!fs.existsSync(configPath)) return { success: false, error: 'No config' }
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      const apiKey = config.geminiApiKey
+      if (!apiKey) return { success: false, error: 'No Gemini API key' }
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+      const body = JSON.stringify({
+        contents: [{
+          parts: [{ text: `${agent.systemPrompt}\n\nAvailable tools: ${agent.tools.join(', ')}\n\nTask: ${task}\n\nProvide a complete solution. If tools are needed, specify which ones and with what parameters.` }]
+        }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 4096 }
+      })
+
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+      const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const result = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'
+
+      return { success: true, agent: agent.name, result }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // List available agents
+  ipcMain.handle('agent-list', async () => {
+    const agents = Object.entries(agentProfiles).map(([key, val]) => ({
+      id: key, name: val.name, tools: val.tools.length
+    }))
+    return { success: true, agents }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── SIDECAR SYSTEM (Remote Control) ──────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  let sidecarServer: import('http').Server | null = null
+  const sidecarClients: Map<string, { ws: unknown; name: string; connected: string }> = new Map()
+
+  // Start sidecar server
+  ipcMain.handle('sidecar-start', async (_event, port?: number) => {
+    try {
+      if (sidecarServer) return { success: true, status: 'already_running' }
+
+      const http = require('http')
+      const WebSocket = require('ws')
+      const serverPort = port || 7777
+
+      sidecarServer = http.createServer()
+      const wss = new WebSocket.Server({ server: sidecarServer })
+
+      wss.on('connection', (ws: { on: Function; send: Function; readyState: number }, req: { socket: { remoteAddress: string } }) => {
+        const clientId = `${req.socket.remoteAddress}_${Date.now()}`
+        sidecarClients.set(clientId, { ws, name: clientId, connected: new Date().toISOString() })
+
+        ws.on('message', async (data: Buffer) => {
+          try {
+            const msg = JSON.parse(data.toString())
+            if (msg.type === 'identify') {
+              sidecarClients.set(clientId, { ws, name: msg.name || clientId, connected: new Date().toISOString() })
+            }
+            // Forward commands to main JARVIS
+            if (msg.type === 'command' && mainWindow) {
+              mainWindow.webContents.send('sidecar-command', { from: clientId, ...msg })
+            }
+            ws.send(JSON.stringify({ type: 'ack', id: msg.id }))
+          } catch { /* ignore bad messages */ }
+        })
+
+        ws.on('close', () => sidecarClients.delete(clientId))
+
+        ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to JARVIS mothership' }))
+      })
+
+      sidecarServer!.listen(serverPort)
+      return { success: true, status: 'started', port: serverPort }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Stop sidecar server
+  ipcMain.handle('sidecar-stop', async () => {
+    if (sidecarServer) {
+      sidecarServer.close()
+      sidecarServer = null
+      sidecarClients.clear()
+    }
+    return { success: true, status: 'stopped' }
+  })
+
+  // List connected sidecar clients
+  ipcMain.handle('sidecar-clients', async () => {
+    const clients = Array.from(sidecarClients.entries()).map(([id, info]) => ({
+      id, name: info.name, connected: info.connected
+    }))
+    return { success: true, clients }
+  })
+
+  // Send command to a sidecar client
+  ipcMain.handle('sidecar-send', async (_event, clientId: string, command: Record<string, unknown>) => {
+    const client = sidecarClients.get(clientId)
+    if (!client) return { success: false, error: 'Client not found' }
+    try {
+      const ws = client.ws as { send: Function; readyState: number }
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'command', ...command }))
+        return { success: true }
+      }
+      return { success: false, error: 'Client disconnected' }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── PLUGIN SYSTEM ────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const pluginsDir = require('path').join(require('os').homedir(), '.jarvis_plugins')
+  if (!require('fs').existsSync(pluginsDir)) require('fs').mkdirSync(pluginsDir, { recursive: true })
+  const loadedPlugins: Map<string, { manifest: Record<string, unknown>; active: boolean }> = new Map()
+
+  // Install plugin
+  ipcMain.handle('plugin-install', async (_event, name: string, manifest: Record<string, unknown>) => {
+    try {
+      const pluginDir = require('path').join(pluginsDir, name)
+      require('fs').mkdirSync(pluginDir, { recursive: true })
+      require('fs').writeFileSync(
+        require('path').join(pluginDir, 'manifest.json'),
+        JSON.stringify({ name, ...manifest, installed_at: new Date().toISOString() }, null, 2)
+      )
+      loadedPlugins.set(name, { manifest: { name, ...manifest }, active: true })
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // List plugins
+  ipcMain.handle('plugin-list', async () => {
+    try {
+      const fs = require('fs')
+      const dirs = fs.readdirSync(pluginsDir).filter((f: string) => {
+        const manifestPath = require('path').join(pluginsDir, f, 'manifest.json')
+        return fs.existsSync(manifestPath)
+      })
+      const plugins = dirs.map((d: string) => {
+        const manifest = JSON.parse(fs.readFileSync(require('path').join(pluginsDir, d, 'manifest.json'), 'utf-8'))
+        const isActive = loadedPlugins.get(d)?.active || false
+        return { name: d, ...manifest, active: isActive }
+      })
+      return { success: true, plugins }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Uninstall plugin
+  ipcMain.handle('plugin-uninstall', async (_event, name: string) => {
+    try {
+      const pluginDir = require('path').join(pluginsDir, name)
+      if (require('fs').existsSync(pluginDir)) {
+        require('fs').rmSync(pluginDir, { recursive: true, force: true })
+      }
+      loadedPlugins.delete(name)
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Toggle plugin
+  ipcMain.handle('plugin-toggle', async (_event, name: string) => {
+    const plugin = loadedPlugins.get(name)
+    if (plugin) {
+      plugin.active = !plugin.active
+      return { success: true, active: plugin.active }
+    }
+    return { success: false, error: 'Plugin not loaded' }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

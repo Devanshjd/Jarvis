@@ -215,6 +215,22 @@ declare global {
       goalUpdate: (goalId: number, note: string, progressChange?: number) => Promise<{ success: boolean; error?: string }>
       dailyLog: (type: string, content: string) => Promise<{ success: boolean; error?: string }>
       dailySummary: (date?: string) => Promise<{ success: boolean; date?: string; logs?: Array<Record<string, unknown>>; activeGoals?: Array<Record<string, unknown>>; error?: string }>
+
+      // ─── Multi-Agent ───
+      agentDelegate: (agentType: string, task: string) => Promise<{ success: boolean; agent?: string; result?: string; error?: string }>
+      agentList: () => Promise<{ success: boolean; agents: Array<{ id: string; name: string; tools: number }> }>
+
+      // ─── Sidecar ───
+      sidecarStart: (port?: number) => Promise<{ success: boolean; status?: string; port?: number; error?: string }>
+      sidecarStop: () => Promise<{ success: boolean; status: string }>
+      sidecarClients: () => Promise<{ success: boolean; clients: Array<{ id: string; name: string; connected: string }> }>
+      sidecarSend: (clientId: string, command: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>
+
+      // ─── Plugin System ───
+      pluginInstall: (name: string, manifest: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>
+      pluginList: () => Promise<{ success: boolean; plugins?: Array<Record<string, unknown>>; error?: string }>
+      pluginUninstall: (name: string) => Promise<{ success: boolean; error?: string }>
+      pluginToggle: (name: string) => Promise<{ success: boolean; active?: boolean; error?: string }>
     }
   }
 }

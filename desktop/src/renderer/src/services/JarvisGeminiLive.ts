@@ -898,6 +898,44 @@ export class JarvisGeminiLive {
                       name: 'daily_briefing',
                       description: 'Get a daily briefing. Use when user says "morning briefing", "what is my day like", "daily summary".',
                       parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    // ─── Multi-Agent Tools ───
+                    {
+                      name: 'delegate_to_agent',
+                      description: 'Delegate a task to a specialist agent. Use when the task needs expert handling. Agents: coder, researcher, security, writer, system.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          agent: { type: 'STRING', description: 'Agent type: coder, researcher, security, writer, or system.' },
+                          task: { type: 'STRING', description: 'Task to delegate.' }
+                        },
+                        required: ['agent', 'task']
+                      }
+                    },
+                    // ─── Sidecar Tools ───
+                    {
+                      name: 'sidecar_control',
+                      description: 'Start sidecar server for remote control, or check connected machines. Use when user says "start remote control", "who is connected", "list machines".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          action: { type: 'STRING', description: 'Action: start, stop, or clients.' }
+                        },
+                        required: ['action']
+                      }
+                    },
+                    // ─── Plugin Tools ───
+                    {
+                      name: 'manage_plugins',
+                      description: 'List, install, or manage plugins. Use when user says "list plugins", "show extensions", "manage plugins".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          action: { type: 'STRING', description: 'Action: list, install, uninstall, toggle.' },
+                          name: { type: 'STRING', description: 'Plugin name (for install/uninstall/toggle).' }
+                        },
+                        required: ['action']
+                      }
                     }
                   ]
                 }
@@ -1664,6 +1702,55 @@ export class JarvisGeminiLive {
               output = `Daily Briefing for ${r.date}:\n\nActive Goals:\n${goalsSummary}\n\nActivity log: ${logCount} entries today.`
             } else {
               output = 'Could not generate briefing.'
+            }
+            break
+          }
+
+          // ─── Multi-Agent Tools ───
+          case 'delegate_to_agent': {
+            const r = await api.agentDelegate(args.agent, args.task)
+            output = r.success
+              ? `[${r.agent}] completed task:\n\n${r.result}`
+              : `Agent delegation failed: ${r.error}`
+            break
+          }
+
+          // ─── Sidecar Tools ───
+          case 'sidecar_control': {
+            const action = args.action?.toLowerCase()
+            if (action === 'start') {
+              const r = await api.sidecarStart()
+              output = r.success ? `Sidecar server started on port ${r.port}. Other JARVIS instances can connect.` : `Failed: ${r.error}`
+            } else if (action === 'stop') {
+              const r = await api.sidecarStop()
+              output = `Sidecar server ${r.status}.`
+            } else if (action === 'clients') {
+              const r = await api.sidecarClients()
+              output = r.clients.length
+                ? `Connected machines (${r.clients.length}):\n` + r.clients.map(c => `• ${c.name} (since ${c.connected})`).join('\n')
+                : 'No machines connected.'
+            } else {
+              output = 'Unknown sidecar action. Use: start, stop, or clients.'
+            }
+            break
+          }
+
+          // ─── Plugin Tools ───
+          case 'manage_plugins': {
+            const action = args.action?.toLowerCase()
+            if (action === 'list') {
+              const r = await api.pluginList()
+              output = r.plugins?.length
+                ? `Installed plugins:\n` + r.plugins.map((p: Record<string, unknown>) => `• ${p.name} (${p.active ? '✅ active' : '⏸ inactive'})`).join('\n')
+                : 'No plugins installed.'
+            } else if (action === 'toggle' && args.name) {
+              const r = await api.pluginToggle(args.name)
+              output = r.success ? `Plugin "${args.name}" is now ${r.active ? 'active' : 'inactive'}.` : `Failed: ${r.error}`
+            } else if (action === 'uninstall' && args.name) {
+              const r = await api.pluginUninstall(args.name)
+              output = r.success ? `Plugin "${args.name}" uninstalled.` : `Failed: ${r.error}`
+            } else {
+              output = 'Usage: list, toggle <name>, or uninstall <name>.'
             }
             break
           }

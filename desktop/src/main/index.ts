@@ -2254,6 +2254,64 @@ function createWindow() {
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── SELF-EVOLUTION ENGINE ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const evolveScript = join(getJarvisRoot(), 'training', 'self_evolve.py')
+
+  // Run a self-evolution command
+  const runEvolve = async (command: string, args: string[] = []): Promise<{ success: boolean; output: string; error?: string }> => {
+    try {
+      const cmdArgs = ['python', evolveScript, command, ...args]
+      const result = await new Promise<{stdout: string; stderr: string; code: number}>((resolve, reject) => {
+        const child = require('child_process').spawn(cmdArgs[0], cmdArgs.slice(1), {
+          cwd: getJarvisRoot(),
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+          timeout: 300000 // 5 minutes
+        })
+        let stdout = ''
+        let stderr = ''
+        child.stdout?.on('data', (d: Buffer) => { stdout += d.toString() })
+        child.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+        child.on('close', (code: number) => resolve({ stdout, stderr, code: code || 0 }))
+        child.on('error', reject)
+      })
+      return {
+        success: result.code === 0,
+        output: result.stdout,
+        error: result.stderr || undefined
+      }
+    } catch (err: unknown) {
+      return { success: false, output: '', error: (err as Error).message }
+    }
+  }
+
+  // Self-update: pull latest, rebuild
+  ipcMain.handle('jarvis-self-update', async () => {
+    return await runEvolve('update')
+  })
+
+  // Self-repair: diagnose and fix issues
+  ipcMain.handle('jarvis-self-repair', async () => {
+    return await runEvolve('repair')
+  })
+
+  // Add feature: use Gemini to generate and integrate new code
+  ipcMain.handle('jarvis-add-feature', async (_event, description: string) => {
+    return await runEvolve('feature', [description])
+  })
+
+  // Research: look up solutions
+  ipcMain.handle('jarvis-research', async (_event, query: string) => {
+    return await runEvolve('research', [query])
+  })
+
+  // Diagnostics: full system health check
+  ipcMain.handle('jarvis-diagnostics', async () => {
+    return await runEvolve('diagnostics')
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

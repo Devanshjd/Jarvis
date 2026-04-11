@@ -126,7 +126,19 @@ const desktopApi = {
   brainCheckNetwork: () =>
     ipcRenderer.invoke('brain-check-network'),
   brainCheckOllama: () =>
-    ipcRenderer.invoke('brain-check-ollama')
+    ipcRenderer.invoke('brain-check-ollama'),
+
+  // ─── Self-Evolution ───
+  jarvisSelfUpdate: () =>
+    ipcRenderer.invoke('jarvis-self-update'),
+  jarvisSelfRepair: () =>
+    ipcRenderer.invoke('jarvis-self-repair'),
+  jarvisAddFeature: (description: string) =>
+    ipcRenderer.invoke('jarvis-add-feature', description),
+  jarvisResearch: (query: string) =>
+    ipcRenderer.invoke('jarvis-research', query),
+  jarvisDiagnostics: () =>
+    ipcRenderer.invoke('jarvis-diagnostics')
 }
 
 if (process.contextIsolated) {

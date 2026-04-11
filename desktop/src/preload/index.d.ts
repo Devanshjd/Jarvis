@@ -167,6 +167,13 @@ declare global {
       brainOfflineQuery: (userInput: string) => Promise<{ success: boolean; toolCall?: Record<string, unknown> | null; rawResponse?: string; model?: string; mode?: string; error?: string }>
       brainCheckNetwork: () => Promise<{ online: boolean }>
       brainCheckOllama: () => Promise<{ running: boolean }>
+
+      // ─── Self-Evolution ───
+      jarvisSelfUpdate: () => Promise<{ success: boolean; output: string; error?: string }>
+      jarvisSelfRepair: () => Promise<{ success: boolean; output: string; error?: string }>
+      jarvisAddFeature: (description: string) => Promise<{ success: boolean; output: string; error?: string }>
+      jarvisResearch: (query: string) => Promise<{ success: boolean; output: string; error?: string }>
+      jarvisDiagnostics: () => Promise<{ success: boolean; output: string; error?: string }>
     }
   }
 }

@@ -608,6 +608,44 @@ export class JarvisGeminiLive {
                         },
                         required: ['text']
                       }
+                    },
+                    // ─── Self-Evolution Tools ───
+                    {
+                      name: 'update_self',
+                      description: 'Update JARVIS: pull latest code from git and rebuild. Use when user says things like "update yourself", "upgrade", "pull latest".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'repair_self',
+                      description: 'Repair JARVIS: diagnose and fix build errors automatically. Use when user says "fix yourself", "something is broken", "repair".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'add_feature',
+                      description: 'Add a new feature to JARVIS by auto-generating code. Use when user says "add a feature for...", "build a ... tool", "I want you to be able to...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          description: { type: 'STRING', description: 'Detailed description of the feature to add.' }
+                        },
+                        required: ['description']
+                      }
+                    },
+                    {
+                      name: 'research_topic',
+                      description: 'Research a topic to learn how to do something. Use when user says "figure out how to...", "learn about...", "research...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          query: { type: 'STRING', description: 'The research question or topic.' }
+                        },
+                        required: ['query']
+                      }
+                    },
+                    {
+                      name: 'run_diagnostics',
+                      description: 'Run full system diagnostics. Use when user says "check yourself", "run diagnostics", "are you healthy?".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
                     }
                   ]
                 }
@@ -1108,6 +1146,47 @@ export class JarvisGeminiLive {
             } catch (err) {
               output = `Backend error: ${(err as Error).message}`
             }
+            break
+          }
+
+          // ─── Self-Evolution Tools ───
+          case 'update_self': {
+            const r = await api.jarvisSelfUpdate()
+            output = r.success
+              ? `Self-update complete:\n${r.output}`
+              : `Update failed: ${r.error || r.output}`
+            break
+          }
+
+          case 'repair_self': {
+            const r = await api.jarvisSelfRepair()
+            output = r.success
+              ? `Self-repair complete:\n${r.output}`
+              : `Repair completed with issues:\n${r.output}\n${r.error || ''}`
+            break
+          }
+
+          case 'add_feature': {
+            const r = await api.jarvisAddFeature(args.description)
+            output = r.success
+              ? `Feature added successfully:\n${r.output}`
+              : `Feature generation attempted:\n${r.output}\n${r.error || ''}`
+            break
+          }
+
+          case 'research_topic': {
+            const r = await api.jarvisResearch(args.query)
+            output = r.success
+              ? `Research results:\n${r.output}`
+              : `Research failed: ${r.error || r.output}`
+            break
+          }
+
+          case 'run_diagnostics': {
+            const r = await api.jarvisDiagnostics()
+            output = r.success
+              ? `Diagnostics complete:\n${r.output}`
+              : `Diagnostics ran:\n${r.output}\n${r.error || ''}`
             break
           }
 

@@ -78,19 +78,27 @@ export default function MacrosView() {
     if (!selected || !editName.trim()) return
     setSaving(true)
     const macro = { id: selected.id, name: editName.trim(), steps: editSteps }
-    await window.desktopApi.macrosSave(macro)
-    await loadMacros()
-    setSelected(macro)
+    try {
+      await window.desktopApi.macrosSave(macro)
+      await loadMacros()
+      setSelected(macro)
+    } catch (err) {
+      console.error('[MacrosView] Save failed:', err)
+    }
     setSaving(false)
   }
 
   async function deleteCurrent() {
     if (!selected) return
-    await window.desktopApi.macrosDelete(selected.id)
-    setSelected(null)
-    setEditSteps([])
-    setEditName('')
-    await loadMacros()
+    try {
+      await window.desktopApi.macrosDelete(selected.id)
+      setSelected(null)
+      setEditSteps([])
+      setEditName('')
+      await loadMacros()
+    } catch (err) {
+      console.error('[MacrosView] Delete failed:', err)
+    }
   }
 
   async function runCurrent() {

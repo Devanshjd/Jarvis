@@ -241,7 +241,38 @@ const desktopApi = {
     ipcRenderer.invoke('jarvis-notify', title, body, urgency),
   onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => {
     ipcRenderer.on('jarvis-notification', (_event, data) => callback(data))
-  }
+  },
+
+  // ─── Live APIs ───
+  apiWeather: (city: string) =>
+    ipcRenderer.invoke('api-weather', city),
+  apiNews: (query?: string, category?: string) =>
+    ipcRenderer.invoke('api-news', query, category),
+
+  // ─── File Watcher ───
+  watcherStart: (dirPath: string) =>
+    ipcRenderer.invoke('watcher-start', dirPath),
+  watcherStop: (dirPath: string) =>
+    ipcRenderer.invoke('watcher-stop', dirPath),
+  watcherList: () =>
+    ipcRenderer.invoke('watcher-list'),
+  onFileChanged: (callback: (data: { event: string; file: string; dir: string }) => void) => {
+    ipcRenderer.on('file-changed', (_event, data) => callback(data))
+  },
+
+  // ─── Conversation Memory ───
+  memoryLoadContext: () =>
+    ipcRenderer.invoke('memory-load-context'),
+  memorySaveSession: (sessionData: { messages: Array<{ role: string; content: string }> }) =>
+    ipcRenderer.invoke('memory-save-session', sessionData),
+
+  // ─── Metasploit ───
+  msfConnect: (host?: string, port?: number, password?: string) =>
+    ipcRenderer.invoke('msf-connect', host, port, password),
+  msfExecute: (method: string, params: unknown[]) =>
+    ipcRenderer.invoke('msf-execute', method, params),
+  msfModules: (type: string) =>
+    ipcRenderer.invoke('msf-modules', type)
 }
 
 if (process.contextIsolated) {

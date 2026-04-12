@@ -3258,6 +3258,230 @@ Provide the complete answer ready to submit.`
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── LIVE API INTEGRATIONS (Weather, News) ────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // Weather (OpenWeatherMap — free tier)
+  ipcMain.handle('api-weather', async (_event, city: string) => {
+    try {
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
+      const apiKey = config.openWeatherKey || config.weatherApiKey
+      if (!apiKey) return { success: false, error: 'No weather API key. Set openWeatherKey in .jarvis_config.json' }
+
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`
+      const res = await fetch(url)
+      const data = await res.json() as Record<string, unknown>
+      if ((data as any).cod !== 200) return { success: false, error: (data as any).message || 'City not found' }
+
+      const w = data as any
+      return {
+        success: true,
+        city: w.name, country: w.sys?.country,
+        temp: w.main?.temp, feels_like: w.main?.feels_like,
+        humidity: w.main?.humidity,
+        description: w.weather?.[0]?.description,
+        wind: w.wind?.speed,
+        icon: w.weather?.[0]?.icon
+      }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // News (NewsAPI — free tier)
+  ipcMain.handle('api-news', async (_event, query?: string, category?: string) => {
+    try {
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
+      const apiKey = config.newsApiKey
+      if (!apiKey) return { success: false, error: 'No news API key. Set newsApiKey in .jarvis_config.json' }
+
+      let url: string
+      if (query) {
+        url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&pageSize=5&apiKey=${apiKey}`
+      } else {
+        url = `https://newsapi.org/v2/top-headlines?country=us&category=${category || 'technology'}&pageSize=5&apiKey=${apiKey}`
+      }
+
+      const res = await fetch(url)
+      const data = await res.json() as any
+      const articles = (data.articles || []).map((a: any) => ({
+        title: a.title, source: a.source?.name, url: a.url,
+        description: a.description?.slice(0, 200), publishedAt: a.publishedAt
+      }))
+      return { success: true, articles }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── FILE WATCHER (Project Directory Monitor) ─────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const activeWatchers: Map<string, import('fs').FSWatcher> = new Map()
+
+  ipcMain.handle('watcher-start', async (_event, dirPath: string) => {
+    try {
+      if (activeWatchers.has(dirPath)) return { success: true, status: 'already_watching' }
+
+      const fs = require('fs')
+      if (!fs.existsSync(dirPath)) return { success: false, error: 'Directory not found' }
+
+      const watcher = fs.watch(dirPath, { recursive: true }, (eventType: string, filename: string) => {
+        if (!filename) return
+        // Ignore node_modules, .git, dist, out
+        if (filename.includes('node_modules') || filename.includes('.git') || filename.includes('out/')) return
+
+        // Send file change event to renderer
+        if (mainWindow) {
+          mainWindow.webContents.send('file-changed', {
+            event: eventType, file: filename, dir: dirPath,
+            timestamp: new Date().toISOString()
+          })
+        }
+      })
+
+      activeWatchers.set(dirPath, watcher)
+      return { success: true, status: 'watching', path: dirPath }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('watcher-stop', async (_event, dirPath: string) => {
+    const watcher = activeWatchers.get(dirPath)
+    if (watcher) {
+      watcher.close()
+      activeWatchers.delete(dirPath)
+    }
+    return { success: true, status: 'stopped' }
+  })
+
+  ipcMain.handle('watcher-list', async () => {
+    return { success: true, watching: Array.from(activeWatchers.keys()) }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── CONVERSATION MEMORY (Session Persistence) ────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // Load user context from vault on startup
+  ipcMain.handle('memory-load-context', async () => {
+    try {
+      // Get recent conversations
+      const recentConvos = vault.prepare(
+        'SELECT role, content FROM conversations ORDER BY created_at DESC LIMIT 20'
+      ).all() as Array<{ role: string; content: string }>
+
+      // Get user's entities
+      const userEntities = vault.prepare(
+        "SELECT name, type, description FROM entities ORDER BY updated_at DESC LIMIT 15"
+      ).all() as Array<{ name: string; type: string; description: string }>
+
+      // Get active goals
+      const activeGoals = vault.prepare(
+        "SELECT title, progress, priority FROM goals WHERE status = 'active'"
+      ).all() as Array<{ title: string; progress: number; priority: string }>
+
+      // Build context string
+      let context = ''
+      if (userEntities.length > 0) {
+        context += `Known entities: ${userEntities.map(e => `${e.name} (${e.type})`).join(', ')}.\n`
+      }
+      if (activeGoals.length > 0) {
+        context += `Active goals: ${activeGoals.map(g => `${g.title} (${g.progress}%)`).join(', ')}.\n`
+      }
+      if (recentConvos.length > 0) {
+        context += `Recent conversation summary available.\n`
+      }
+
+      return { success: true, context, entities: userEntities.length, goals: activeGoals.length, conversations: recentConvos.length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Save session state
+  ipcMain.handle('memory-save-session', async (_event, sessionData: { messages: Array<{ role: string; content: string }> }) => {
+    try {
+      const insertStmt = vault.prepare('INSERT INTO conversations (role, content) VALUES (?, ?)')
+      const transaction = vault.transaction((messages: Array<{ role: string; content: string }>) => {
+        for (const msg of messages) {
+          insertStmt.run(msg.role, msg.content.slice(0, 2000))
+        }
+      })
+      transaction(sessionData.messages)
+      return { success: true, saved: sessionData.messages.length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── METASPLOIT RPC BRIDGE ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  let msfToken: string | null = null
+
+  ipcMain.handle('msf-connect', async (_event, host?: string, port?: number, password?: string) => {
+    try {
+      const msfHost = host || '127.0.0.1'
+      const msfPort = port || 55553
+      const msfPass = password || 'msf'
+
+      const body = JSON.stringify({ method: 'auth.login', params: [msfPass] })
+      const res = await fetch(`http://${msfHost}:${msfPort}/api/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      })
+      const data = await res.json() as { result?: string; token?: string; error?: string }
+      if (data.result === 'success' && data.token) {
+        msfToken = data.token
+        return { success: true, token: msfToken }
+      }
+      return { success: false, error: data.error || 'Auth failed' }
+    } catch (err: unknown) {
+      return { success: false, error: `Metasploit RPC not reachable: ${(err as Error).message}. Start msfrpcd first.` }
+    }
+  })
+
+  ipcMain.handle('msf-execute', async (_event, method: string, params: unknown[]) => {
+    if (!msfToken) return { success: false, error: 'Not connected to Metasploit. Run msf-connect first.' }
+    try {
+      const body = JSON.stringify({ method, params: [msfToken, ...params] })
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
+      const msfHost = config.msfHost || '127.0.0.1'
+      const msfPort = config.msfPort || 55553
+
+      const res = await fetch(`http://${msfHost}:${msfPort}/api/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      })
+      const data = await res.json() as Record<string, unknown>
+      return { success: true, result: data }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('msf-modules', async (_event, type: string) => {
+    if (!msfToken) return { success: false, error: 'Not connected' }
+    try {
+      const body = JSON.stringify({ method: `module.${type}`, params: [msfToken] })
+      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
+      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
+      const res = await fetch(`http://${config.msfHost || '127.0.0.1'}:${config.msfPort || 55553}/api/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+      })
+      const data = await res.json() as { modules?: string[] }
+      return { success: true, modules: data.modules || [] }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

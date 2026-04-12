@@ -936,6 +936,61 @@ export class JarvisGeminiLive {
                         },
                         required: ['action']
                       }
+                    },
+                    // ─── Live API Tools ───
+                    {
+                      name: 'get_weather',
+                      description: 'Get current weather for a city. Use when user asks about weather, temperature, forecast.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          city: { type: 'STRING', description: 'City name, e.g. London, New York.' }
+                        },
+                        required: ['city']
+                      }
+                    },
+                    {
+                      name: 'get_news',
+                      description: 'Get latest news headlines. Use when user asks "what is in the news", "latest tech news", "news about X".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          query: { type: 'STRING', description: 'Optional search query for specific news.' },
+                          category: { type: 'STRING', description: 'Category: technology, business, science, health, sports.' }
+                        },
+                        required: []
+                      }
+                    },
+                    // ─── File Watcher Tools ───
+                    {
+                      name: 'watch_project',
+                      description: 'Start watching a project directory for file changes. Use when user says "watch this project", "monitor my files".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          path: { type: 'STRING', description: 'Directory path to watch.' }
+                        },
+                        required: ['path']
+                      }
+                    },
+                    // ─── Conversation Memory Tools ───
+                    {
+                      name: 'load_memory',
+                      description: 'Load conversation memory and context from previous sessions. Use when session starts or user says "what do you remember".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    // ─── Metasploit Tools ───
+                    {
+                      name: 'metasploit',
+                      description: 'Connect to Metasploit Framework or execute MSF commands. Use for penetration testing, exploit search, vulnerability scanning.',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          action: { type: 'STRING', description: 'Action: connect, exploits, payloads, auxiliaries, execute.' },
+                          command: { type: 'STRING', description: 'MSF method to execute (for execute action).' }
+                        },
+                        required: ['action']
+                      }
                     }
                   ]
                 }
@@ -1751,6 +1806,69 @@ export class JarvisGeminiLive {
               output = r.success ? `Plugin "${args.name}" uninstalled.` : `Failed: ${r.error}`
             } else {
               output = 'Usage: list, toggle <name>, or uninstall <name>.'
+            }
+            break
+          }
+
+          // ─── Live API Handlers ───
+          case 'get_weather': {
+            const r = await api.apiWeather(args.city)
+            output = r.success
+              ? `Weather in ${r.city}: ${r.temp}°C, ${r.description}. Humidity: ${(r as any).humidity}%, Wind: ${(r as any).wind} m/s.`
+              : `Weather error: ${r.error}`
+            break
+          }
+
+          case 'get_news': {
+            const r = await api.apiNews(args.query, args.category)
+            if (r.success && r.articles?.length) {
+              output = `Headlines:\n` + r.articles.map((a: any, i: number) =>
+                `${i + 1}. ${a.title} (${a.source})`
+              ).join('\n')
+            } else {
+              output = r.error || 'No news found.'
+            }
+            break
+          }
+
+          // ─── File Watcher Handlers ───
+          case 'watch_project': {
+            const r = await api.watcherStart(args.path)
+            output = r.success
+              ? `Now watching: ${args.path}. I'll alert you when files change.`
+              : `Watch failed: ${r.error}`
+            break
+          }
+
+          // ─── Memory Handlers ───
+          case 'load_memory': {
+            const r = await api.memoryLoadContext()
+            output = r.success
+              ? `Memory loaded. I remember ${r.entities} entities, ${r.goals} active goals, and ${(r as any).conversations} recent conversations.\n\n${r.context || ''}`
+              : `Memory load failed: ${r.error}`
+            break
+          }
+
+          // ─── Metasploit Handlers ───
+          case 'metasploit': {
+            const action = args.action?.toLowerCase()
+            if (action === 'connect') {
+              const r = await api.msfConnect()
+              output = r.success
+                ? 'Connected to Metasploit Framework. Ready for operations.'
+                : `MSF connection failed: ${r.error}`
+            } else if (action === 'exploits' || action === 'payloads' || action === 'auxiliaries') {
+              const r = await api.msfModules(action)
+              output = r.success
+                ? `${action}: ${r.modules?.length || 0} modules available.`
+                : `MSF error: ${r.error}`
+            } else if (action === 'execute' && args.command) {
+              const r = await api.msfExecute(args.command, [])
+              output = r.success
+                ? `MSF result: ${JSON.stringify(r.result).slice(0, 500)}`
+                : `MSF error: ${r.error}`
+            } else {
+              output = 'Usage: connect, exploits, payloads, auxiliaries, or execute <method>'
             }
             break
           }

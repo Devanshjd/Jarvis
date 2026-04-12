@@ -235,6 +235,25 @@ declare global {
       // ─── Notifications ───
       jarvisNotify: (title: string, body: string, urgency?: string) => Promise<{ success: boolean; error?: string }>
       onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => void
+
+      // ─── Live APIs ───
+      apiWeather: (city: string) => Promise<{ success: boolean; city?: string; temp?: number; description?: string; error?: string }>
+      apiNews: (query?: string, category?: string) => Promise<{ success: boolean; articles?: Array<Record<string, unknown>>; error?: string }>
+
+      // ─── File Watcher ───
+      watcherStart: (dirPath: string) => Promise<{ success: boolean; status?: string; error?: string }>
+      watcherStop: (dirPath: string) => Promise<{ success: boolean; status: string }>
+      watcherList: () => Promise<{ success: boolean; watching: string[] }>
+      onFileChanged: (callback: (data: { event: string; file: string; dir: string }) => void) => void
+
+      // ─── Conversation Memory ───
+      memoryLoadContext: () => Promise<{ success: boolean; context?: string; entities?: number; goals?: number; error?: string }>
+      memorySaveSession: (sessionData: { messages: Array<{ role: string; content: string }> }) => Promise<{ success: boolean; saved?: number; error?: string }>
+
+      // ─── Metasploit ───
+      msfConnect: (host?: string, port?: number, password?: string) => Promise<{ success: boolean; token?: string; error?: string }>
+      msfExecute: (method: string, params: unknown[]) => Promise<{ success: boolean; result?: Record<string, unknown>; error?: string }>
+      msfModules: (type: string) => Promise<{ success: boolean; modules?: string[]; error?: string }>
     }
   }
 }

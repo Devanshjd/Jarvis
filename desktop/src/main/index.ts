@@ -3259,59 +3259,80 @@ Provide the complete answer ready to submit.`
   })
 
   // ═══════════════════════════════════════════════════════════════
-  // ─── LIVE API INTEGRATIONS (Weather, News) ────────────────────
+  // ─── LIVE API INTEGRATIONS (NO API KEY NEEDED) ────────────────
   // ═══════════════════════════════════════════════════════════════
 
-  // Weather (OpenWeatherMap — free tier)
+  // Weather (wttr.in — completely free, no key)
   ipcMain.handle('api-weather', async (_event, city: string) => {
     try {
-      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
-      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
-      const apiKey = config.openWeatherKey || config.weatherApiKey
-      if (!apiKey) return { success: false, error: 'No weather API key. Set openWeatherKey in .jarvis_config.json' }
+      const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'JARVIS-Desktop/1.0' }
+      })
+      const data = await res.json() as any
 
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`
-      const res = await fetch(url)
-      const data = await res.json() as Record<string, unknown>
-      if ((data as any).cod !== 200) return { success: false, error: (data as any).message || 'City not found' }
+      const current = data.current_condition?.[0]
+      if (!current) return { success: false, error: 'City not found' }
 
-      const w = data as any
+      const area = data.nearest_area?.[0]
       return {
         success: true,
-        city: w.name, country: w.sys?.country,
-        temp: w.main?.temp, feels_like: w.main?.feels_like,
-        humidity: w.main?.humidity,
-        description: w.weather?.[0]?.description,
-        wind: w.wind?.speed,
-        icon: w.weather?.[0]?.icon
+        city: area?.areaName?.[0]?.value || city,
+        country: area?.country?.[0]?.value || '',
+        temp: parseFloat(current.temp_C),
+        feels_like: parseFloat(current.FeelsLikeC),
+        humidity: parseInt(current.humidity),
+        description: current.weatherDesc?.[0]?.value || '',
+        wind: parseFloat(current.windspeedKmph),
+        windDir: current.winddir16Point,
+        visibility: current.visibility,
+        uvIndex: current.uvIndex,
+        precipitation: current.precipMM
       }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }
   })
 
-  // News (NewsAPI — free tier)
-  ipcMain.handle('api-news', async (_event, query?: string, category?: string) => {
+  // News (GNews — free, no key needed for basic access)
+  ipcMain.handle('api-news', async (_event, query?: string, _category?: string) => {
     try {
-      const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
-      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf-8'))
-      const apiKey = config.newsApiKey
-      if (!apiKey) return { success: false, error: 'No news API key. Set newsApiKey in .jarvis_config.json' }
-
-      let url: string
+      // Use free RSS-to-JSON service for tech news
+      let feedUrl: string
       if (query) {
-        url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&pageSize=5&apiKey=${apiKey}`
+        // Google News search
+        feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`
       } else {
-        url = `https://newsapi.org/v2/top-headlines?country=us&category=${category || 'technology'}&pageSize=5&apiKey=${apiKey}`
+        // Top tech news from Google News
+        feedUrl = `https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en`
       }
 
-      const res = await fetch(url)
-      const data = await res.json() as any
-      const articles = (data.articles || []).map((a: any) => ({
-        title: a.title, source: a.source?.name, url: a.url,
-        description: a.description?.slice(0, 200), publishedAt: a.publishedAt
-      }))
-      return { success: true, articles }
+      const res = await fetch(feedUrl, {
+        headers: { 'User-Agent': 'JARVIS-Desktop/1.0' }
+      })
+      const xml = await res.text()
+
+      // Simple XML parse for RSS items
+      const items: Array<Record<string, string>> = []
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g
+      let match: RegExpExecArray | null
+      while ((match = itemRegex.exec(xml)) !== null && items.length < 5) {
+        const itemXml = match[1]
+        const getTag = (tag: string): string => {
+          const r = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[(.+?)\\]\\]><\\/${tag}>|<${tag}[^>]*>(.+?)<\\/${tag}>`)
+          const m = r.exec(itemXml)
+          return m?.[1] || m?.[2] || ''
+        }
+        items.push({
+          title: getTag('title'),
+          url: getTag('link'),
+          source: getTag('source'),
+          publishedAt: getTag('pubDate'),
+          description: getTag('description').slice(0, 200)
+        })
+      }
+
+      return { success: true, articles: items }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }

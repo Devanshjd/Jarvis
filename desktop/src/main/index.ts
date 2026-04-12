@@ -3339,6 +3339,178 @@ Provide the complete answer ready to submit.`
   })
 
   // ═══════════════════════════════════════════════════════════════
+  // ─── RAW NETWORK TOOLS (No API, direct from network) ──────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // Web Scraper — fetch any URL, extract readable text
+  ipcMain.handle('net-scrape', async (_event, url: string) => {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(10000)
+      })
+      const html = await res.text()
+      // Strip HTML tags, scripts, styles → readable text
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 3000)
+      const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]?.trim() || ''
+      return { success: true, url, title, text, length: text.length, status: res.status }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Ping — native OS ping
+  ipcMain.handle('net-ping', async (_event, host: string, count?: number) => {
+    try {
+      const n = count || 4
+      const { execSync } = require('child_process')
+      const cmd = process.platform === 'win32' ? `ping -n ${n} ${host}` : `ping -c ${n} ${host}`
+      const output = execSync(cmd, { timeout: 15000, encoding: 'utf-8' }) as string
+      // Extract avg time
+      const avgMatch = output.match(/Average\s*=\s*(\d+)ms/) || output.match(/avg\s*=\s*[\d.]+\/([\d.]+)/)
+      return {
+        success: true, host, output: output.trim(),
+        avgMs: avgMatch ? parseFloat(avgMatch[1]) : null,
+        alive: !output.includes('Request timed out') && !output.includes('100% packet loss')
+      }
+    } catch (err: unknown) {
+      return { success: false, host, alive: false, error: (err as Error).message }
+    }
+  })
+
+  // Traceroute — native OS tracert
+  ipcMain.handle('net-traceroute', async (_event, host: string) => {
+    try {
+      const { execSync } = require('child_process')
+      const cmd = process.platform === 'win32' ? `tracert -d -h 15 ${host}` : `traceroute -n -m 15 ${host}`
+      const output = execSync(cmd, { timeout: 30000, encoding: 'utf-8' }) as string
+      const hops = output.split('\n').filter(l => /^\s*\d+/.test(l)).map(l => l.trim())
+      return { success: true, host, hops, hopCount: hops.length, raw: output.trim() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ARP Table — show all devices on local network
+  ipcMain.handle('net-arp', async () => {
+    try {
+      const { execSync } = require('child_process')
+      const output = execSync('arp -a', { encoding: 'utf-8' }) as string
+      const devices: Array<{ ip: string; mac: string; type: string }> = []
+      for (const line of output.split('\n')) {
+        const m = line.match(/([\d.]+)\s+([\w-]+)\s+(\w+)/)
+        if (m && !m[1].endsWith('.255')) {
+          devices.push({ ip: m[1], mac: m[2], type: m[3] })
+        }
+      }
+      return { success: true, devices, count: devices.length, raw: output.trim() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Network Interfaces — list all adapters, IPs, MACs
+  ipcMain.handle('net-interfaces', async () => {
+    try {
+      const nets = os.networkInterfaces()
+      const interfaces: Array<{ name: string; ip: string; mac: string; family: string; internal: boolean }> = []
+      for (const [name, addrs] of Object.entries(nets)) {
+        for (const addr of addrs || []) {
+          interfaces.push({
+            name, ip: addr.address, mac: addr.mac,
+            family: addr.family, internal: addr.internal
+          })
+        }
+      }
+      return { success: true, interfaces, count: interfaces.length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // HTTP Headers — inspect any server's response headers (security recon)
+  ipcMain.handle('net-headers', async (_event, url: string) => {
+    try {
+      const res = await fetch(url, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'JARVIS-Security-Scanner/1.0' },
+        signal: AbortSignal.timeout(8000),
+        redirect: 'follow'
+      })
+      const headers: Record<string, string> = {}
+      res.headers.forEach((v, k) => { headers[k] = v })
+      // Security analysis
+      const security = {
+        hasHSTS: !!headers['strict-transport-security'],
+        hasCSP: !!headers['content-security-policy'],
+        hasXFrame: !!headers['x-frame-options'],
+        hasXSS: !!headers['x-xss-protection'],
+        server: headers['server'] || 'hidden',
+        poweredBy: headers['x-powered-by'] || 'hidden'
+      }
+      return { success: true, url, status: res.status, headers, security }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Public IP — detect your public IP directly
+  ipcMain.handle('net-public-ip', async () => {
+    try {
+      const res = await fetch('https://icanhazip.com', { signal: AbortSignal.timeout(5000) })
+      const ip = (await res.text()).trim()
+      // Also get local IP
+      const nets = os.networkInterfaces()
+      let localIp = '127.0.0.1'
+      for (const addrs of Object.values(nets)) {
+        for (const addr of addrs || []) {
+          if (addr.family === 'IPv4' && !addr.internal) { localIp = addr.address; break }
+        }
+      }
+      return { success: true, publicIp: ip, localIp, hostname: os.hostname() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // DNS Lookup — native nslookup
+  ipcMain.handle('net-dns', async (_event, domain: string, recordType?: string) => {
+    try {
+      const { execSync } = require('child_process')
+      const type = recordType || 'A'
+      const cmd = process.platform === 'win32'
+        ? `nslookup -type=${type} ${domain}`
+        : `dig ${domain} ${type} +short`
+      const output = execSync(cmd, { timeout: 10000, encoding: 'utf-8' }) as string
+      return { success: true, domain, type, output: output.trim() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Netstat — show active connections
+  ipcMain.handle('net-connections', async () => {
+    try {
+      const { execSync } = require('child_process')
+      const output = execSync('netstat -an', { timeout: 10000, encoding: 'utf-8' }) as string
+      const lines = output.split('\n').filter(l => l.includes('ESTABLISHED') || l.includes('LISTENING'))
+      const connections = lines.map(l => {
+        const parts = l.trim().split(/\s+/)
+        return { proto: parts[0], local: parts[1], remote: parts[2], state: parts[3] }
+      }).filter(c => c.proto)
+      return { success: true, connections, total: connections.length, listening: connections.filter(c => c.state === 'LISTENING').length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
   // ─── FILE WATCHER (Project Directory Monitor) ─────────────────
   // ═══════════════════════════════════════════════════════════════
 

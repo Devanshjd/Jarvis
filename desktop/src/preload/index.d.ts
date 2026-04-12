@@ -254,6 +254,17 @@ declare global {
       msfConnect: (host?: string, port?: number, password?: string) => Promise<{ success: boolean; token?: string; error?: string }>
       msfExecute: (method: string, params: unknown[]) => Promise<{ success: boolean; result?: Record<string, unknown>; error?: string }>
       msfModules: (type: string) => Promise<{ success: boolean; modules?: string[]; error?: string }>
+
+      // ─── Raw Network Tools ───
+      netScrape: (url: string) => Promise<{ success: boolean; url?: string; title?: string; text?: string; error?: string }>
+      netPing: (host: string, count?: number) => Promise<{ success: boolean; host?: string; alive?: boolean; avgMs?: number; output?: string; error?: string }>
+      netTraceroute: (host: string) => Promise<{ success: boolean; host?: string; hops?: string[]; hopCount?: number; error?: string }>
+      netArp: () => Promise<{ success: boolean; devices?: Array<{ ip: string; mac: string; type: string }>; count?: number; error?: string }>
+      netInterfaces: () => Promise<{ success: boolean; interfaces?: Array<{ name: string; ip: string; mac: string }>; error?: string }>
+      netHeaders: (url: string) => Promise<{ success: boolean; headers?: Record<string, string>; security?: Record<string, unknown>; error?: string }>
+      netPublicIp: () => Promise<{ success: boolean; publicIp?: string; localIp?: string; error?: string }>
+      netDns: (domain: string, type?: string) => Promise<{ success: boolean; domain?: string; output?: string; error?: string }>
+      netConnections: () => Promise<{ success: boolean; connections?: Array<Record<string, string>>; total?: number; error?: string }>
     }
   }
 }

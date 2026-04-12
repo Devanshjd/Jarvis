@@ -272,7 +272,27 @@ const desktopApi = {
   msfExecute: (method: string, params: unknown[]) =>
     ipcRenderer.invoke('msf-execute', method, params),
   msfModules: (type: string) =>
-    ipcRenderer.invoke('msf-modules', type)
+    ipcRenderer.invoke('msf-modules', type),
+
+  // ─── Raw Network Tools ───
+  netScrape: (url: string) =>
+    ipcRenderer.invoke('net-scrape', url),
+  netPing: (host: string, count?: number) =>
+    ipcRenderer.invoke('net-ping', host, count),
+  netTraceroute: (host: string) =>
+    ipcRenderer.invoke('net-traceroute', host),
+  netArp: () =>
+    ipcRenderer.invoke('net-arp'),
+  netInterfaces: () =>
+    ipcRenderer.invoke('net-interfaces'),
+  netHeaders: (url: string) =>
+    ipcRenderer.invoke('net-headers', url),
+  netPublicIp: () =>
+    ipcRenderer.invoke('net-public-ip'),
+  netDns: (domain: string, type?: string) =>
+    ipcRenderer.invoke('net-dns', domain, type),
+  netConnections: () =>
+    ipcRenderer.invoke('net-connections')
 }
 
 if (process.contextIsolated) {

@@ -991,6 +991,60 @@ export class JarvisGeminiLive {
                         },
                         required: ['action']
                       }
+                    },
+                    // ─── Raw Network Tools ───
+                    {
+                      name: 'net_scrape',
+                      description: 'Scrape a website and extract readable text. Use when user says "read this website", "scrape this page", "what does this site say".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: { url: { type: 'STRING', description: 'URL to scrape.' } },
+                        required: ['url']
+                      }
+                    },
+                    {
+                      name: 'net_ping',
+                      description: 'Ping a host to check if it is alive. Use when user says "ping google", "is this server up", "check connectivity".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: { host: { type: 'STRING', description: 'Host or IP to ping.' } },
+                        required: ['host']
+                      }
+                    },
+                    {
+                      name: 'net_traceroute',
+                      description: 'Trace the network route to a host. Use when user says "traceroute to", "trace path to", "show network route".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: { host: { type: 'STRING', description: 'Host to trace.' } },
+                        required: ['host']
+                      }
+                    },
+                    {
+                      name: 'net_arp',
+                      description: 'Show all devices on the local network. Use when user says "who is on my network", "show network devices", "ARP table".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'net_info',
+                      description: 'Show network interfaces, public IP, and active connections. Use when user says "what is my IP", "show network info", "show connections".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: { action: { type: 'STRING', description: 'interfaces, ip, connections, or all.' } },
+                        required: ['action']
+                      }
+                    },
+                    {
+                      name: 'net_recon',
+                      description: 'Scan HTTP headers and DNS records for a domain. Security reconnaissance. Use when user says "recon this domain", "check server headers", "DNS lookup".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          target: { type: 'STRING', description: 'Domain or URL to scan.' },
+                          type: { type: 'STRING', description: 'headers, dns, or both.' }
+                        },
+                        required: ['target']
+                      }
                     }
                   ]
                 }
@@ -1870,6 +1924,81 @@ export class JarvisGeminiLive {
             } else {
               output = 'Usage: connect, exploits, payloads, auxiliaries, or execute <method>'
             }
+            break
+          }
+
+          // ─── Raw Network Handlers ───
+          case 'net_scrape': {
+            const r = await api.netScrape(args.url)
+            output = r.success
+              ? `Page: ${r.title || 'Untitled'}\n\n${r.text?.slice(0, 1000)}`
+              : `Scrape failed: ${r.error}`
+            break
+          }
+
+          case 'net_ping': {
+            const r = await api.netPing(args.host)
+            output = r.success
+              ? `${args.host} is ${r.alive ? 'ALIVE' : 'DOWN'}${r.avgMs ? ` (avg: ${r.avgMs}ms)` : ''}\n\n${r.output?.slice(0, 500)}`
+              : `Ping failed: ${r.error}`
+            break
+          }
+
+          case 'net_traceroute': {
+            const r = await api.netTraceroute(args.host)
+            output = r.success
+              ? `Route to ${args.host}: ${r.hopCount} hops\n\n${r.hops?.join('\n')}`
+              : `Traceroute failed: ${r.error}`
+            break
+          }
+
+          case 'net_arp': {
+            const r = await api.netArp()
+            output = r.success
+              ? `Devices on network (${r.count}):\n` + (r.devices?.map(d => `• ${d.ip} — ${d.mac} (${d.type})`).join('\n') || 'None')
+              : `ARP scan failed: ${r.error}`
+            break
+          }
+
+          case 'net_info': {
+            const action = args.action?.toLowerCase() || 'all'
+            if (action === 'ip' || action === 'all') {
+              const ip = await api.netPublicIp()
+              output = ip.success ? `Public IP: ${ip.publicIp}\nLocal IP: ${ip.localIp}` : `IP lookup failed: ${ip.error}`
+            }
+            if (action === 'interfaces' || action === 'all') {
+              const ifs = await api.netInterfaces()
+              const ifText = ifs.interfaces?.filter((i: any) => !i.internal).map((i: any) => `• ${i.name}: ${i.ip} (${i.mac})`).join('\n')
+              output = (output ? output + '\n\n' : '') + `Network Interfaces:\n${ifText}`
+            }
+            if (action === 'connections' || action === 'all') {
+              const conn = await api.netConnections()
+              output = (output ? output + '\n\n' : '') + `Active connections: ${conn.total} (${(conn as any).listening} listening)`
+            }
+            break
+          }
+
+          case 'net_recon': {
+            const target = args.target.startsWith('http') ? args.target : `https://${args.target}`
+            const scanType = args.type?.toLowerCase() || 'both'
+            let result = ''
+            if (scanType === 'headers' || scanType === 'both') {
+              const h = await api.netHeaders(target)
+              if (h.success) {
+                const s = h.security as any
+                result += `HTTP Headers for ${target}:\n`
+                result += `Server: ${s?.server} | Powered-By: ${s?.poweredBy}\n`
+                result += `HSTS: ${s?.hasHSTS ? '✅' : '❌'} | CSP: ${s?.hasCSP ? '✅' : '❌'} | X-Frame: ${s?.hasXFrame ? '✅' : '❌'}\n`
+              }
+            }
+            if (scanType === 'dns' || scanType === 'both') {
+              const domain = args.target.replace(/^https?:\/\//, '').split('/')[0]
+              const d = await api.netDns(domain)
+              if (d.success) {
+                result += `\nDNS Records for ${domain}:\n${d.output}`
+              }
+            }
+            output = result || `Recon failed for ${args.target}`
             break
           }
 

@@ -14,36 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from core.config import load_config, save_config
-from core.memory import MemoryBank, MemorySystem
-from core.brain import Brain
-from core.plugin_manager import PluginManager
-from core.agent import Agent
-from core.learner import UserLearner
-from core.cognitive import CognitiveCore
-from core.orchestrator import TaskOrchestrator
-from core.presence import PresenceEngine
-from core.awareness import AwarenessEngine
-from core.proactive import ProactiveEngine
-from core.intent import IntentEngine
-from core.modes import ModeAutoSwitcher
-from core.self_modify import SelfModificationEngine
-from core.resilient import ResilientExecutor
-from core.intelligence import IntelligenceEngine
-from core.knowledge_graph import KnowledgeGraph
-from core.chain_engine import ChainEngine
-from core.screen_awareness import ScreenAwareness
-from core.report_engine import ReportEngine
-from core.thinking import ThinkingEngine
-from core.specialists import SpecialistTeam
-from core.self_evolve import SelfEvolver
-from core.web_research import WebResearcher
-from core.screen_interact import ScreenInteract
-from core.capability_registry import CapabilityRegistry
-from core.state_registry import StateRegistry
-from core.task_brain import TaskBrain
-from core.dev_agent import DevAgent
-from core.auto_repair import AutoRepairEngine
-from ui.app import JarvisApp
+from core.runtime import JarvisRuntime
 
 
 class _ImmediateRoot:
@@ -240,12 +211,12 @@ class _MessageStore:
             return len(self.messages) > previous_len
 
 
-class HeadlessJarvisRuntime(JarvisApp):
+class HeadlessJarvisRuntime(JarvisRuntime):
     """
-    Reuses JarvisApp runtime logic without constructing a Tk window.
+    Headless JARVIS runtime — extends JarvisRuntime with HTTP/API features.
 
-    The browser shell talks to this runtime over HTTP while operator logic,
-    memory, plugins, and orchestration stay in Python.
+    Provides null UI stubs (no Tk) and HTTP-friendly methods like
+    process_text(), status_snapshot(), and history().
     """
 
     _PLUGIN_SPECS = [
@@ -266,47 +237,8 @@ class HeadlessJarvisRuntime(JarvisApp):
     ]
 
     def __init__(self):
-        self.config = load_config()
-        self.memory = MemoryBank(self.config)
-        self.mem = MemorySystem(self.config)
-        self.brain = Brain(self.config)
-        self.plugin_manager = PluginManager(self)
-
-        self.agent = Agent(self)
-        self.agent_mode = True
-        self.learner = UserLearner(self.config)
-        self.learner.on_session_start()
-        self.cognitive = CognitiveCore(self.config)
-        self.orchestrator = TaskOrchestrator(self)
-
-        self.presence = PresenceEngine(self)
-        self.awareness = AwarenessEngine(self)
-        self.proactive = ProactiveEngine(self)
-        self.intent_engine = IntentEngine()
-        self.mode_switcher = ModeAutoSwitcher(self)
-        self.self_modify = SelfModificationEngine(self)
-        self.resilient = ResilientExecutor(self)
-        self.intelligence = IntelligenceEngine()
-        self.knowledge_graph = KnowledgeGraph()
-        self.chain_engine = ChainEngine(self)
-        self.screen_monitor = ScreenAwareness(self)
-        self.report_engine = ReportEngine()
-        self.thinker = ThinkingEngine(self)
-        self.specialists = SpecialistTeam()
-        self.evolver = SelfEvolver(self)
-        self.researcher = WebResearcher(self)
-        self.screen_interact = ScreenInteract(self)
-        self.dev_agent = DevAgent(self)
-        self.auto_repair = AutoRepairEngine(self)
-        self.task_brain = TaskBrain(self)
-        self.capabilities = CapabilityRegistry(self)
-        self.state_registry = StateRegistry(self)
-
-        self.attached_file = None
-        self.session_start = time.time()
-        self.voice_enabled = False
-        self._processing = False
-        self._active_turn: dict[str, Any] = {}
+        # Initialize all core engines from JarvisRuntime base
+        self._init_engines()
         self._request_options: dict[str, Any] = {}
         self._request_lock = threading.Lock()
 
@@ -508,39 +440,11 @@ class HeadlessJarvisRuntime(JarvisApp):
             "plugins": sorted(self.plugin_manager.plugins.keys()),
             "waiting_for_input": bool(waiting),
             "waiting_summary": self.orchestrator.task_sessions.describe_for_user() if waiting else "",
+            "agent_loop": self.agent_loop.get_status(),
+            "struggle": self.struggle_detector.get_status(),
         }
 
     def history(self, limit: int = 120) -> list[dict[str, Any]]:
         return self.chat.snapshot()[-max(1, int(limit)):]
 
-    def shutdown(self):
-        try:
-            self.presence.stop()
-        except Exception:
-            pass
-        try:
-            self.awareness.stop()
-        except Exception:
-            pass
-        try:
-            self.proactive.stop()
-        except Exception:
-            pass
-        try:
-            self.screen_monitor.stop()
-        except Exception:
-            pass
-        try:
-            voice_plugin = self.plugin_manager.get_plugin("voice")
-            if voice_plugin:
-                voice_plugin.disable()
-        except Exception:
-            pass
-        try:
-            self.intelligence.flush()
-        except Exception:
-            pass
-        try:
-            save_config(self.config)
-        except Exception:
-            pass
+    # shutdown() is inherited from JarvisRuntime

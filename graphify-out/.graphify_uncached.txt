@@ -1,0 +1,9 @@
+requirements.txt
+TRAINING_DATA.md
+desktop\Desktop\hello.txt
+frontend\README.md
+frontend\public\favicon.svg
+frontend\public\icons.svg
+frontend\src\assets\hero.png
+frontend\src\assets\react.svg
+frontend\src\assets\vite.svg

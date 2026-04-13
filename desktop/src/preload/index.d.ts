@@ -265,6 +265,18 @@ declare global {
       netPublicIp: () => Promise<{ success: boolean; publicIp?: string; localIp?: string; error?: string }>
       netDns: (domain: string, type?: string) => Promise<{ success: boolean; domain?: string; output?: string; error?: string }>
       netConnections: () => Promise<{ success: boolean; connections?: Array<Record<string, string>>; total?: number; error?: string }>
+
+      // ─── Session Recording ───
+      sessionStart: () => Promise<{ success: boolean; sessionId?: string; path?: string; error?: string }>
+      sessionLog: (sessionId: string, entry: { role: string; text: string; tool?: string }) => Promise<{ success: boolean; error?: string }>
+      sessionList: () => Promise<{ success: boolean; sessions?: Array<{ id: string; file: string }>; error?: string }>
+      sessionReplay: (sessionId: string) => Promise<{ success: boolean; entries?: Array<Record<string, unknown>>; count?: number; error?: string }>
+
+      // ─── Context Detection ───
+      detectActiveApp: () => Promise<{ success: boolean; appName?: string; suggestedAgent?: string; error?: string }>
+
+      // ─── Keyboard Events ───
+      onJarvisActivated: (callback: () => void) => void
     }
   }
 }

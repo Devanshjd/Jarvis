@@ -31,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from core.headless_runtime import HeadlessJarvisRuntime
+from core.database import get_db
 
 
 app = FastAPI(title="JARVIS Web Shell", version="2.0.0")
@@ -196,31 +197,177 @@ def api_terminal_execute(payload: TerminalRequest):
 
 @app.get("/api/memory/list")
 def api_memory_list(limit: int = 100):
-    """List stored memories."""
-    rt = get_runtime()
-    memories = _safe(lambda: list(rt.memory), [])
-    items = []
-    for i, mem in enumerate(memories[-limit:]):
-        if isinstance(mem, dict):
-            items.append({"id": i, **mem})
-        else:
-            items.append({"id": i, "content": str(mem)})
-    return {"memories": items, "total": len(memories)}
+    """List stored memories from SQLite database."""
+    db = get_db()
+    items = db.get_all_memories(limit)
+    return {"memories": items, "total": db.get_memory_count()}
 
 @app.post("/api/memory/save")
 def api_memory_save(payload: MemorySaveRequest):
-    """Save a new memory."""
-    rt = get_runtime()
+    """Save a new memory to SQLite database."""
+    db = get_db()
     try:
-        rt.memory.add(payload.content)
-        return {"saved": True, "content": payload.content}
+        saved = db.save_memory(payload.content, category=payload.title or "general")
+        return {"saved": saved, "content": payload.content}
     except Exception as e:
         return {"saved": False, "error": str(e)}
+
+
+class VoiceMemorySaveRequest(BaseModel):
+    user_text: str = ""
+    assistant_text: str = ""
+    tool_used: str = ""
+
+
+@app.get("/api/memory/context")
+def api_memory_context():
+    """
+    Bundle ALL persistent memory into a single context block
+    for Gemini Live voice session injection.
+    Uses the unified SQLite database as primary source,
+    falls back to runtime objects for knowledge graph.
+    """
+    import logging
+    log = logging.getLogger("jarvis.memory")
+
+    sections = []
+
+    # 1-6. All core memory from unified SQLite DB (CRITICAL — this is the main source)
+    try:
+        db = get_db()
+        db_context = db.get_full_memory_context()
+        if db_context:
+            sections.append(db_context)
+            log.info(f"[memory/context] DB context loaded: {len(db_context)} chars")
+        else:
+            log.warning("[memory/context] DB returned empty context")
+    except Exception as e:
+        log.error(f"[memory/context] Failed to load DB context: {e}")
+        traceback.print_exc()
+
+    # 7. Knowledge Graph (non-critical — don't let runtime init kill the response)
+    try:
+        rt = get_runtime()
+        if hasattr(rt, 'knowledge_graph'):
+            kg_ctx = rt.knowledge_graph.get_context_for_llm(max_facts=20)
+            if kg_ctx:
+                sections.append(kg_ctx)
+    except Exception as e:
+        log.warning(f"[memory/context] Knowledge graph unavailable: {e}")
+
+    # 8. Intelligence emotional state (from DB if available)
+    try:
+        db = get_db()
+        emotional = db.kv_get_all("intelligence_emotional")
+        if emotional and emotional.get("current_mood"):
+            mood = emotional["current_mood"]
+            rapport = emotional.get("rapport_score", 50)
+            sections.append(f"[EMOTIONAL STATE] Operator mood: {mood}, rapport: {rapport}/100")
+    except Exception:
+        pass
+
+    combined = "\n\n".join(s for s in sections if s.strip())
+    log.info(f"[memory/context] Returning {len(sections)} sections, {len(combined)} chars")
+    return {"context": combined, "sections": len(sections), "source": "sqlite"}
+
+
+@app.post("/api/memory/voice-save")
+def api_memory_voice_save(payload: VoiceMemorySaveRequest):
+    """
+    Save a voice conversation exchange to persistent memory.
+    Called by Gemini Live after each turn completes.
+    Writes to unified SQLite DB + knowledge graph.
+    """
+    db = get_db()
+    rt = get_runtime()
+    saved_to = []
+
+    errors = []
+
+    # Save to unified SQLite conversations table
+    try:
+        if payload.user_text and payload.assistant_text:
+            db.save_conversation(
+                user_text=payload.user_text,
+                assistant_text=payload.assistant_text,
+                tool_used=payload.tool_used,
+                source="voice"
+            )
+            saved_to.append("sqlite_conversations")
+    except Exception as e:
+        errors.append(f"conversations: {e}")
+
+    # Extract entities to knowledge graph (still separate SQLite)
+    try:
+        if hasattr(rt, 'knowledge_graph') and payload.user_text:
+            rt.knowledge_graph.auto_extract(payload.user_text)
+            if payload.assistant_text:
+                rt.knowledge_graph.auto_extract(payload.assistant_text)
+            saved_to.append("knowledge_graph")
+    except Exception as e:
+        errors.append(f"knowledge_graph: {e}")
+
+    # Log tool usage as episode
+    try:
+        if payload.tool_used:
+            db.record_episode(
+                goal=payload.user_text[:200],
+                tool=payload.tool_used,
+                status="completed",
+                result=payload.assistant_text[:200]
+            )
+            saved_to.append("sqlite_episodes")
+    except Exception as e:
+        errors.append(f"episodes: {e}")
+
+    success = len(saved_to) > 0 or (not payload.user_text and not payload.assistant_text)
+    result = {"saved": success, "saved_to": saved_to}
+    if errors:
+        result["errors"] = errors
+    return result
 
 
 # ═══════════════════════════════════════════
 # Knowledge Graph
 # ═══════════════════════════════════════════
+
+@app.get("/api/memory/search")
+def api_memory_search(q: str = Query(min_length=1)):
+    """Full-text search across conversations and memories."""
+    db = get_db()
+    convos = db.search_conversations(q, limit=10)
+    mems = db.search_memories(q, limit=10)
+    return {"query": q, "conversations": convos, "memories": mems}
+
+
+@app.get("/api/memory/stats")
+def api_memory_stats():
+    """Database statistics."""
+    db = get_db()
+    return db.get_stats()
+
+
+@app.get("/api/training/stats")
+def api_training_stats():
+    """Training data statistics."""
+    db = get_db()
+    return db.get_training_stats()
+
+
+@app.get("/api/training/examples")
+def api_training_examples(tool: str | None = None, limit: int = 50):
+    """Get training examples, optionally by tool."""
+    db = get_db()
+    return {"examples": db.get_training_examples(tool, limit)}
+
+
+@app.get("/api/training/export")
+def api_training_export():
+    """Export all training data as JSONL path."""
+    db = get_db()
+    path = db.export_training_jsonl()
+    return {"exported": True, "path": path, "total": db.get_training_stats()["total_examples"]}
+
 
 @app.get("/api/knowledge/search")
 def api_knowledge_search(q: str = Query(min_length=1)):
@@ -373,6 +520,52 @@ def api_evolution_status():
         if hasattr(rt.evolver, "last_evolution"):
             status["last_evolution"] = str(rt.evolver.last_evolution)
         return status
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ═══════════════════════════════════════════
+# Agent Loop / Execution Router / Struggle
+# ═══════════════════════════════════════════
+
+
+@app.get("/api/agent-loop/status")
+def api_agent_loop_status():
+    """Return the current agent loop execution status."""
+    rt = get_runtime()
+    try:
+        return rt.agent_loop.get_status()
+    except Exception as e:
+        return {"status": "idle", "error": str(e)}
+
+
+@app.get("/api/execution-router/stats")
+def api_execution_router_stats():
+    """Return adaptive routing statistics."""
+    rt = get_runtime()
+    try:
+        return rt.execution_router.get_stats()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/execution-router/preference")
+def api_set_execution_preference(mode: str = "", duration: float = 300.0):
+    """Set user execution mode preference (screen, api, direct, or empty to clear)."""
+    rt = get_runtime()
+    try:
+        rt.execution_router.set_user_preference(mode, duration)
+        return {"mode": mode, "duration": duration, "ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/struggle/status")
+def api_struggle_status():
+    """Return JARVIS's self-struggle detection status."""
+    rt = get_runtime()
+    try:
+        return rt.struggle_detector.get_status()
     except Exception as e:
         return {"error": str(e)}
 

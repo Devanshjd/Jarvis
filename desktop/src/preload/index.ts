@@ -292,7 +292,26 @@ const desktopApi = {
   netDns: (domain: string, type?: string) =>
     ipcRenderer.invoke('net-dns', domain, type),
   netConnections: () =>
-    ipcRenderer.invoke('net-connections')
+    ipcRenderer.invoke('net-connections'),
+
+  // ─── Session Recording ───
+  sessionStart: () =>
+    ipcRenderer.invoke('session-start'),
+  sessionLog: (sessionId: string, entry: { role: string; text: string; tool?: string }) =>
+    ipcRenderer.invoke('session-log', sessionId, entry),
+  sessionList: () =>
+    ipcRenderer.invoke('session-list'),
+  sessionReplay: (sessionId: string) =>
+    ipcRenderer.invoke('session-replay', sessionId),
+
+  // ─── Context Detection ───
+  detectActiveApp: () =>
+    ipcRenderer.invoke('detect-active-app'),
+
+  // ─── Keyboard Events ───
+  onJarvisActivated: (callback: () => void) => {
+    ipcRenderer.on('jarvis-activated', () => callback())
+  }
 }
 
 if (process.contextIsolated) {

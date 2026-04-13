@@ -1357,6 +1357,23 @@ class TaskOrchestrator:
             intel.on_tool_result(tool_name, result.success,
                                 result.error if not result.success else "")
 
+        # Record in struggle detector + execution router
+        struggle = getattr(self.jarvis, "struggle_detector", None)
+        router = getattr(self.jarvis, "execution_router", None)
+        exec_mode = "api"  # default; screen mode tracked in agent_loop
+        if router:
+            exec_mode = router.choose_mode(tool_name, tool_args, msg)
+            router.record_outcome(tool_name, exec_mode, result.success,
+                                  latency_ms=0.0)
+        if struggle:
+            struggle.record(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                mode=exec_mode,
+                success=result.success,
+                error=(result.error or "")[:200],
+            )
+
         # Feed successful scan results into knowledge graph
         kg = getattr(self.jarvis, "knowledge_graph", None)
         if kg and result.success and result.output:
@@ -2210,6 +2227,11 @@ class TaskOrchestrator:
                         "\n[NOTE] The user appears to be struggling based on screen activity "
                         "(repeated errors, rapid window switching). Be extra helpful and proactive."
                     )
+            # Inject SELF-struggle awareness (JARVIS's own execution difficulty)
+            if hasattr(self.jarvis, 'struggle_detector'):
+                struggle_ctx = self.jarvis.struggle_detector.get_context_for_llm()
+                if struggle_ctx:
+                    full_system += f"\n{struggle_ctx}"
             # Inject specialist persona
             if not local_reasoner and hasattr(self.jarvis, 'specialists'):
                 try:

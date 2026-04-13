@@ -132,6 +132,7 @@ export type WidgetType =
   | 'vault'
   | 'awareness'
   | 'plugins'
+  | 'workflow'
 
 export interface WidgetInstance {
   id: string
@@ -161,6 +162,7 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; width: number;
   vault:         { title: 'Knowledge Vault',  width: 460, height: 440 },
   awareness:     { title: 'Screen Awareness', width: 440, height: 400 },
   plugins:       { title: 'Plugins',          width: 400, height: 380 },
+  workflow:      { title: 'Agent Workflow',   width: 580, height: 520 },
 }
 
 /* ═══════════════════════════════════════════

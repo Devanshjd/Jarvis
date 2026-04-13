@@ -44,6 +44,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "electron": "^39.2.6",
+    "electron-rebuild": "^3.2.9",
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",

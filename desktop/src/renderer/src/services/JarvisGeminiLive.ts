@@ -80,7 +80,10 @@ export class JarvisGeminiLive {
   private visionSource: VisionSource = 'none'
   private lastOptions: StartOptions | null = null
   private reconnectAttempts = 0
-  private readonly MAX_RECONNECTS = 3
+  private readonly MAX_RECONNECTS = 5
+  private keepAliveTimer: number | null = null
+  private conversationHistory: Array<{ role: string; text: string }> = []
+  private pendingTaskContext = ''
   private state: VoiceBridgeState = {
     loaded: false,
     active: false,
@@ -101,6 +104,64 @@ export class JarvisGeminiLive {
 
   snapshot() {
     return { ...this.state }
+  }
+
+  /**
+   * Fetch all persistent memory context from backend.
+   * This bundles: identity, preferences, task memory, learner profile,
+   * conversation history, knowledge graph, operator memories, intelligence.
+   * Retries up to 3 times with exponential backoff to survive backend hiccups.
+   */
+  private async fetchMemoryContext(): Promise<string> {
+    const maxRetries = 3
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 5000)
+        const resp = await fetch(`${this.backendBase}/api/memory/context`, {
+          signal: controller.signal
+        })
+        clearTimeout(timeout)
+
+        if (!resp.ok) {
+          console.warn(`[GeminiLive] ⚠️ Memory fetch HTTP ${resp.status} (attempt ${attempt}/${maxRetries})`)
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 1000 * attempt))
+            continue
+          }
+          return ''
+        }
+
+        const data = await resp.json()
+        const ctx = data.context || ''
+        console.log(`[GeminiLive] 🧠 Loaded memory context (${data.sections} sections, ${ctx.length} chars, attempt ${attempt})`)
+        return ctx
+      } catch (err) {
+        console.warn(`[GeminiLive] ⚠️ Memory fetch failed (attempt ${attempt}/${maxRetries}):`, err)
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000 * attempt))
+          continue
+        }
+      }
+    }
+    console.error('[GeminiLive] ❌ All memory fetch attempts failed — backend may be down')
+    return ''
+  }
+
+  /**
+   * Save a voice conversation turn to backend persistent storage.
+   * This writes to: conversation_memory, knowledge_graph, task_brain.
+   */
+  private async saveConversationTurn(userText: string, assistantText: string, toolUsed = '') {
+    try {
+      await fetch(`${this.backendBase}/api/memory/voice-save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_text: userText, assistant_text: assistantText, tool_used: toolUsed })
+      })
+    } catch {
+      // Non-critical — don't break voice flow
+    }
   }
 
   setMute(muted: boolean) {
@@ -979,6 +1040,17 @@ export class JarvisGeminiLive {
                       description: 'Load conversation memory and context from previous sessions. Use when session starts or user says "what do you remember".',
                       parameters: { type: 'OBJECT', properties: {}, required: [] }
                     },
+                    {
+                      name: 'save_memory',
+                      description: 'Save a fact, preference, or instruction to permanent memory. Use when user says "remember that...", "I prefer...", "my favorite...", "always do...", "never do...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          content: { type: 'STRING', description: 'The fact or preference to remember permanently.' }
+                        },
+                        required: ['content']
+                      }
+                    },
                     // ─── Metasploit Tools ───
                     {
                       name: 'metasploit',
@@ -1045,6 +1117,42 @@ export class JarvisGeminiLive {
                         },
                         required: ['target']
                       }
+                    },
+                    // ─── Context & Session Tools ───
+                    {
+                      name: 'detect_context',
+                      description: 'Detect which app the user is currently using and suggest the right agent. Use at conversation start or when user says "what am I working on".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
+                    },
+                    {
+                      name: 'session_control',
+                      description: 'Start recording, list past sessions, or replay a session. Use when user says "start recording", "show my sessions", "replay last session".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          action: { type: 'STRING', description: 'start, list, or replay.' },
+                          sessionId: { type: 'STRING', description: 'Session ID for replay.' }
+                        },
+                        required: ['action']
+                      }
+                    },
+                    // ─── Execution Control Tools ───
+                    {
+                      name: 'set_execution_mode',
+                      description: 'Set how JARVIS executes tasks: "screen" uses mouse/keyboard like a human, "api" uses fast programmatic tools, "direct" uses system commands, or empty string to reset to auto. Use when user says "take control", "use the mouse", "use screen control", "work like a human", or "go back to auto mode".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          mode: { type: 'STRING', description: 'Execution mode: "screen", "api", "direct", or "" (auto).' },
+                          duration: { type: 'NUMBER', description: 'How long this preference lasts in seconds (default 300).' }
+                        },
+                        required: ['mode']
+                      }
+                    },
+                    {
+                      name: 'check_agent_status',
+                      description: 'Check the status of JARVIS agent loop execution, struggle detection, and task progress. Use when user asks "how is the task going", "are you stuck", "what\'s your status", or "show agent status".',
+                      parameters: { type: 'OBJECT', properties: {}, required: [] }
                     }
                   ]
                 }
@@ -1069,8 +1177,49 @@ export class JarvisGeminiLive {
           if (options.ambientContext?.trim()) {
             this.pushContextUpdate(options.ambientContext.trim())
           }
+
+          // ─── Wait for backend to be ready, then load persistent memory ───
+          try {
+            // Quick health check — wait up to 8s for backend to be ready
+            let backendReady = false
+            for (let i = 0; i < 4; i++) {
+              try {
+                const ping = await fetch(`${this.backendBase}/api/status`, {
+                  signal: AbortSignal.timeout(2000)
+                })
+                if (ping.ok) { backendReady = true; break }
+              } catch { /* retry */ }
+              if (i < 3) await new Promise(r => setTimeout(r, 1000))
+            }
+
+            if (!backendReady) {
+              console.warn('[GeminiLive] ⚠️ Backend not ready — skipping memory injection')
+            } else {
+              // Inject memory in the background — don't block mic startup
+              this.fetchMemoryContext().then(memoryContext => {
+                if (memoryContext) {
+                  this.pushContextUpdate(
+                    '[JARVIS_PERSISTENT_MEMORY] The following is everything you remember about the operator and past sessions. ' +
+                    'Use this to be personal, reference past conversations, and continue unfinished work. ' +
+                    'Do NOT read this aloud. Absorb it silently.\n\n' +
+                    memoryContext
+                  )
+                  console.log('[GeminiLive] 🧠 Persistent memory injected into voice session')
+                } else {
+                  console.warn('[GeminiLive] ⚠️ Backend is up but memory context was empty')
+                }
+              }).catch(err => {
+                console.warn('[GeminiLive] ⚠️ Background memory injection failed:', err)
+              })
+            }
+          } catch (err) {
+            console.warn('[GeminiLive] ⚠️ Memory injection failed (non-fatal):', err)
+          }
+
+          // Mic starts immediately — no longer blocked by memory fetch
           await this.startMicrophone()
           this.startRealtimeContextWatcher()
+          this.startKeepAlive()
           this.updateState({
             loaded: true,
             active: true,
@@ -1136,8 +1285,27 @@ export class JarvisGeminiLive {
           }
 
           if (serverContent.turnComplete || serverContent.interrupted) {
-            if (this.inputBuffer) console.log('[GeminiLive] Turn complete — user said:', this.inputBuffer.trim())
-            if (this.outputBuffer) console.log('[GeminiLive] Turn complete — JARVIS said:', this.outputBuffer.trim())
+            const userSaid = this.inputBuffer.trim()
+            const jarvisSaid = this.outputBuffer.trim()
+
+            if (userSaid) {
+              console.log('[GeminiLive] Turn complete — user said:', userSaid)
+              this.conversationHistory.push({ role: 'user', text: userSaid })
+            }
+            if (jarvisSaid) {
+              console.log('[GeminiLive] Turn complete — JARVIS said:', jarvisSaid)
+              this.conversationHistory.push({ role: 'assistant', text: jarvisSaid })
+            }
+            // Keep last 20 turns max to avoid memory bloat
+            if (this.conversationHistory.length > 20) {
+              this.conversationHistory = this.conversationHistory.slice(-20)
+            }
+
+            // ─── Persist this turn to backend memory (async, non-blocking) ───
+            if (userSaid && jarvisSaid) {
+              void this.saveConversationTurn(userSaid, jarvisSaid)
+            }
+
             this.inputBuffer = ''
             this.outputBuffer = ''
           }
@@ -1166,10 +1334,10 @@ export class JarvisGeminiLive {
         this.cleanupSocketState(false)
 
         // ─── Auto-reconnect if session drops unexpectedly ───
-        // Max 3 retries with exponential backoff (3s, 6s, 12s)
+        // Max 5 retries with exponential backoff (2s, 4s, 8s, 16s, 32s)
         if (event.code !== 1000 && !this.state.mic_muted && this.reconnectAttempts < this.MAX_RECONNECTS) {
           this.reconnectAttempts++
-          const delay = 3000 * Math.pow(2, this.reconnectAttempts - 1)
+          const delay = 2000 * Math.pow(2, this.reconnectAttempts - 1)
           console.log(`[GeminiLive] 🔄 Auto-reconnect attempt ${this.reconnectAttempts}/${this.MAX_RECONNECTS} in ${delay/1000}s...`)
           this.updateState({
             error: `Reconnecting (${this.reconnectAttempts}/${this.MAX_RECONNECTS})...`,
@@ -1178,9 +1346,24 @@ export class JarvisGeminiLive {
           setTimeout(() => {
             if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
               console.log(`[GeminiLive] 🔄 Reconnecting now (attempt ${this.reconnectAttempts})...`)
-              this.start(this.lastOptions!).then(() => {
-                // Reset counter on success
+
+              // Build conversation recap so the new session knows what was happening
+              const historyRecap = this.conversationHistory.length > 0
+                ? '\n\n[SESSION_RECOVERY] The previous voice session dropped. Here is the recent conversation so you can resume:\n' +
+                  this.conversationHistory.slice(-10).map(h => `${h.role === 'user' ? 'User' : 'JARVIS'}: ${h.text.slice(0, 200)}`).join('\n') +
+                  (this.pendingTaskContext ? `\n\nYou were working on: ${this.pendingTaskContext}` : '') +
+                  '\n\nContinue where you left off. Do NOT re-introduce yourself. Just resume the task.'
+                : ''
+
+              // Inject history into ambient context for the new session
+              const reconnectOptions = {
+                ...this.lastOptions!,
+                ambientContext: (this.lastOptions?.ambientContext || '') + historyRecap
+              }
+
+              this.start(reconnectOptions).then(() => {
                 this.reconnectAttempts = 0
+                console.log('[GeminiLive] ✅ Reconnected with conversation context restored')
               }).catch((err) => {
                 console.error('[GeminiLive] ❌ Reconnect failed:', err)
                 this.updateState({
@@ -1237,6 +1420,11 @@ export class JarvisGeminiLive {
       this.socket = null
     }
     this.cleanupSocketState(resetError)
+    // Clear conversation history on manual stop (not on reconnect)
+    if (resetError) {
+      this.conversationHistory = []
+      this.pendingTaskContext = ''
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1323,10 +1511,21 @@ export class JarvisGeminiLive {
           }
 
           case 'run_terminal': {
-            const r = await api.toolRunTerminal(args.command, args.path)
-            output = r.success
-              ? `✅ Command completed (exit ${r.exitCode}):\n${r.output || '(no output)'}`
-              : `Command failed: ${r.error || r.output}`
+            output = `Running command in background: ${args.command}`
+            this.pendingTaskContext = `Running terminal: ${args.command?.slice(0, 200)}`
+
+            api.toolRunTerminal(args.command, args.path).then((r: any) => {
+              this.pendingTaskContext = ''
+              const bgResult = r.success
+                ? `✅ Command completed (exit ${r.exitCode}):\n${r.output || '(no output)'}`
+                : `Command failed: ${r.error || r.output}`
+                
+              this.pushContextUpdate(`System Alert: Background terminal command finished ("${args.command}"). Result:\n${bgResult.slice(0, 1000)}`)
+              api.jarvisNotify(`Command Finished`, r.success ? 'Terminal task completed.' : 'Terminal task failed.')
+            }).catch((err: any) => {
+              this.pushContextUpdate(`System Alert: Background terminal command failed: ${err.message}`)
+            })
+            
             break
           }
 
@@ -1817,10 +2016,28 @@ export class JarvisGeminiLive {
 
           // ─── Multi-Agent Tools ───
           case 'delegate_to_agent': {
-            const r = await api.agentDelegate(args.agent, args.task)
-            output = r.success
-              ? `[${r.agent}] completed task:\n\n${r.result}`
-              : `Agent delegation failed: ${r.error}`
+            output = `Task delegated to agent [${args.agent}] in the background. You will be notified when it completes.`
+            this.pendingTaskContext = `Delegated to ${args.agent}: ${args.task?.slice(0, 200)}`
+
+            // Run in background to prevent Gemini WebSocket timeout
+            api.agentDelegate(args.agent, args.task).then((r: any) => {
+              this.pendingTaskContext = ''
+              const bgResult = r.success
+                ? `[${r.agent}] completed task:\n\n${r.result}`
+                : `Agent delegation failed: ${r.error}`
+              
+              console.log(`[GeminiLive] Background agent ${args.agent} finished. Sending update to Gemini...`)
+              
+              // Push the result back as system context so AI knows it finished
+              this.pushContextUpdate(`System Alert: Background delegate task finished. Result:\n${bgResult}`)
+              
+              // Show notification to user
+              api.jarvisNotify(`Agent ${args.agent} Finished`, r.success ? 'Task completed successfully.' : 'Task failed.')
+            }).catch((err: any) => {
+              this.pushContextUpdate(`System Alert: Background delegate task failed with error: ${err.message}`)
+              api.jarvisNotify(`Agent ${args.agent} Failed`, err.message)
+            })
+            
             break
           }
 
@@ -1896,10 +2113,47 @@ export class JarvisGeminiLive {
 
           // ─── Memory Handlers ───
           case 'load_memory': {
-            const r = await api.memoryLoadContext()
-            output = r.success
-              ? `Memory loaded. I remember ${r.entities} entities, ${r.goals} active goals, and ${(r as any).conversations} recent conversations.\n\n${r.context || ''}`
-              : `Memory load failed: ${r.error}`
+            try {
+              const memCtx = await this.fetchMemoryContext()
+              if (memCtx) {
+                this.pushContextUpdate('[JARVIS_MEMORY_REFRESH] Updated memory context:\n' + memCtx)
+                output = `Memory refreshed. I've loaded identity, preferences, ${this.conversationHistory.length} recent turns, conversation history, knowledge graph, and operator memories.`
+              } else {
+                // Check if backend is reachable at all
+                let backendUp = false
+                try {
+                  const ping = await fetch(`${this.backendBase}/api/status`, {
+                    signal: AbortSignal.timeout(2000)
+                  })
+                  backendUp = ping.ok
+                } catch { /* */ }
+
+                if (!backendUp) {
+                  output = 'Memory backend is not reachable right now. The Python server on port 8765 may need to be restarted. Memories are stored in the database and will be available once the backend is back.'
+                } else {
+                  output = 'No persistent memory found yet. The database may be empty — memories will be saved as we talk.'
+                }
+              }
+            } catch (err) {
+              output = `Memory load failed: ${(err as Error).message}`
+            }
+            break
+          }
+
+          case 'save_memory': {
+            try {
+              const resp = await fetch(`${this.backendBase}/api/memory/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: args.content, title: '' })
+              })
+              const r = await resp.json()
+              output = r.saved
+                ? `Permanently saved to memory: "${args.content}"`
+                : `Failed to save: ${r.error}`
+            } catch (err) {
+              output = `Memory save failed: ${(err as Error).message}`
+            }
             break
           }
 
@@ -2002,6 +2256,98 @@ export class JarvisGeminiLive {
             break
           }
 
+          // ─── Context & Session Handlers ───
+          case 'detect_context': {
+            const r = await api.detectActiveApp()
+            output = r.success
+              ? `Active app: ${r.appName}. Suggested agent: ${r.suggestedAgent}.`
+              : `Detection failed: ${r.error}`
+            break
+          }
+
+          case 'set_execution_mode': {
+            // Let the user control how JARVIS executes — screen, api, or auto
+            const mode = (args.mode || '').toLowerCase()
+            const duration = Number(args.duration) || 300
+            try {
+              const resp = await fetch(`${this.backendBase}/api/execution-router/preference`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, duration })
+              })
+              const data = await resp.json()
+              if (data.ok) {
+                if (mode) {
+                  output = `Execution mode set to ${mode}. I'll use ${mode === 'screen' ? 'mouse and keyboard control' : mode === 'direct' ? 'system commands' : 'API tools'} for the next ${Math.round(duration / 60)} minutes.`
+                } else {
+                  output = 'Execution mode reset to automatic. I\'ll choose the best approach for each task.'
+                }
+              } else {
+                output = `Failed to set mode: ${data.error || 'unknown error'}`
+              }
+            } catch (err) {
+              output = `Execution mode error: ${(err as Error).message}`
+            }
+            break
+          }
+
+          case 'check_agent_status': {
+            // Report on agent loop, struggle, and routing stats
+            try {
+              const [loopResp, struggleResp] = await Promise.all([
+                fetch(`${this.backendBase}/api/agent-loop/status`),
+                fetch(`${this.backendBase}/api/struggle/status`)
+              ])
+              const loop = await loopResp.json()
+              const struggle = await struggleResp.json()
+
+              const parts: string[] = []
+              if (loop.status === 'running') {
+                parts.push(`Agent loop is running: ${loop.goal}. Step ${loop.current_step + 1}/${loop.total_steps}, ${loop.iterations} iterations.`)
+              } else {
+                parts.push(`Agent loop is ${loop.status}.`)
+              }
+              if (struggle.is_struggling) {
+                parts.push(`I'm currently struggling (score: ${(struggle.score * 100).toFixed(0)}%). ${struggle.suggestion}`)
+              } else {
+                parts.push('No execution difficulties detected.')
+              }
+              output = parts.join(' ')
+            } catch (err) {
+              output = `Status check error: ${(err as Error).message}`
+            }
+            break
+          }
+
+          case 'session_control': {
+            const action = args.action?.toLowerCase()
+            if (action === 'start') {
+              const r = await api.sessionStart()
+              output = r.success
+                ? `Recording session: ${r.sessionId}. All interactions will be logged.`
+                : `Session start failed: ${r.error}`
+            } else if (action === 'list') {
+              const r = await api.sessionList()
+              if (r.success && r.sessions?.length) {
+                output = `Past sessions (${r.sessions.length}):\n` +
+                  r.sessions.map((s: any) => `• ${s.id}`).join('\n')
+              } else {
+                output = 'No recorded sessions yet.'
+              }
+            } else if (action === 'replay' && args.sessionId) {
+              const r = await api.sessionReplay(args.sessionId)
+              if (r.success && r.entries) {
+                output = `Session ${args.sessionId} (${r.count} entries):\n` +
+                  r.entries.slice(0, 10).map((e: any) => `[${e.role}] ${e.text?.slice(0, 80)}`).join('\n')
+              } else {
+                output = r.error || 'Session not found.'
+              }
+            } else {
+              output = 'Usage: start, list, or replay <sessionId>'
+            }
+            break
+          }
+
           default:
             output = `Unknown tool: ${name}`
         }
@@ -2011,10 +2357,21 @@ export class JarvisGeminiLive {
 
       console.log('[GeminiLive] 🔧 Tool result:', name, output.slice(0, 200))
 
-      // ─── Learning Logger: silently log every Gemini tool call for offline brain training ───
+      // ─── Learning Logger: log every tool call to SQLite training DB ───
       try {
-        if (!output.startsWith('Error')) {
+        if (!output.startsWith('Error') && !output.startsWith('Unknown tool')) {
           const userText = this.state.last_input || ''
+
+          // Save to unified SQLite DB via backend API
+          if (userText) {
+            void fetch(`${this.backendBase}/api/memory/voice-save`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_text: userText, assistant_text: output.slice(0, 500), tool_used: name })
+            }).catch(() => {})
+          }
+
+          // Also log to legacy brain logger if available
           if (userText && api.brainLogToolCall) {
             api.brainLogToolCall(userText, name, args).catch(() => {})
           }
@@ -2039,7 +2396,33 @@ export class JarvisGeminiLive {
     }
   }
 
+  // ─── Keep-alive: send a proper closed turn every 25s to prevent idle timeout ───
+  private startKeepAlive() {
+    this.stopKeepAlive()
+    this.keepAliveTimer = window.setInterval(() => {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        // Send as a complete user turn (turnComplete: true) so it doesn't
+        // accumulate as unclosed partial turns in Gemini's context window.
+        // The model is instructed to silently absorb heartbeat markers.
+        this.socket.send(JSON.stringify({
+          clientContent: {
+            turns: [{ role: 'user', parts: [{ text: '[HEARTBEAT]' }] }],
+            turnComplete: true
+          }
+        }))
+      }
+    }, 25_000) as unknown as number
+  }
+
+  private stopKeepAlive() {
+    if (this.keepAliveTimer !== null) {
+      window.clearInterval(this.keepAliveTimer)
+      this.keepAliveTimer = null
+    }
+  }
+
   private cleanupSocketState(resetError = true) {
+    this.stopKeepAlive()
     if (this.appWatcherTimer !== null) {
       window.clearInterval(this.appWatcherTimer)
       this.appWatcherTimer = null
@@ -2214,6 +2597,8 @@ export class JarvisGeminiLive {
 
   private pushContextUpdate(text: string) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return
+    // Send as a complete turn so it doesn't accumulate as unclosed partial
+    // context fragments. Gemini silently absorbs system/context markers.
     this.socket.send(
       JSON.stringify({
         clientContent: {
@@ -2223,7 +2608,7 @@ export class JarvisGeminiLive {
               parts: [{ text }]
             }
           ],
-          turnComplete: false
+          turnComplete: true
         }
       })
     )

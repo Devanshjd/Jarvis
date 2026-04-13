@@ -152,3 +152,11 @@
 {"user_input": "Watch my project for changes", "tool_used": "watch_project", "response": "Starts recursive fs.watch, ignores node_modules/.git", "timestamp": "2026-04-12T01:32:00", "success": true, "source": "network_tools"}
 {"user_input": "What do you remember about me?", "tool_used": "load_memory", "response": "Loads entities, goals, conversations from SQLite vault", "timestamp": "2026-04-12T01:32:00", "success": true, "source": "network_tools"}
 {"user_input": "Connect to Metasploit", "tool_used": "metasploit", "response": "JSON-RPC auth to msfrpcd on localhost:55553", "timestamp": "2026-04-12T01:32:00", "success": true, "source": "network_tools"}
+{"user_input": "What app am I using?", "tool_used": "detect_context", "response": "Detects foreground app, maps to agent", "timestamp": "2026-04-12T01:38:00", "success": true, "source": "tier3"}
+{"user_input": "What am I working on?", "tool_used": "detect_context", "response": "Gets active window, suggests agent", "timestamp": "2026-04-12T01:38:00", "success": true, "source": "tier3"}
+{"user_input": "Start recording this session", "tool_used": "session_control", "response": "Creates JSONL session file", "timestamp": "2026-04-12T01:38:00", "success": true, "source": "tier3"}
+{"user_input": "Show my past sessions", "tool_used": "session_control", "response": "Lists session files", "timestamp": "2026-04-12T01:38:00", "success": true, "source": "tier3"}
+{"user_input": "Replay last session", "tool_used": "session_control", "response": "Reads session JSONL entries", "timestamp": "2026-04-12T01:38:00", "success": true, "source": "tier3"}
+{"user_input": "Remember that I prefer dark themes", "tool_used": "save_memory", "response": "Saves to persistent memory bank", "timestamp": "2026-04-12T02:00:00", "success": true, "source": "memory"}
+{"user_input": "My birthday is March 15", "tool_used": "save_memory", "response": "Permanently stores operator fact", "timestamp": "2026-04-12T02:00:00", "success": true, "source": "memory"}
+{"user_input": "Always use Python 3.12 for my projects", "tool_used": "save_memory", "response": "Saves preference to memory bank", "timestamp": "2026-04-12T02:00:00", "success": true, "source": "memory"}

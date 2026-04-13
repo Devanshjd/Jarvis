@@ -20,6 +20,7 @@ import GoalsWidget from '../widgets/GoalsWidget'
 import VaultWidget from '../widgets/VaultWidget'
 import AwarenessWidget from '../widgets/AwarenessWidget'
 import PluginsWidget from '../widgets/PluginsWidget'
+import WorkflowWidget from '../widgets/WorkflowWidget'
 
 const WIDGET_COMPONENTS: Record<string, React.ComponentType<{ widget: any }>> = {
   weather: WeatherWidget,
@@ -38,6 +39,7 @@ const WIDGET_COMPONENTS: Record<string, React.ComponentType<{ widget: any }>> = 
   vault: VaultWidget,
   awareness: AwarenessWidget,
   plugins: PluginsWidget,
+  workflow: WorkflowWidget,
 }
 
 export default function WidgetLayer() {

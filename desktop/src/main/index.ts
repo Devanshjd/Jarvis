@@ -3675,6 +3675,147 @@ Provide the complete answer ready to submit.`
     }
   })
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── KEYBOARD SHORTCUTS ───────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  app.whenReady().then(() => {
+    // Ctrl+J — Activate JARVIS (focus window)
+    globalShortcut.register('CommandOrControl+J', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+        mainWindow.webContents.send('jarvis-activated')
+      }
+    })
+
+    // Ctrl+Shift+J — Toggle overlay mode
+    globalShortcut.register('CommandOrControl+Shift+J', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('overlay-mode-toggled')
+      }
+    })
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── VOICE SESSION RECORDING ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  const sessionsDir = join(os.homedir(), '.jarvis_sessions')
+
+  ipcMain.handle('session-start', async () => {
+    try {
+      await fs.mkdir(sessionsDir, { recursive: true })
+      const sessionId = `session_${Date.now()}`
+      const sessionFile = join(sessionsDir, `${sessionId}.jsonl`)
+      await fs.writeFile(sessionFile, '', 'utf-8')
+      return { success: true, sessionId, path: sessionFile }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Sanitize session IDs to prevent path traversal (strip anything except alphanumerics, _, -)
+  const sanitizeSessionId = (raw: string): string => {
+    const clean = raw.replace(/[^a-zA-Z0-9_\-]/g, '')
+    if (!clean || clean !== raw) {
+      console.warn(`[session] Sanitized session ID: "${raw}" → "${clean}"`)
+    }
+    return clean
+  }
+
+  ipcMain.handle('session-log', async (_event, sessionId: string, entry: { role: string; text: string; tool?: string }) => {
+    try {
+      const safeId = sanitizeSessionId(sessionId)
+      if (!safeId) return { success: false, error: 'Invalid session ID' }
+      const sessionFile = join(sessionsDir, `${safeId}.jsonl`)
+      const line = JSON.stringify({ ...entry, timestamp: new Date().toISOString() }) + '\n'
+      await fs.appendFile(sessionFile, line, 'utf-8')
+      return { success: true }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('session-list', async () => {
+    try {
+      await fs.mkdir(sessionsDir, { recursive: true })
+      const files = await fs.readdir(sessionsDir)
+      const sessions = files.filter(f => f.endsWith('.jsonl')).map(f => ({
+        id: f.replace('.jsonl', ''),
+        file: f,
+        path: join(sessionsDir, f)
+      }))
+      return { success: true, sessions }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('session-replay', async (_event, sessionId: string) => {
+    try {
+      const safeId = sanitizeSessionId(sessionId)
+      if (!safeId) return { success: false, error: 'Invalid session ID' }
+      const sessionFile = join(sessionsDir, `${safeId}.jsonl`)
+      const content = await fs.readFile(sessionFile, 'utf-8')
+      const entries = content.split('\n').filter(l => l.trim()).map(l => JSON.parse(l))
+      return { success: true, entries, count: entries.length }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── CONTEXT-AWARE APP DETECTION ──────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  ipcMain.handle('detect-active-app', async () => {
+    try {
+      const { exec } = require('child_process')
+      const execAsync = (cmd: string, timeout = 3000): Promise<string> =>
+        new Promise((resolve, reject) => {
+          exec(cmd, { timeout, encoding: 'utf-8' }, (err: Error | null, stdout: string) => {
+            if (err) reject(err)
+            else resolve((stdout || '').trim())
+          })
+        })
+
+      let appName = 'unknown'
+      let windowTitle = ''
+
+      if (process.platform === 'win32') {
+        // Async PowerShell: Get foreground window process name
+        const ps = `powershell -command "(Get-Process | Where-Object { $_.MainWindowHandle -eq (Add-Type -MemberDefinition '[DllImport(\\\"user32.dll\\\")]public static extern IntPtr GetForegroundWindow();' -Name Win32 -Namespace Temp -PassThru)::GetForegroundWindow() }).ProcessName"`
+        try {
+          appName = await execAsync(ps)
+        } catch {
+          // Fallback: get the first windowed process name (not the raw Format-List dump)
+          try {
+            const fallbackCmd = `powershell -command "(Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -First 1 -ExpandProperty ProcessName)"`
+            appName = await execAsync(fallbackCmd)
+          } catch {
+            appName = 'unknown'
+          }
+        }
+      }
+
+      // Map app name to suggested agent (case-insensitive)
+      const appLower = appName.toLowerCase()
+      const agentMap: Record<string, string> = {
+        'code': 'coder', 'devenv': 'coder', 'idea': 'coder', 'pycharm': 'coder', 'webstorm': 'coder',
+        'chrome': 'researcher', 'firefox': 'researcher', 'msedge': 'researcher', 'brave': 'researcher',
+        'wireshark': 'security', 'nmap': 'security', 'burpsuite': 'security',
+        'winword': 'writer', 'excel': 'writer', 'powerpnt': 'writer', 'notepad': 'writer',
+        'windowsterminal': 'system', 'cmd': 'system', 'powershell': 'system'
+      }
+      const suggestedAgent = agentMap[appLower] || 'researcher'
+
+      return { success: true, appName, windowTitle, suggestedAgent }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // ─── Overlay toggle (Ctrl+Shift+I — IRIS-style mini overlay) ───
   ipcMain.on('toggle-overlay-mode', () => {
     if (!mainWindow) return

@@ -1,0 +1,751 @@
+{
+  "nodes": [
+    {
+      "id": "requirements_anthropic",
+      "label": "Anthropic (Claude AI API)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 5",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_pillow",
+      "label": "Pillow (Screen Capture & Image Processing)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 6",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_keyboard",
+      "label": "Keyboard (Global Hotkeys)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 7",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_pystray",
+      "label": "Pystray (System Tray Icon)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 8",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_pyautogui",
+      "label": "PyAutoGUI (Mouse/Keyboard Automation)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 9",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_pyttsx3",
+      "label": "pyttsx3 (Text-to-Speech)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 12",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_speechrecognition",
+      "label": "SpeechRecognition (Speech-to-Text)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 13",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_pyaudio",
+      "label": "PyAudio (Microphone Input)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 14",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_psutil",
+      "label": "psutil (System Monitoring)",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": "line 17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "requirements_dependencies",
+      "label": "JARVIS Python Dependencies",
+      "file_type": "code",
+      "source_file": "requirements.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_overview",
+      "label": "JARVIS Training Data Documentation",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_task_episodes",
+      "label": "Task Episodes Dataset (jarvis_task_episodes.jsonl)",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 7",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_sft",
+      "label": "Planner SFT Dataset (jarvis_task_planner_sft.jsonl)",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 11",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_procedures",
+      "label": "Learned Procedures (jarvis_task_procedures.json)",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 18",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_manifest",
+      "label": "Export Manifest (manifest.json)",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 23",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_export_script",
+      "label": "Export Script (export_task_brain_dataset.py)",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_dataset_command",
+      "label": "/dataset Command",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 30",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_rationale_safety",
+      "label": "Safety Rationale: Secret Sanitization",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 52",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "training_data_rationale_usage",
+      "label": "Intended Use Rationale: Fine-Tuning Focus",
+      "file_type": "document",
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 42",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "hello_txt",
+      "label": "Hello World Test File",
+      "file_type": "document",
+      "source_file": "desktop/Desktop/hello.txt",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_readme",
+      "label": "Frontend README (React + TypeScript + Vite)",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_react",
+      "label": "React Framework",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_typescript",
+      "label": "TypeScript",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_vite",
+      "label": "Vite Build Tool",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_eslint",
+      "label": "ESLint Configuration",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 16",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_plugin_react",
+      "label": "@vitejs/plugin-react (Oxc)",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 7",
+      "source_url": "https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react",
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "frontend_plugin_react_swc",
+      "label": "@vitejs/plugin-react-swc (SWC)",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "line 8",
+      "source_url": "https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc",
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "favicon_svg",
+      "label": "Favicon (Purple Lightning Bolt SVG)",
+      "file_type": "image",
+      "source_file": "frontend/public/favicon.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icons_svg",
+      "label": "Social Icons Sprite (Bluesky, Discord, GitHub, X)",
+      "file_type": "image",
+      "source_file": "frontend/public/icons.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "hero_png",
+      "label": "Hero Image (3D Isometric Purple Platform)",
+      "file_type": "image",
+      "source_file": "frontend/src/assets/hero.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "react_svg",
+      "label": "React Logo SVG",
+      "file_type": "image",
+      "source_file": "frontend/src/assets/react.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "vite_svg",
+      "label": "Vite Logo SVG (Purple Lightning in Parentheses)",
+      "file_type": "image",
+      "source_file": "frontend/src/assets/vite.svg",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_anthropic",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 5",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_pillow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 6",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_keyboard",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_pystray",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 8",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_pyautogui",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 9",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_pyttsx3",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 12",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_speechrecognition",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 13",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_pyaudio",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 14",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_dependencies",
+      "target": "requirements_psutil",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 17",
+      "weight": 1.0
+    },
+    {
+      "source": "requirements_pyaudio",
+      "target": "requirements_speechrecognition",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "requirements.txt",
+      "source_location": "line 14",
+      "weight": 0.9
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_task_episodes",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_sft",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 11",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_procedures",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 18",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_manifest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 23",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_export_script",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_overview",
+      "target": "training_data_dataset_command",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 30",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_export_script",
+      "target": "training_data_task_episodes",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "weight": 0.8
+    },
+    {
+      "source": "training_data_export_script",
+      "target": "training_data_sft",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "weight": 0.8
+    },
+    {
+      "source": "training_data_export_script",
+      "target": "training_data_procedures",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "weight": 0.8
+    },
+    {
+      "source": "training_data_export_script",
+      "target": "training_data_manifest",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 37",
+      "weight": 0.8
+    },
+    {
+      "source": "training_data_dataset_command",
+      "target": "training_data_export_script",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 30",
+      "weight": 0.7
+    },
+    {
+      "source": "training_data_rationale_safety",
+      "target": "training_data_task_episodes",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 52",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_rationale_safety",
+      "target": "training_data_sft",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 52",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_rationale_usage",
+      "target": "training_data_sft",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 42",
+      "weight": 1.0
+    },
+    {
+      "source": "training_data_rationale_usage",
+      "target": "training_data_procedures",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": "line 42",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_react",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_typescript",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_vite",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 1",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_plugin_react",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_plugin_react_swc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 8",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_readme",
+      "target": "frontend_eslint",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 16",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_plugin_react",
+      "target": "frontend_vite",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_plugin_react_swc",
+      "target": "frontend_vite",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/README.md",
+      "source_location": "line 8",
+      "weight": 1.0
+    },
+    {
+      "source": "react_svg",
+      "target": "frontend_react",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "frontend/src/assets/react.svg",
+      "source_location": null,
+      "weight": 0.8
+    },
+    {
+      "source": "vite_svg",
+      "target": "frontend_vite",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "frontend/src/assets/vite.svg",
+      "source_location": null,
+      "weight": 0.8
+    },
+    {
+      "source": "favicon_svg",
+      "target": "vite_svg",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "frontend/public/favicon.svg",
+      "source_location": null,
+      "weight": 0.7
+    },
+    {
+      "source": "hero_png",
+      "target": "favicon_svg",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "frontend/src/assets/hero.png",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "icons_svg",
+      "target": "frontend_readme",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "frontend/public/icons.svg",
+      "source_location": null,
+      "weight": 0.6
+    },
+    {
+      "source": "training_data_overview",
+      "target": "requirements_dependencies",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.6,
+      "source_file": "TRAINING_DATA.md",
+      "source_location": null,
+      "weight": 0.5
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

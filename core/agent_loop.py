@@ -229,14 +229,51 @@ class AgentLoop:
                         # Small delay before retry
                         time.sleep(1.0)
 
-                    # Check if we're struggling
-                    if plan.struggle_score >= STRUGGLE_THRESHOLD:
+                    # ── Active struggle intervention ──────────────
+                    # Ask the struggle detector for a concrete action
+                    # instead of just checking a score threshold.
+                    struggle = getattr(self.jarvis, "struggle_detector", None)
+                    intervention = struggle.get_intervention() if struggle else None
+
+                    if intervention:
+                        action = intervention.get("action", "")
+
+                        if action == "abort":
+                            plan.status = LoopStatus.STUCK
+                            self._emit_progress(
+                                plan.current_step,
+                                intervention.get("message", "Aborting — too many failures."),
+                            )
+                            break
+
+                        elif action == "escalate_user":
+                            plan.status = LoopStatus.STUCK
+                            self._emit_progress(
+                                plan.current_step,
+                                intervention.get("message", "I need help with this task."),
+                            )
+                            # Try to recover before fully giving up
+                            recovered = self._recover_from_struggle(plan)
+                            if not recovered:
+                                break
+                            plan.status = LoopStatus.RUNNING
+
+                        elif action == "switch_mode":
+                            # Force the next attempt to use a different mode
+                            new_mode = intervention.get("to_mode", "api")
+                            step.execution_mode = new_mode
+                            self._emit_progress(
+                                plan.current_step,
+                                f"Switching to {new_mode} mode for next attempt.",
+                            )
+
+                    elif plan.struggle_score >= STRUGGLE_THRESHOLD:
+                        # Legacy fallback if no struggle detector
                         plan.status = LoopStatus.STUCK
                         self._emit_progress(
                             plan.current_step,
                             "I'm having difficulty with this task. Let me try a different approach.",
                         )
-                        # Try to recover
                         recovered = self._recover_from_struggle(plan)
                         if not recovered:
                             plan.status = LoopStatus.STUCK
@@ -300,8 +337,20 @@ class AgentLoop:
                 router.record_outcome(step.tool_name, step.execution_mode, success)
 
             # Screen verification: take a screenshot after screen actions to
-            # confirm the UI looks correct (only for screen-mode steps)
-            if success and step.verify_method == "screenshot":
+            # confirm the UI looks correct.
+            # Auto-verify ALL screen-mode steps unless the tool schema
+            # explicitly sets verify=False.
+            should_verify = step.verify_method == "screenshot"
+            if not should_verify and success and step.execution_mode == "screen":
+                # Check schema — default to verify for screen tools
+                from core.tool_schemas import get_schema_for_tool
+                schema = get_schema_for_tool(step.tool_name)
+                if schema and schema.get("verify", True):
+                    should_verify = True
+
+            if success and should_verify:
+                # Brief delay to let UI update before taking screenshot
+                time.sleep(0.5)
                 verified = self._verify_with_screenshot(step)
                 if not verified:
                     logger.warning("Screenshot verification failed for: %s", step.description)

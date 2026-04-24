@@ -137,6 +137,22 @@ def _ensure_schema():
             updated_at TEXT DEFAULT (datetime('now')),
             PRIMARY KEY (namespace, key)
         );
+
+        -- Tool execution outcomes for reliability tracking and learning
+        CREATE TABLE IF NOT EXISTS tool_outcomes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_name TEXT NOT NULL,
+            execution_mode TEXT DEFAULT 'direct',
+            success INTEGER NOT NULL DEFAULT 0,
+            latency_ms REAL DEFAULT 0,
+            error_class TEXT DEFAULT '',
+            timestamp TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_tool_outcomes_name
+            ON tool_outcomes(tool_name);
+        CREATE INDEX IF NOT EXISTS idx_tool_outcomes_ts
+            ON tool_outcomes(timestamp);
     """)
 
     # FTS tables for search (created separately — can't use IF NOT EXISTS with virtual)
@@ -986,6 +1002,142 @@ class JarvisDB:
             print(f"[JarvisDB] ✅ Migration complete: {', '.join(migrated)}")
         else:
             print("[JarvisDB] No existing data to migrate (fresh install)")
+
+    # ─── Tool Outcomes ────────────────────────────────────
+
+    def record_tool_outcome(
+        self,
+        tool_name: str,
+        execution_mode: str = "direct",
+        success: bool = True,
+        latency_ms: float = 0.0,
+        error_class: str = "",
+    ) -> int:
+        """Record a tool execution outcome for reliability tracking.
+
+        Returns the row ID.
+        """
+        conn = _get_conn()
+        with _db_lock:
+            cur = conn.execute(
+                "INSERT INTO tool_outcomes (tool_name, execution_mode, success, latency_ms, error_class) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (tool_name, execution_mode, int(success), latency_ms, error_class),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_tool_reliability(self, tool_name: str, days: int = 7) -> dict:
+        """Get reliability stats for a tool over the last N days.
+
+        Returns:
+            {
+                "tool_name": str,
+                "total": int,
+                "successes": int,
+                "failures": int,
+                "reliability": float,     # 0.0 - 1.0
+                "avg_latency_ms": float,
+                "common_errors": list[str],
+            }
+        """
+        conn = _get_conn()
+        row = conn.execute(
+            """SELECT
+                   COUNT(*) as total,
+                   SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failures,
+                   AVG(latency_ms) as avg_latency
+               FROM tool_outcomes
+               WHERE tool_name = ?
+                 AND timestamp >= datetime('now', ?)""",
+            (tool_name, f"-{days} days"),
+        ).fetchone()
+
+        total = row["total"] if row["total"] else 0
+        successes = row["successes"] if row["successes"] else 0
+        failures = row["failures"] if row["failures"] else 0
+        avg_latency = row["avg_latency"] if row["avg_latency"] else 0.0
+
+        # Get most common error classes
+        error_rows = conn.execute(
+            """SELECT error_class, COUNT(*) as cnt
+               FROM tool_outcomes
+               WHERE tool_name = ? AND success = 0 AND error_class != ''
+                 AND timestamp >= datetime('now', ?)
+               GROUP BY error_class
+               ORDER BY cnt DESC
+               LIMIT 5""",
+            (tool_name, f"-{days} days"),
+        ).fetchall()
+
+        return {
+            "tool_name": tool_name,
+            "total": total,
+            "successes": successes,
+            "failures": failures,
+            "reliability": successes / total if total > 0 else 1.0,
+            "avg_latency_ms": round(avg_latency, 1),
+            "common_errors": [r["error_class"] for r in error_rows],
+        }
+
+    def get_all_tool_reliability(self, days: int = 7) -> list[dict]:
+        """Get reliability stats for ALL tools that have been used recently."""
+        conn = _get_conn()
+        rows = conn.execute(
+            """SELECT
+                   tool_name,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failures,
+                   AVG(latency_ms) as avg_latency
+               FROM tool_outcomes
+               WHERE timestamp >= datetime('now', ?)
+               GROUP BY tool_name
+               ORDER BY total DESC""",
+            (f"-{days} days",),
+        ).fetchall()
+
+        return [
+            {
+                "tool_name": r["tool_name"],
+                "total": r["total"],
+                "successes": r["successes"] or 0,
+                "failures": r["failures"] or 0,
+                "reliability": (r["successes"] or 0) / r["total"] if r["total"] else 1.0,
+                "avg_latency_ms": round(r["avg_latency"] or 0, 1),
+            }
+            for r in rows
+        ]
+
+    def get_tool_mode_stats(self, tool_name: str, days: int = 7) -> dict[str, dict]:
+        """Get per-mode success rates for a tool (for ExecutionRouter).
+
+        Returns: {"direct": {"total": 5, "successes": 4, ...}, "screen": {...}}
+        """
+        conn = _get_conn()
+        rows = conn.execute(
+            """SELECT
+                   execution_mode,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+                   AVG(latency_ms) as avg_latency
+               FROM tool_outcomes
+               WHERE tool_name = ?
+                 AND timestamp >= datetime('now', ?)
+               GROUP BY execution_mode""",
+            (tool_name, f"-{days} days"),
+        ).fetchall()
+
+        return {
+            r["execution_mode"]: {
+                "total": r["total"],
+                "successes": r["successes"] or 0,
+                "reliability": (r["successes"] or 0) / r["total"] if r["total"] else 1.0,
+                "avg_latency_ms": round(r["avg_latency"] or 0, 1),
+            }
+            for r in rows
+        }
 
     # ─── Helpers ──────────────────────────────────────────
 

@@ -158,101 +158,99 @@ _BASIC_FACTS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Tool triggers — maps regex to tool name
-# ORDER MATTERS: more specific patterns MUST come before generic ones.
-# "open trailer of spider-man in youtube" = web_search, NOT open_app.
+# Tool triggers — maps regex to (tool_name, specificity_score).
+# Higher score wins when multiple patterns match.
+# This replaces the old first-match system where ordering was fragile.
 _TOOL_PATTERNS = [
-    # ── Platform-specific searches (BEFORE open_app) ──
-    # "open X in/on youtube" / "play X on youtube" / "search X on youtube"
-    (re.compile(r"\b(?:open|play|watch|find|search)\s+.+\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b", re.I), "web_search"),
-    (re.compile(r"\b(?:youtube|spotify)\s+.+", re.I), "web_search"),
-    (re.compile(r"\b(?:trailer|video|song|music|clip)\s+.+\b(?:in|on)\s+\w+", re.I), "web_search"),
-    # ── App launching (only for actual app names, not search queries) ──
-    # Negative lookahead: don't match if "in/on youtube/google/spotify" follows
-    (re.compile(r"\b(?:open|launch|start|run)\s+(?!.*\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b)(\w[\w\s]*)", re.I), "open_app"),
-    (re.compile(r"\bweather\b", re.I), "get_weather"),
-    (re.compile(r"\b(?:news|headlines)\b", re.I), "get_news"),
-    (re.compile(r"\b(?:crypto|bitcoin|btc|eth(?:ereum)?)\b", re.I), "get_crypto"),
-    (re.compile(r"\bwiki(?:pedia)?\s+(.+)", re.I), "get_wiki"),
-    (re.compile(r"\bdefine\s+(.+)", re.I), "get_definition"),
-    (re.compile(r"\btranslat(?:e|ion)\b", re.I), "get_translation"),
-    (re.compile(r"\b(?:convert|currency)\b.*\b(?:usd|eur|inr|gbp)\b", re.I), "get_currency"),
-    (re.compile(r"\b(?:inspirational\s+)?quote\b", re.I), "get_quote"),
-    (re.compile(r"\bjoke\b", re.I), "get_joke"),
-    (re.compile(r"\bfact\b", re.I), "get_fact"),
-    (re.compile(r"\bnasa\b", re.I), "get_nasa"),
-    (re.compile(r"\b(?:system|pc|computer)\s*(?:info|status|stats|health)\b", re.I), "system_info"),
-    (re.compile(r"\bscan\s*(?:the\s+)?screen\b", re.I), "scan_screen"),
-    (re.compile(r"\block\s*(?:the\s+)?(?:screen|computer|pc)\b", re.I), "lock_screen"),
-    (re.compile(r"\bvolume\b", re.I), "set_volume"),
-    (re.compile(r"\b(?:remind(?:er)?|alarm)\b", re.I), "set_reminder"),
-    (re.compile(r"\btimer\b", re.I), "set_timer"),
-    (re.compile(r"\b(?:search|google|look\s*up)\s+(?:for\s+)?(?!bar\b|box\b|field\b|input\b)\w+", re.I), "web_search"),
-    # Cybersecurity
-    (re.compile(r"\b(?:url|link)\s*scan\b", re.I), "url_scan"),
-    (re.compile(r"\bfile\s*scan\b", re.I), "file_scan"),
-    (re.compile(r"\bsecurity\s*audit\b", re.I), "security_audit"),
-    (_SECURITY_CHECK_RE, "security_audit"),
-    (re.compile(r"\bphishing\b", re.I), "phishing_detect"),
-    (re.compile(r"\bport\s*scan\b", re.I), "port_scan"),
-    (re.compile(r"\bwifi\s*scan\b", re.I), "wifi_scan"),
-    (re.compile(r"\bnet(?:work)?\s*scan\b", re.I), "net_scan"),
-    # Email
-    (re.compile(r"\b(?:check|read)\s*(?:my\s+)?(?:inbox|email|mail)\b", re.I), "check_inbox"),
-    (re.compile(r"\bsend\s*(?:an?\s+)?(?:email|mail)\b", re.I), "send_email"),
-    # Smart home (specific patterns to avoid false matches with security commands)
-    (re.compile(r"\b(?:turn\s+(?:on|off)\s+)?lights?\b", re.I), "control_lights"),
-    (re.compile(r"\bthermostat\b", re.I), "set_thermostat"),
-    (re.compile(r"\b(?:home\s+)?scene\b", re.I), "activate_scene"),
-    (re.compile(r"\b(?:smart\s+(?:home\s+)?|home\s+|iot\s+)devices?\b", re.I), "list_devices"),
-    # Web automation
-    (re.compile(r"\b(?:log\s*in|login|sign\s*in)\s*(?:to|into)\b", re.I), "web_login"),
-    # Pentest / Bug bounty
-    (re.compile(r"\b(?:full\s+)?recon\b", re.I), "recon"),
-    (re.compile(r"\bsubdomain", re.I), "subdomain_enum"),
-    (re.compile(r"\btech\s*(?:stack|detect)", re.I), "tech_detect"),
-    (re.compile(r"\b(?:dir(?:ectory)?\s*(?:fuzz|brute|bust)|fuzz\s*dir)", re.I), "dir_fuzz"),
-    (re.compile(r"\bdork", re.I), "google_dorks"),
-    (re.compile(r"\bssl\b|\btls\b|\bcert(?:ificate)?\s*(?:check|scan|anal)", re.I), "ssl_check"),
-    (re.compile(r"\bcors\b", re.I), "cors_check"),
-    (re.compile(r"\bxss\b", re.I), "xss_test"),
-    (re.compile(r"\bsql\s*i(?:njection)?\b", re.I), "sqli_test"),
-    (re.compile(r"\bopen\s*redirect", re.I), "open_redirect"),
-    (re.compile(r"\bheader\s*audit\b", re.I), "header_audit"),
-    (re.compile(r"\bwayback\b", re.I), "wayback"),
-    (re.compile(r"\bcve\b", re.I), "cve_search"),
-    (re.compile(r"\bexploit\b", re.I), "exploit_search"),
-    # Chain execution
-    (re.compile(r"\b(?:full\s+)?pentest\s+chain\b", re.I), "pentest_chain"),
-    (re.compile(r"\bquick\s+recon\s+chain\b", re.I), "quick_recon_chain"),
-    # Web research
-    (re.compile(r"\b(?:research|look\s*up|find\s+(?:out|info))\s+(?:about\s+)?(.+)", re.I), "web_research"),
-    (re.compile(r"\bresearch\s+(?:cve|CVE)[- ]?\d{4}", re.I), "research_cve"),
-    # Messaging — MUST be before type_text (so "text meet on whatsapp" doesn't become type_text)
-    # Require platform mention OR "text/dm/msg <name>" pattern with clear messaging intent
-    (re.compile(r"\b(?:send|text|msg|dm)\s+\w+\s+(?:on|via|through)\s+(?:whatsapp|telegram|instagram|discord)\b", re.I), "send_msg"),
-    (re.compile(r"\b(?:whatsapp|telegram|instagram|discord)\s+\w+\s+.+", re.I), "send_msg"),
-    (re.compile(r"\bsend\s+(?:a\s+)?(?:message|text|msg)\s+(?:to\s+)?\w+", re.I), "send_msg"),
-    (re.compile(r"\b(?:text|dm|msg)\s+\w+\s+(?:that|saying|say)\b", re.I), "send_msg"),
-    (re.compile(r"\b(?:text|dm|msg)\s+\w+\s+(?:on|via)\s+\w+\s+.+", re.I), "send_msg"),
-    # More natural: "tell Meet I'm coming" / "message Meet on WhatsApp"
-    (re.compile(r"\btell\s+\w+\s+(?:that\s+|i'?m\s+|to\s+|on\s+(?:whatsapp|telegram))", re.I), "send_msg"),
-    (re.compile(r"\b(?:send|text)\s+(?:a\s+)?(?:whatsapp|telegram)\s+(?:to\s+)?\w+", re.I), "send_msg"),
-    (re.compile(r"\bsend\s+(?:a\s+)?(?:whatsapp|telegram)\b", re.I), "send_msg"),
-    (re.compile(r"\b(?:can\s+you\s+)?(?:send|text|message)\s+\w+\s+(?:saying|that)\b", re.I), "send_msg"),
-    # Mouse & keyboard
-    (re.compile(r"\bclick\s+(?:on\s+)?(?:the\s+)?(.+)", re.I), "mouse_click"),
-    (re.compile(r"\bscroll\s+(?:down|up)", re.I), "mouse_scroll"),
-    (re.compile(r"\btype\s+(?:in\s+|out\s+)?['\"]?(.+?)['\"]?\s*$", re.I), "type_text"),
-    (re.compile(r"\bpress\s+(?:the\s+)?(.+)", re.I), "key_press"),
-    (re.compile(r"\bscreenshot\b|\btake\s+(?:a\s+)?(?:screen\s*shot|snap)", re.I), "take_screenshot"),
-    # AI screen interaction (vision-based)
-    (re.compile(r"\bfind\s+(?:the\s+)?(?:button|element|field|icon|link|text|input|menu)\b", re.I), "screen_find"),
-    (re.compile(r"\bclick\s+(?:on\s+)?(?:the\s+)?(?:button|element|link|icon|menu)\b", re.I), "screen_click"),
-    (re.compile(r"\btype\s+(?:into|in)\s+(?:the\s+)?(?:field|input|box|search)\b", re.I), "screen_type"),
-    (re.compile(r"\bread\s+(?:the\s+)?(?:screen|text|content|page)\b", re.I), "screen_read"),
-    # Dev agent (build project)
-    (re.compile(r"\b(?:build|create|make|generate)\s+(?:a\s+|me\s+(?:a\s+)?)?(?:project|app|application|program|tool|script|website|game)\b", re.I), "build_project"),
+    # ── Platform-specific searches (high specificity: 10) ──
+    (re.compile(r"\b(?:open|play|watch|find|search)\s+.+\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b", re.I), "web_search", 10),
+    (re.compile(r"\b(?:youtube|spotify)\s+.+", re.I), "web_search", 9),
+    (re.compile(r"\b(?:trailer|video|song|music|clip)\s+.+\b(?:in|on)\s+\w+", re.I), "web_search", 9),
+    # ── App launching (specificity: 8 — loses to platform-specific) ──
+    (re.compile(r"\b(?:open|launch|start|run)\s+(?!.*\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b)(\w[\w\s]*)", re.I), "open_app", 8),
+    # ── Info lookups (specificity: 7 — keyword-based) ───
+    (re.compile(r"\bweather\b", re.I), "get_weather", 7),
+    (re.compile(r"\b(?:news|headlines)\b", re.I), "get_news", 7),
+    (re.compile(r"\b(?:crypto|bitcoin|btc|eth(?:ereum)?)\b", re.I), "get_crypto", 7),
+    (re.compile(r"\bwiki(?:pedia)?\s+(.+)", re.I), "get_wiki", 7),
+    (re.compile(r"\bdefine\s+(.+)", re.I), "get_definition", 7),
+    (re.compile(r"\btranslat(?:e|ion)\b", re.I), "get_translation", 7),
+    (re.compile(r"\b(?:convert|currency)\b.*\b(?:usd|eur|inr|gbp)\b", re.I), "get_currency", 8),
+    (re.compile(r"\b(?:inspirational\s+)?quote\b", re.I), "get_quote", 6),
+    (re.compile(r"\bjoke\b", re.I), "get_joke", 6),
+    (re.compile(r"\bfact\b", re.I), "get_fact", 6),
+    (re.compile(r"\bnasa\b", re.I), "get_nasa", 7),
+    # ── System (specificity: 7) ──────────────────────────
+    (re.compile(r"\b(?:system|pc|computer)\s*(?:info|status|stats|health)\b", re.I), "system_info", 7),
+    (re.compile(r"\bscan\s*(?:the\s+)?screen\b", re.I), "screen_scan", 8),
+    (re.compile(r"\block\s*(?:the\s+)?(?:screen|computer|pc)\b", re.I), "lock_screen", 8),
+    (re.compile(r"\bvolume\b", re.I), "set_volume", 7),
+    (re.compile(r"\b(?:remind(?:er)?|alarm)\b", re.I), "set_reminder", 7),
+    (re.compile(r"\btimer\b", re.I), "set_timer", 7),
+    (re.compile(r"\b(?:search|google|look\s*up)\s+(?:for\s+)?(?!bar\b|box\b|field\b|input\b)\w+", re.I), "web_search", 5),
+    # ── Cybersecurity (specificity: 8) ────────────────────
+    (re.compile(r"\b(?:url|link)\s*scan\b", re.I), "url_scan", 8),
+    (re.compile(r"\bfile\s*scan\b", re.I), "file_scan", 8),
+    (re.compile(r"\bsecurity\s*audit\b", re.I), "security_audit", 8),
+    (_SECURITY_CHECK_RE, "security_audit", 7),
+    (re.compile(r"\bphishing\b", re.I), "phishing_detect", 7),
+    (re.compile(r"\bport\s*scan\b", re.I), "port_scan", 8),
+    (re.compile(r"\bwifi\s*scan\b", re.I), "wifi_scan", 8),
+    (re.compile(r"\bnet(?:work)?\s*scan\b", re.I), "net_scan", 8),
+    # ── Email (specificity: 8) ────────────────────────────
+    (re.compile(r"\b(?:check|read)\s*(?:my\s+)?(?:inbox|email|mail)\b", re.I), "check_inbox", 8),
+    (re.compile(r"\bsend\s*(?:an?\s+)?(?:email|mail)\b", re.I), "send_email", 8),
+    # ── Smart home (specificity: 7) ───────────────────────
+    (re.compile(r"\b(?:turn\s+(?:on|off)\s+)?lights?\b", re.I), "control_lights", 7),
+    (re.compile(r"\bthermostat\b", re.I), "set_thermostat", 7),
+    (re.compile(r"\b(?:home\s+)?scene\b", re.I), "activate_scene", 7),
+    (re.compile(r"\b(?:smart\s+(?:home\s+)?|home\s+|iot\s+)devices?\b", re.I), "list_devices", 7),
+    # ── Web automation (specificity: 8) ───────────────────
+    (re.compile(r"\b(?:log\s*in|login|sign\s*in)\s*(?:to|into)\b", re.I), "web_login", 8),
+    # ── Pentest (specificity: 8) ──────────────────────────
+    (re.compile(r"\b(?:full\s+)?recon\b", re.I), "recon", 7),
+    (re.compile(r"\bsubdomain", re.I), "subdomain_enum", 8),
+    (re.compile(r"\btech\s*(?:stack|detect)", re.I), "tech_detect", 8),
+    (re.compile(r"\b(?:dir(?:ectory)?\s*(?:fuzz|brute|bust)|fuzz\s*dir)", re.I), "dir_fuzz", 8),
+    (re.compile(r"\bdork", re.I), "google_dorks", 7),
+    (re.compile(r"\bssl\b|\btls\b|\bcert(?:ificate)?\s*(?:check|scan|anal)", re.I), "ssl_check", 7),
+    (re.compile(r"\bcors\b", re.I), "cors_check", 7),
+    (re.compile(r"\bxss\b", re.I), "xss_test", 8),
+    (re.compile(r"\bsql\s*i(?:njection)?\b", re.I), "sqli_test", 8),
+    (re.compile(r"\bopen\s*redirect", re.I), "open_redirect", 8),
+    (re.compile(r"\bheader\s*audit\b", re.I), "header_audit", 8),
+    (re.compile(r"\bwayback\b", re.I), "wayback", 7),
+    (re.compile(r"\bcve\b", re.I), "cve_search", 7),
+    (re.compile(r"\bexploit\b", re.I), "exploit_search", 7),
+    # ── Chain execution (specificity: 9) ──────────────────
+    (re.compile(r"\b(?:full\s+)?pentest\s+chain\b", re.I), "pentest_chain", 9),
+    (re.compile(r"\bquick\s+recon\s+chain\b", re.I), "quick_recon_chain", 9),
+    # ── Web research (specificity: 6) ─────────────────────
+    (re.compile(r"\b(?:research|look\s*up|find\s+(?:out|info))\s+(?:about\s+)?(.+)", re.I), "web_research", 6),
+    (re.compile(r"\bresearch\s+(?:cve|CVE)[- ]?\d{4}", re.I), "research_cve", 9),
+    # ── Messaging (specificity: 9 — high to beat type_text) ──
+    (re.compile(r"\b(?:send|text|msg|dm)\s+\w+\s+(?:on|via|through)\s+(?:whatsapp|telegram|instagram|discord)\b", re.I), "send_msg", 10),
+    (re.compile(r"\b(?:whatsapp|telegram|instagram|discord)\s+\w+\s+.+", re.I), "send_msg", 9),
+    (re.compile(r"\bsend\s+(?:a\s+)?(?:message|text|msg)\s+(?:to\s+)?\w+", re.I), "send_msg", 9),
+    (re.compile(r"\b(?:text|dm|msg)\s+\w+\s+(?:that|saying|say)\b", re.I), "send_msg", 9),
+    (re.compile(r"\b(?:text|dm|msg)\s+\w+\s+(?:on|via)\s+\w+\s+.+", re.I), "send_msg", 9),
+    (re.compile(r"\btell\s+\w+\s+(?:that\s+|i'?m\s+|to\s+|on\s+(?:whatsapp|telegram))", re.I), "send_msg", 9),
+    (re.compile(r"\b(?:send|text)\s+(?:a\s+)?(?:whatsapp|telegram)\s+(?:to\s+)?\w+", re.I), "send_msg", 9),
+    (re.compile(r"\bsend\s+(?:a\s+)?(?:whatsapp|telegram)\b", re.I), "send_msg", 8),
+    (re.compile(r"\b(?:can\s+you\s+)?(?:send|text|message)\s+\w+\s+(?:saying|that)\b", re.I), "send_msg", 9),
+    # ── Mouse & keyboard (specificity: 5 — generic) ──────
+    (re.compile(r"\bclick\s+(?:on\s+)?(?:the\s+)?(.+)", re.I), "mouse_click", 5),
+    (re.compile(r"\bscroll\s+(?:down|up)", re.I), "mouse_scroll", 6),
+    (re.compile(r"\btype\s+(?:in\s+|out\s+)?['\"]?(.+?)['\"]?\s*$", re.I), "type_text", 4),
+    (re.compile(r"\bpress\s+(?:the\s+)?(.+)", re.I), "key_press", 5),
+    (re.compile(r"\bscreenshot\b|\btake\s+(?:a\s+)?(?:screen\s*shot|snap)", re.I), "take_screenshot", 7),
+    # ── AI screen interaction (specificity: 7 — more specific than raw mouse) ──
+    (re.compile(r"\bfind\s+(?:the\s+)?(?:button|element|field|icon|link|text|input|menu)\b", re.I), "screen_find", 7),
+    (re.compile(r"\bclick\s+(?:on\s+)?(?:the\s+)?(?:button|element|link|icon|menu)\b", re.I), "screen_click", 7),
+    (re.compile(r"\btype\s+(?:into|in)\s+(?:the\s+)?(?:field|input|box|search)\b", re.I), "screen_type", 7),
+    (re.compile(r"\bread\s+(?:the\s+)?(?:screen|text|content|page)\b", re.I), "screen_read", 7),
+    # ── Dev agent (specificity: 8) ────────────────────────
+    (re.compile(r"\b(?:build|create|make|generate)\s+(?:a\s+|me\s+(?:a\s+)?)?(?:project|app|application|program|tool|script|website|game)\b", re.I), "build_project", 8),
 ]
 
 # Research triggers
@@ -393,7 +391,7 @@ class TaskOrchestrator:
         """
         msg = text.strip()
         msg_lower = msg.lower().strip()
-        has_tool_intent = any(pattern.search(msg_lower) for pattern, _tool_name in _TOOL_PATTERNS)
+        has_tool_intent = any(pattern.search(msg_lower) for pattern, _tool_name, _score in _TOOL_PATTERNS)
         capability_match = self._resolve_capability_match(msg)
 
         if self.task_sessions.get_waiting_session():
@@ -451,7 +449,7 @@ class TaskOrchestrator:
         if _SECURITY_CHECK_RE.search(msg_lower):
             return TaskType.TOOL
 
-        for pattern, _tool_name in _TOOL_PATTERNS:
+        for pattern, _tool_name, _score in _TOOL_PATTERNS:
             if pattern.search(msg_lower):
                 return TaskType.TOOL
 
@@ -544,7 +542,7 @@ class TaskOrchestrator:
         msg = text.lower().strip()
         if msg in _GREETINGS:
             return TaskType.SIMPLE
-        for pattern, _ in _TOOL_PATTERNS:
+        for pattern, _, _score in _TOOL_PATTERNS:
             if pattern.search(msg):
                 return TaskType.TOOL
         if _REASONING_RE.search(msg):
@@ -1273,12 +1271,20 @@ class TaskOrchestrator:
                 task.metadata.setdefault("planned_tool", tool_name)
 
         if not tool_name:
-            for pattern, tname in _TOOL_PATTERNS:
+            # Scored multi-match: run ALL patterns, pick highest score.
+            # This fixes ordering conflicts like "open firefox on youtube"
+            # where web_search (score 10) correctly beats open_app (score 8).
+            best_score = -1
+            for pattern, tname, specificity in _TOOL_PATTERNS:
                 m = pattern.search(msg_lower)
                 if m:
-                    tool_name = tname
-                    match_obj = m
-                    break
+                    # Total score = base specificity + match length bonus
+                    match_len_bonus = len(m.group(0)) / max(len(msg_lower), 1) * 2
+                    score = specificity + match_len_bonus
+                    if score > best_score:
+                        best_score = score
+                        tool_name = tname
+                        match_obj = m
 
         if not tool_name:
             # Fall through to AI pipeline
@@ -2036,8 +2042,125 @@ class TaskOrchestrator:
 
             return {"platform": platform, "contact": contact, "message": message}
 
-        # Default: pass text as generic arg
-        return {}
+        # ── Schema-driven generic arg extraction ─────────────
+        # For tools with no explicit handler above, use their schema
+        # to extract arguments intelligently instead of returning {}
+        return self._schema_driven_extract(tool_name, text, msg_lower)
+
+    def _schema_driven_extract(self, tool_name: str, text: str, msg_lower: str) -> dict:
+        """
+        Generic argument extractor using TOOL_SCHEMAS definitions.
+
+        For tools without explicit _build_tool_args handlers, this reads
+        the tool's input_schema.properties and extracts values using
+        type-aware heuristics:
+          - required: [] → return {}
+          - single string property → extract text after trigger word
+          - integer/number properties → extract first number
+          - URL-like properties → extract URLs
+          - domain properties → extract domains
+          - code properties → extract code blocks
+        """
+        from core.tool_schemas import get_schema_for_tool
+
+        schema = get_schema_for_tool(tool_name)
+        if not schema:
+            return {}
+
+        props = schema.get("input_schema", {}).get("properties", {})
+        required = schema.get("input_schema", {}).get("required", [])
+
+        # No-arg tools: tools with no properties or no required args
+        if not props or not required:
+            return {}
+
+        result = {}
+
+        for prop_name, prop_def in props.items():
+            prop_type = prop_def.get("type", "string")
+            prop_desc = prop_def.get("description", "").lower()
+
+            if prop_type == "integer" or prop_type == "number":
+                # Extract first number from text
+                m = re.search(r"(\d+(?:\.\d+)?)", text)
+                if m:
+                    result[prop_name] = float(m.group(1)) if "." in m.group(1) else int(m.group(1))
+
+            elif prop_type == "string":
+                # Heuristic extraction based on property name / description
+                if any(kw in prop_name for kw in ("url", "link")):
+                    m = re.search(r"(https?://\S+)", text)
+                    if m:
+                        result[prop_name] = m.group(1)
+
+                elif any(kw in prop_name for kw in ("domain", "host", "target")):
+                    m = re.search(
+                        r"(?:https?://)?([a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?)",
+                        text,
+                    )
+                    if m:
+                        result[prop_name] = m.group(1)
+                    elif text.strip():
+                        # Fallback: last word
+                        result[prop_name] = text.strip().split()[-1]
+
+                elif any(kw in prop_name for kw in ("ip",)):
+                    m = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})", text)
+                    if m:
+                        result[prop_name] = m.group(1)
+
+                elif any(kw in prop_name for kw in ("code",)):
+                    # Extract code from text, often quoted or after "run"
+                    m = re.search(r"```(?:\w+)?\s*(.+?)```", text, re.DOTALL)
+                    if m:
+                        result[prop_name] = m.group(1).strip()
+                    else:
+                        m = re.search(r"(?:run|execute)\s+(.+)", msg_lower)
+                        result[prop_name] = m.group(1).strip() if m else text.strip()
+
+                elif any(kw in prop_name for kw in ("path", "file", "folder")):
+                    # Extract file path
+                    m = re.search(r'["\']?([A-Za-z]:\\[^\s"\']+|/[^\s"\']+|~[^\s"\']*)', text)
+                    if m:
+                        result[prop_name] = m.group(1)
+                    else:
+                        result[prop_name] = text.strip()
+
+                elif any(kw in prop_name for kw in ("command", "subcmd")):
+                    # Extract everything after the trigger word
+                    m = re.search(
+                        r"(?:run|execute|command|git|pip)\s+(.+)", msg_lower,
+                    )
+                    result[prop_name] = m.group(1).strip() if m else text.strip()
+
+                elif any(kw in prop_name for kw in ("package",)):
+                    m = re.search(r"(?:install|pip)\s+(.+)", msg_lower)
+                    result[prop_name] = m.group(1).strip() if m else text.strip()
+
+                elif any(kw in prop_name for kw in ("keyword", "query", "topic", "text",
+                                                      "message", "fact", "scene", "name",
+                                                      "word", "pattern")):
+                    # Generic: extract the meaningful part after trigger words
+                    m = re.search(
+                        r"(?:about|for|of|is|scan|check|search|find|remember|"
+                        r"activate|set|to|called)\s+(.+)",
+                        msg_lower,
+                    )
+                    result[prop_name] = m.group(1).strip() if m else text.strip()
+
+                elif "enum" in prop_def:
+                    # Match against known enum values
+                    for val in prop_def["enum"]:
+                        if val.lower() in msg_lower:
+                            result[prop_name] = val
+                            break
+
+                else:
+                    # Ultimate fallback: use the full text
+                    if prop_name in required:
+                        result[prop_name] = text.strip()
+
+        return result
 
     def _request_confirmation_sync(self, risk_msg: str) -> bool:
         """

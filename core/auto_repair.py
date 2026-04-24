@@ -32,7 +32,8 @@ class RepairTarget:
     component_class: str = ""
 
 
-REPAIR_TARGETS: dict[str, RepairTarget] = {
+# Manual overrides — tools with non-standard file/plugin mappings
+_MANUAL_TARGETS: dict[str, RepairTarget] = {
     "send_msg": RepairTarget(
         tool_name="send_msg",
         filepath="plugins/messaging/messaging_plugin.py",
@@ -98,6 +99,63 @@ REPAIR_TARGETS: dict[str, RepairTarget] = {
         component_class="DevAgent",
     ),
 }
+
+# Category -> (filepath, label, plugin_name, module_path, component_attr, component_class)
+_CATEGORY_TO_FILE: dict[str, tuple[str, str, str, str, str, str]] = {
+    "research":       ("plugins/web_intel/web_intel_plugin.py", "web intelligence", "web_intel", "", "", ""),
+    "communication":  ("plugins/messaging/messaging_plugin.py", "messaging automation", "messaging", "", "", ""),
+    "screen":         ("core/screen_interact.py", "screen interaction engine", "", "core.screen_interact", "screen_interact", "ScreenInteract"),
+    "input_control":  ("core/executor.py", "input control handler", "", "", "", ""),
+    "system":         ("core/executor.py", "system tool handler", "", "", "", ""),
+    "desktop":        ("core/executor.py", "desktop tool handler", "", "", "", ""),
+    "web_automation": ("plugins/web_automation/web_automation_plugin.py", "web automation module", "web_automation", "", "", ""),
+    "security":       ("plugins/security/security_plugin.py", "security scanner", "security", "", "", ""),
+    "smart_home":     ("plugins/smart_home/smart_home_plugin.py", "smart home controller", "smart_home", "", "", ""),
+    "file_management":("core/executor.py", "file management handler", "", "", "", ""),
+    "development":    ("core/dev_agent.py", "developer agent", "", "core.dev_agent", "dev_agent", "DevAgent"),
+}
+
+
+def _build_repair_targets() -> dict[str, RepairTarget]:
+    """Build repair targets from TOOL_SCHEMAS + manual overrides.
+
+    Manual overrides take priority.  For tools not in the manual list,
+    we derive a RepairTarget from the schema's ``category`` field using
+    ``_CATEGORY_TO_FILE``.
+    """
+    targets = dict(_MANUAL_TARGETS)
+
+    try:
+        from core.tool_schemas import TOOL_SCHEMAS
+        for schema in TOOL_SCHEMAS:
+            name = schema["name"]
+            if name in targets:
+                continue  # Manual override wins
+            if schema.get("layer") != "python":
+                continue  # Can't repair Electron-only tools from Python
+
+            category = schema.get("category", "")
+            mapping = _CATEGORY_TO_FILE.get(category)
+            if not mapping:
+                continue
+
+            filepath, label, plugin_name, module_path, component_attr, component_class = mapping
+            targets[name] = RepairTarget(
+                tool_name=name,
+                filepath=filepath,
+                label=label,
+                plugin_name=plugin_name,
+                module_path=module_path,
+                component_attr=component_attr,
+                component_class=component_class,
+            )
+    except Exception as e:
+        logger.warning("Could not auto-generate repair targets from schemas: %s", e)
+
+    return targets
+
+
+REPAIR_TARGETS: dict[str, RepairTarget] = _build_repair_targets()
 
 
 SKIP_REPAIR_RE = re.compile(

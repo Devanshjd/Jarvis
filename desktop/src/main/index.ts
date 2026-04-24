@@ -701,8 +701,9 @@ function createWindow() {
 
   ipcMain.handle('tool-read-file', async (_event, filePath: string) => {
     try {
-      const content = await fs.readFile(filePath, 'utf8')
-      return { success: true, content: content.slice(0, 10000) }
+      const resolved = resolveUserPath(filePath.trim())
+      const content = await fs.readFile(resolved, 'utf8')
+      return { success: true, content: content.slice(0, 10000), path: resolved }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }
@@ -710,11 +711,29 @@ function createWindow() {
 
   ipcMain.handle('tool-write-file', async (_event, fileName: string, content: string) => {
     try {
-      // If no directory specified, default to Desktop
-      let target = fileName
-      if (!fileName.includes('/') && !fileName.includes('\\')) {
-        target = join(app.getPath('desktop'), fileName)
+      let target = fileName.trim()
+
+      // Strip ~ prefix
+      if (target.startsWith('~/') || target.startsWith('~\\')) {
+        target = join(os.homedir(), target.slice(2))
       }
+
+      // If it starts with a known folder name like "Desktop/notes.txt", resolve it
+      const parts = target.replace(/\\/g, '/').split('/')
+      const firstPart = parts[0].toLowerCase()
+      const knownFolders: Record<string, string> = {
+        desktop: 'desktop', documents: 'documents', downloads: 'downloads',
+        pictures: 'pictures', music: 'music', videos: 'videos'
+      }
+      if (knownFolders[firstPart]) {
+        const resolved = app.getPath(knownFolders[firstPart] as Parameters<typeof app.getPath>[0])
+        parts[0] = resolved
+        target = join(...parts)
+      } else if (!target.includes('/') && !target.includes('\\') && !target.match(/^[A-Z]:/i)) {
+        // Bare filename like "notes.txt" → default to Desktop
+        target = join(app.getPath('desktop'), target)
+      }
+
       await fs.mkdir(dirname(target), { recursive: true })
       await fs.writeFile(target, content, 'utf8')
       return { success: true, path: target }
@@ -727,19 +746,44 @@ function createWindow() {
     'tool-manage-file',
     async (_event, operation: string, sourcePath: string, destPath?: string) => {
       try {
+        const src = resolveUserPath(sourcePath.trim())
+        const dst = destPath ? resolveUserPath(destPath.trim()) : undefined
+
         if (operation === 'delete') {
-          await fs.unlink(sourcePath)
-          return { success: true, message: `Deleted ${sourcePath}` }
-        } else if (operation === 'copy' && destPath) {
-          await fs.mkdir(dirname(destPath), { recursive: true })
-          await fs.copyFile(sourcePath, destPath)
-          return { success: true, message: `Copied to ${destPath}` }
-        } else if (operation === 'move' && destPath) {
-          await fs.mkdir(dirname(destPath), { recursive: true })
-          await fs.rename(sourcePath, destPath)
-          return { success: true, message: `Moved to ${destPath}` }
+          const stat = await fs.stat(src)
+          if (stat.isDirectory()) {
+            await fs.rm(src, { recursive: true })
+          } else {
+            await fs.unlink(src)
+          }
+          return { success: true, message: `Deleted ${src}` }
+        } else if (operation === 'copy' && dst) {
+          await fs.mkdir(dirname(dst), { recursive: true })
+          const stat = await fs.stat(src)
+          if (stat.isDirectory()) {
+            await fs.cp(src, dst, { recursive: true })
+          } else {
+            await fs.copyFile(src, dst)
+          }
+          return { success: true, message: `Copied to ${dst}` }
+        } else if (operation === 'move' && dst) {
+          await fs.mkdir(dirname(dst), { recursive: true })
+          try {
+            await fs.rename(src, dst)
+          } catch {
+            // Cross-drive move: copy then delete
+            const stat = await fs.stat(src)
+            if (stat.isDirectory()) {
+              await fs.cp(src, dst, { recursive: true })
+              await fs.rm(src, { recursive: true })
+            } else {
+              await fs.copyFile(src, dst)
+              await fs.unlink(src)
+            }
+          }
+          return { success: true, message: `Moved to ${dst}` }
         }
-        return { success: false, error: 'Invalid operation or missing destination' }
+        return { success: false, error: 'Invalid operation or missing destination. Use: copy, move, or delete.' }
       } catch (err: unknown) {
         return { success: false, error: (err as Error).message }
       }
@@ -883,7 +927,6 @@ function createWindow() {
 
   ipcMain.handle('tool-smart-file-search', async (_event, query: string) => {
     try {
-      // Use Windows 'where' and 'dir' for basic search
       const searchDirs = [
         app.getPath('desktop'),
         app.getPath('documents'),
@@ -891,26 +934,39 @@ function createWindow() {
         app.getPath('pictures')
       ]
       const results: string[] = []
-      const keywords = query.toLowerCase().split(/\s+/)
+      const keywords = query.toLowerCase().split(/\s+/).filter(Boolean)
+      const MAX_RESULTS = 25
+      const MAX_DEPTH = 3
 
-      for (const dir of searchDirs) {
+      async function searchDir(dir: string, depth: number) {
+        if (depth > MAX_DEPTH || results.length >= MAX_RESULTS) return
         try {
-          const entries = await fs.readdir(dir)
+          const entries = await fs.readdir(dir, { withFileTypes: true })
           for (const entry of entries) {
-            const lower = entry.toLowerCase()
-            if (keywords.some((kw) => lower.includes(kw))) {
-              results.push(join(dir, entry))
+            if (results.length >= MAX_RESULTS) break
+            const lower = entry.name.toLowerCase()
+            if (keywords.some(kw => lower.includes(kw))) {
+              results.push(join(dir, entry.name))
+            }
+            if (entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('node_modules')) {
+              await searchDir(join(dir, entry.name), depth + 1)
             }
           }
-        } catch {
-          // skip inaccessible dirs
-        }
+        } catch { /* skip inaccessible */ }
       }
+
+      // Add 10s timeout
+      await Promise.race([
+        Promise.all(searchDirs.map(d => searchDir(d, 0))),
+        new Promise(resolve => setTimeout(resolve, 10000))
+      ])
 
       return {
         success: true,
-        results: results.slice(0, 20),
-        message: results.length > 0 ? `Found ${results.length} files` : 'No files found'
+        results: results.slice(0, MAX_RESULTS),
+        message: results.length > 0
+          ? `Found ${results.length} files matching "${query}"`
+          : `No files found matching "${query}"`
       }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
@@ -924,13 +980,24 @@ function createWindow() {
 
   ipcMain.handle('tool-ghost-type', async (_event, text: string) => {
     try {
-      // Use PowerShell SendKeys to type text
-      const escaped = text.replace(/'/g, "''").replace(/\+/g, '{+}').replace(/\^/g, '{^}').replace(/%/g, '{%}').replace(/~/g, '{~}')
-      spawnSync('powershell', [
-        '-Command',
-        `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')`
-      ], { shell: true, timeout: 5000 })
-      return { success: true, message: `Typed: "${text.slice(0, 50)}"` }
+      // Escape SendKeys special characters: + ^ % ~ { } ( ) [ ]
+      const escaped = text
+        .replace(/\{/g, '{{}')
+        .replace(/\}/g, '{}}')
+        .replace(/\+/g, '{+}')
+        .replace(/\^/g, '{^}')
+        .replace(/%/g, '{%}')
+        .replace(/~/g, '{~}')
+        .replace(/\(/g, '{(}')
+        .replace(/\)/g, '{)}')
+      // Small delay to let active window keep focus after JARVIS processes
+      const ps = `
+        Add-Type -AssemblyName System.Windows.Forms
+        Start-Sleep -Milliseconds 200
+        [System.Windows.Forms.SendKeys]::SendWait('${escaped.replace(/'/g, "''")}')
+      `
+      spawnSync('powershell', ['-Command', ps], { shell: true, timeout: 10000 })
+      return { success: true, message: `Typed: "${text.slice(0, 80)}"` }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }

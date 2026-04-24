@@ -10,10 +10,7 @@ from dataclasses import dataclass, field
 import re
 from typing import Optional
 
-
-SCHEMA_ALIASES = {
-    "scan_screen": "screen_scan",
-}
+from core.tool_schemas import resolve_tool_name, get_schema_for_tool
 
 
 ABILITY_HINTS = {
@@ -325,8 +322,11 @@ class CapabilityRegistry:
         return [cap for _, cap in ranked[:limit]]
 
     def _build_capability(self, tool_name: str) -> Capability:
-        schema = self._get_schema(tool_name)
-        hint = ABILITY_HINTS.get(tool_name, {})
+        # Resolve alias to canonical name
+        canonical = resolve_tool_name(tool_name)
+        schema = self._get_schema(canonical)
+        hint = ABILITY_HINTS.get(canonical, {})
+
         description = ""
         required = []
         if schema:
@@ -334,47 +334,59 @@ class CapabilityRegistry:
             required = list(schema.get("input_schema", {}).get("required", []))
 
         if not description:
-            description = self._fallback_description(tool_name)
+            description = self._fallback_description(canonical)
+
+        # Schema metadata takes priority, ABILITY_HINTS fills gaps
+        schema_category = schema.get("category", "") if schema else ""
+        schema_aliases = schema.get("aliases", []) if schema else []
+        schema_verify = schema.get("verify", False) if schema else False
 
         task_brain = getattr(self.jarvis, "task_brain", None)
         learned_hint = ""
         if task_brain and hasattr(task_brain, "get_capability_hint"):
             try:
-                learned_hint = task_brain.get_capability_hint(tool_name)
+                learned_hint = task_brain.get_capability_hint(canonical)
             except Exception:
                 learned_hint = ""
 
+        verification = hint.get("verification", "")
+        if not verification and schema_verify:
+            verification = "Verify result with screenshot after action."
+
         return Capability(
-            name=tool_name,
+            name=canonical,
             description=description,
-            category=hint.get("category", self._infer_category(tool_name)),
+            category=schema_category or hint.get("category", self._infer_category(canonical)),
             required_args=required,
             execution_mode=hint.get("execution_mode", "direct"),
-            verification=hint.get("verification", ""),
-            aliases=list(hint.get("aliases", [])),
-            available=self._is_available(tool_name, hint),
-            reliability=self._get_reliability(tool_name),
+            verification=verification,
+            aliases=list(hint.get("aliases", [])) + list(schema_aliases),
+            available=self._is_available(canonical, hint),
+            reliability=self._get_reliability(canonical),
             plugin=hint.get("plugin", ""),
             component=hint.get("component", ""),
             learned_hint=learned_hint,
         )
 
     def _get_schema(self, tool_name: str) -> Optional[dict]:
-        try:
-            from core.tool_schemas import get_schema_for_tool
-        except Exception:
-            return None
-
-        schema = get_schema_for_tool(tool_name)
-        if schema:
-            return schema
-
-        alias = SCHEMA_ALIASES.get(tool_name)
-        if alias:
-            return get_schema_for_tool(alias)
-        return None
+        # get_schema_for_tool already handles alias resolution
+        return get_schema_for_tool(tool_name)
 
     def _get_reliability(self, tool_name: str) -> float:
+        """Get tool reliability from persistent outcomes database.
+
+        Falls back to intelligence feedback, then to a neutral 0.5.
+        """
+        # Primary: read from tool_outcomes table (survives restarts)
+        try:
+            from core.database import get_db
+            stats = get_db().get_tool_reliability(tool_name, days=7)
+            if stats["total"] >= 3:  # Need at least 3 executions for a meaningful score
+                return round(stats["reliability"], 2)
+        except Exception:
+            pass
+
+        # Fallback: intelligence feedback (in-memory)
         intelligence = getattr(self.jarvis, "intelligence", None)
         feedback = getattr(intelligence, "feedback", None)
         if feedback and hasattr(feedback, "get_tool_reliability"):

@@ -257,6 +257,64 @@ class StruggleDetector:
             f"I should try a different approach rather than repeating what failed."
         )
 
+    def get_intervention(self) -> Optional[dict]:
+        """
+        Get a concrete intervention action based on struggle severity.
+
+        Returns None if no intervention needed, otherwise a dict:
+          - score < 0.5  → None (no intervention)
+          - score >= 0.5 → switch_mode (force a different execution mode)
+          - score >= 0.7 → escalate_user (ask user for help)
+          - score >= 0.9 → abort (stop trying)
+
+        The caller (agent_loop) should act on this directly instead
+        of just passing a hint to the LLM.
+        """
+        score = self._state.score
+
+        if score < self.STRUGGLE_THRESHOLD:
+            return None
+
+        # Determine the mode that's been failing
+        recent = list(self._history)[-5:]
+        current_mode = recent[-1].execution_mode if recent else "direct"
+        failed_modes = {a.execution_mode for a in recent if not a.success}
+
+        if score >= 0.9:
+            return {
+                "action": "abort",
+                "message": (
+                    f"Unable to complete after multiple attempts. "
+                    f"Reason: {self._state.reason}"
+                ),
+                "score": score,
+            }
+
+        if score >= 0.7:
+            return {
+                "action": "escalate_user",
+                "message": (
+                    f"I'm having trouble with this task (score: {score:.2f}). "
+                    f"{self._state.reason}. "
+                    f"Would you like me to try a different approach?"
+                ),
+                "score": score,
+                "suggestion": self._state.suggestion,
+            }
+
+        # score >= 0.5 — switch mode
+        alt_mode = "api" if current_mode == "screen" else "screen"
+        if alt_mode in failed_modes:
+            alt_mode = "direct"  # try direct if both screen and api failed
+
+        return {
+            "action": "switch_mode",
+            "from_mode": current_mode,
+            "to_mode": alt_mode,
+            "message": f"Switching from {current_mode} to {alt_mode} mode",
+            "score": score,
+        }
+
     def reset(self):
         """Reset all state."""
         self._history.clear()

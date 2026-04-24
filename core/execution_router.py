@@ -266,25 +266,48 @@ class ExecutionRouter:
         stats.total_latency += latency_ms
 
     def _best_mode_for_tool(self, tool_name: str) -> Optional[str]:
-        """Find the mode with the best success rate for a tool."""
+        """Find the mode with the best success rate for a tool.
+
+        Checks in-memory stats first (current session), then falls back to
+        persisted tool_outcomes from the database (survives restarts).
+        """
         tool_stats = self._stats.get(tool_name, {})
-        if not tool_stats:
-            return None
 
-        # Need at least 3 attempts to have meaningful data
-        candidates = {
-            mode: stats for mode, stats in tool_stats.items()
-            if (stats.successes + stats.failures) >= 3
-        }
-        if not candidates:
-            return None
+        # Try in-memory stats first
+        if tool_stats:
+            candidates = {
+                mode: stats for mode, stats in tool_stats.items()
+                if (stats.successes + stats.failures) >= 3
+            }
+            if candidates:
+                best_mode = max(
+                    candidates.keys(),
+                    key=lambda m: (candidates[m].success_rate, -candidates[m].avg_latency),
+                )
+                return best_mode
 
-        # Pick the mode with the highest success rate (break ties by latency)
-        best_mode = max(
-            candidates.keys(),
-            key=lambda m: (candidates[m].success_rate, -candidates[m].avg_latency),
-        )
-        return best_mode
+        # Fall back to persisted outcomes from SQLite
+        try:
+            from core.database import get_db
+            mode_stats = get_db().get_tool_mode_stats(tool_name, days=7)
+            if not mode_stats:
+                return None
+
+            # Filter to modes with at least 3 uses
+            candidates_db = {
+                mode: stats for mode, stats in mode_stats.items()
+                if stats["total"] >= 3
+            }
+            if not candidates_db:
+                return None
+
+            best_mode = max(
+                candidates_db.keys(),
+                key=lambda m: (candidates_db[m]["reliability"], -candidates_db[m]["avg_latency_ms"]),
+            )
+            return best_mode
+        except Exception:
+            return None
 
     def explain_choice(
         self,

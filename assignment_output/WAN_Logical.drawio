@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-04-20T12:46:10.000Z" agent="Mozilla/5.0 (JARVIS)" etag="dIHidUKd-9IOPqx4pdDl" version="24.7.17" type="device">
+  <diagram id="Yg0Fdv71FR6QMS3py02a" name="Logical WAN Diagram">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="5001" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0D1117;strokeColor=none;" vertex="1" parent="1"><mxGeometry x="0" y="0" width="1800" height="1400" as="geometry"/></mxCell>
+    <mxCell id="5002" value="Safe House WAN — Logical Optical Network Diagram" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=18;fontColor=#E3F2FD;" vertex="1" parent="1"><mxGeometry x="200" y="30" width="1400" height="50" as="geometry"/></mxCell>
+    <mxCell id="5003" value="100G DWDM Coherent Optical Grid  |  Ciena 6500 ROADM Nodes  |  Cisco ASR 9000 Routers" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=0;fontSize=10;fontColor=#78909C;" vertex="1" parent="1"><mxGeometry x="200" y="78" width="1400" height="28" as="geometry"/></mxCell>
+    <mxCell id="5004" value="City A
+(Transit ROADM)
+Ciena 6500" style="shape=mxgraph.cisco.optical.optical_transport;sketch=0;html=1;fillColor=#004D40;strokeColor=#00BCD4;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="330" y="200" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5005" value="City B
+Main Premises
+London HQ
+Cisco ASR 9000" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#1A237E;strokeColor=#ffffff;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="1200" y="200" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5006" value="City C
+(Transit ROADM)
+Ciena 6500" style="shape=mxgraph.cisco.optical.optical_transport;sketch=0;html=1;fillColor=#004D40;strokeColor=#00BCD4;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="330" y="600" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5007" value="City D
+(Transit ROADM)
+Ciena 6500" style="shape=mxgraph.cisco.optical.optical_transport;sketch=0;html=1;fillColor=#004D40;strokeColor=#00BCD4;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="1200" y="600" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5008" value="SAFE HOUSE
+Secure Site
+Cisco ASR 9000" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#B71C1C;strokeColor=#ffffff;strokeWidth=2;" vertex="1" parent="1"><mxGeometry x="330" y="1000" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5009" value="City E
+(Transit ROADM)
+Ciena 6500" style="shape=mxgraph.cisco.optical.optical_transport;sketch=0;html=1;fillColor=#004D40;strokeColor=#00BCD4;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;" vertex="1" parent="1"><mxGeometry x="1200" y="1000" width="140" height="100" as="geometry"/></mxCell>
+    <mxCell id="5010" value="Path B
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00BCD4;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5004" target="5005" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5011" value="100G DWDM
+DP-QPSK" style="edgeStyle=none;html=1;strokeColor=#455A64;strokeWidth=1.5;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5006" target="5007" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5012" value="Path A
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00E676;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5008" target="5009" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5013" value="Path B
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00BCD4;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5004" target="5006" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5014" value="Path B
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00BCD4;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5006" target="5008" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5015" value="Path A
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00E676;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5005" target="5007" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5016" value="Path A
+100G DWDM" style="edgeStyle=none;html=1;strokeColor=#00E676;strokeWidth=3;dashed=0;fontSize=8;fontColor=#90A4AE;labelBackgroundColor=#1A2332;labelBorderColor=none;" edge="1" source="5007" target="5009" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="5017" value="● Path A (Primary Active): Safe House → City E → City D → London HQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0A1F0A;strokeColor=#00E676;strokeWidth=2;fontSize=11;fontStyle=1;fontColor=#00E676;" vertex="1" parent="1"><mxGeometry x="250" y="1150" width="1300" height="40" as="geometry"/></mxCell>
+    <mxCell id="5018" value="● Path B (Pre-computed Backup): Safe House → City C → City A → London HQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0A1A25;strokeColor=#00BCD4;strokeWidth=2;fontSize=11;fontStyle=1;fontColor=#00BCD4;" vertex="1" parent="1"><mxGeometry x="250" y="1200" width="1300" height="40" as="geometry"/></mxCell>
+    <mxCell id="5019" value="Optical Protection Switching: &amp;lt;50ms failover via GMPLS  |  ROADM wavelength rerouting — no service interruption" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#78909C;" vertex="1" parent="1"><mxGeometry x="250" y="1250" width="1300" height="35" as="geometry"/></mxCell>
+    <mxCell id="5020" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=1;fontSize=11;fontColor=#E3F2FD;" vertex="1" parent="1"><mxGeometry x="30" y="200" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5021" value="■ ROADM Node — Ciena 6500" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#004D40;" vertex="1" parent="1"><mxGeometry x="30" y="228" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5022" value="■ Endpoint Router — Cisco ASR 9000 (HQ)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#1A237E;" vertex="1" parent="1"><mxGeometry x="30" y="258" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5023" value="■ Endpoint Router — Cisco ASR 9000 (Safe House)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#B71C1C;" vertex="1" parent="1"><mxGeometry x="30" y="288" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5024" value="■ Path A: Primary Active" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#00E676;" vertex="1" parent="1"><mxGeometry x="30" y="318" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5025" value="■ Path B: Pre-computed Backup" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#00BCD4;" vertex="1" parent="1"><mxGeometry x="30" y="348" width="270" height="25" as="geometry"/></mxCell>
+    <mxCell id="5026" value="■ Unused DWDM Span" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontStyle=0;fontSize=9;fontColor=#455A64;" vertex="1" parent="1"><mxGeometry x="30" y="378" width="270" height="25" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

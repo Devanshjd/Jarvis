@@ -10,11 +10,13 @@ import os
 import subprocess
 import platform
 import threading
+import time
 import webbrowser
 import logging
 
 from core.schemas import ToolResult
 from core.subprocess_utils import run_text
+from core.tool_schemas import resolve_tool_name, get_tool_names, get_schemas_by_layer
 
 
 class Executor:
@@ -26,13 +28,22 @@ class Executor:
     def __init__(self, jarvis):
         self.jarvis = jarvis
         self._tools = self._build_registry()
+        self._validate_registry()
 
     def _build_registry(self) -> dict:
-        """Map tool names to handler methods."""
+        """Map tool names to handler methods.
+
+        The canonical tool names come from TOOL_SCHEMAS.  This dict maps
+        each canonical name to its handler.  Aliases (old names like
+        ``ghost_type``, ``scan_screen``) are resolved in ``execute()``
+        before reaching this dict.
+        """
         return {
+            # ── Core tools ────────────────────────────────────────
             "open_app": self._open_app,
             "run_command": self._run_command,
             "web_search": self._web_search,
+            # ── Web intel (factory) ───────────────────────────────
             "get_weather": self._web_intel("get_weather", "weather"),
             "get_news": self._web_intel("get_news", "news"),
             "get_crypto": self._web_intel("get_crypto", "crypto"),
@@ -45,13 +56,13 @@ class Executor:
             "get_fact": self._web_intel("get_fact", "fact"),
             "get_ip_info": self._web_intel("get_ip_info", "ip"),
             "get_nasa": self._web_intel("get_nasa", "nasa"),
-            "scan_screen": self._scan_screen,
+            # ── Screen / system (canonical names) ─────────────────
+            "screen_scan": self._scan_screen,      # canonical (was scan_screen)
             "system_info": self._system_info,
-            "type_text": self._type_text,
             "lock_screen": self._lock_screen,
             "set_volume": self._set_volume,
             "remember": self._remember,
-            # Cybersecurity tools
+            # ── Cybersecurity tools ───────────────────────────────
             "url_scan": self._cyber_tool("url_scan"),
             "file_scan": self._cyber_tool("file_scan"),
             "security_audit": self._cyber_tool("security_audit"),
@@ -61,7 +72,7 @@ class Executor:
             "net_scan": self._cyber_tool("net_scan"),
             "network_info": self._cyber_tool("network_info"),
             "threat_lookup": self._cyber_tool("threat_lookup"),
-            # Pentest / Bug bounty tools
+            # ── Pentest / Bug bounty tools ────────────────────────
             "recon": self._pentest_tool("full_recon"),
             "subdomain_enum": self._pentest_tool("subdomain_enum"),
             "tech_detect": self._pentest_tool("tech_detect"),
@@ -76,55 +87,55 @@ class Executor:
             "wayback": self._pentest_tool("wayback_urls"),
             "cve_search": self._pentest_tool("cve_search"),
             "exploit_search": self._pentest_tool("exploit_search"),
-            # Chain execution tools
+            # ── Chain execution tools ─────────────────────────────
             "pentest_chain": self._chain_tool("full_pentest_chain"),
             "quick_recon_chain": self._chain_tool("quick_recon_chain"),
-            # Web research tools
+            # ── Web research tools ────────────────────────────────
             "web_research": self._research_tool("research"),
             "research_cve": self._research_tool("research_cve"),
             "research_target": self._research_tool("research_target"),
-            # Scheduler tools
+            # ── Scheduler tools ───────────────────────────────────
             "set_reminder": self._scheduler_tool("set_reminder"),
             "set_timer": self._scheduler_tool("set_timer"),
             "list_reminders": self._scheduler_tool("list_reminders"),
-            # File manager tools
+            # ── File manager tools ────────────────────────────────
             "find_files": self._file_tool("find_files"),
             "organize_files": self._file_tool("organize_files"),
             "disk_usage": self._file_tool("disk_usage"),
-            # Code tools
+            # ── Code tools ────────────────────────────────────────
             "run_python": self._code_tool("run_python"),
             "save_file": self._save_file,
             "git_command": self._code_tool("git_command"),
             "pip_install": self._code_tool("pip_install"),
-            # Email tools
+            # ── Email tools ───────────────────────────────────────
             "check_inbox": self._email_tool("check_inbox"),
             "send_email": self._email_tool("send_email"),
-            # Smart home tools
+            # ── Smart home tools ──────────────────────────────────
             "control_lights": self._smart_home_tool("control_lights"),
             "set_thermostat": self._smart_home_tool("set_thermostat"),
             "activate_scene": self._smart_home_tool("activate_scene"),
             "list_devices": self._smart_home_tool("list_devices"),
-            # Self-modification tools
+            # ── Self-modification tools ───────────────────────────
             "create_plugin": self._create_plugin,
             "modify_file": self._modify_file,
             "reload_plugin": self._reload_plugin,
             "list_plugins": self._list_plugins,
             "system_status": self._system_status,
             "rollback_file": self._rollback_file,
-            # Web automation tools
+            # ── Web automation tools ──────────────────────────────
             "web_login": self._web_login,
             "web_navigate": self._web_navigate,
             "web_click": self._web_click,
-            # AI screen interaction (vision-based)
+            # ── AI screen interaction (vision-based) ──────────────
             "screen_find": self._screen_interact_tool("find"),
             "screen_click": self._screen_interact_tool("click"),
             "screen_type": self._screen_interact_tool("type_into"),
             "screen_read": self._screen_interact_tool("read"),
-            # Dev agent
+            # ── Dev agent ─────────────────────────────────────────
             "build_project": self._dev_agent_tool(),
-            # Messaging
+            # ── Messaging ─────────────────────────────────────────
             "send_msg": self._messaging_tool(),
-            # Mouse & keyboard control (requires permission)
+            # ── Mouse & keyboard control (requires permission) ────
             "mouse_click": self._input_control("mouse_click"),
             "mouse_move": self._input_control("mouse_move"),
             "mouse_scroll": self._input_control("mouse_scroll"),
@@ -134,6 +145,16 @@ class Executor:
             "take_screenshot": self._input_control("screenshot"),
         }
 
+    def _validate_registry(self) -> None:
+        """Run full tool validation at startup using tool_validator."""
+        try:
+            from core.tool_validator import validate_tool_registry
+            validate_tool_registry(self)
+        except Exception as e:
+            logging.getLogger("jarvis.executor").warning(
+                "Tool validation failed: %s (non-fatal, continuing)", e,
+            )
+
     @property
     def available_tools(self) -> list[str]:
         return list(self._tools.keys())
@@ -141,17 +162,29 @@ class Executor:
     def execute(self, tool_name: str, tool_args: dict) -> ToolResult:
         """Execute a tool by name with given arguments.
 
+        Resolves aliases first (e.g. ghost_type -> type_text,
+        scan_screen -> screen_scan) so callers can use any known name.
+
         If the tool fails and a ResilientExecutor is available,
         retries with escalating fix strategies before giving up.
+
+        Records execution outcome to tool_outcomes table for reliability
+        tracking and learning.
         """
+        # Resolve aliases to canonical name
+        tool_name = resolve_tool_name(tool_name)
         handler = self._tools.get(tool_name)
         if not handler:
+            self._record_outcome(tool_name, False, 0.0, "UnknownTool")
             return ToolResult(
                 success=False,
                 error=f"Unknown tool: {tool_name}",
             )
+
+        t0 = time.perf_counter()
         try:
             result = handler(tool_args)
+            latency_ms = (time.perf_counter() - t0) * 1000
 
             # If tool failed, decide: retry or ask for clarification
             if not result.success and result.error:
@@ -165,7 +198,8 @@ class Executor:
                 is_input_error = any(phrase in result.error.lower() for phrase in input_errors)
 
                 if is_input_error:
-                    # Return a helpful message instead of retrying
+                    # Record as input error, not a tool failure
+                    self._record_outcome(tool_name, False, latency_ms, "InputError")
                     return ToolResult(
                         success=False,
                         error=result.error,  # clean error, no "Failed after X attempts"
@@ -174,7 +208,6 @@ class Executor:
                 # Genuine execution error — try resilient retry
                 resilient = getattr(self.jarvis, "resilient", None)
                 if resilient:
-                    import logging
                     logging.getLogger("jarvis.executor").info(
                         "Tool %s failed, engaging resilient executor: %s",
                         tool_name, result.error[:100],
@@ -182,7 +215,9 @@ class Executor:
                     retry = resilient.execute_tool(
                         handler, tool_args, tool_name=tool_name,
                     )
+                    retry_latency = (time.perf_counter() - t0) * 1000
                     if retry.get("success"):
+                        self._record_outcome(tool_name, True, retry_latency, "")
                         retry_result = retry.get("result")
                         if isinstance(retry_result, ToolResult):
                             return retry_result
@@ -191,6 +226,8 @@ class Executor:
                             output=str(retry_result) if retry_result else "Done (after retry).",
                         )
                     # Resilient also failed — return the last error
+                    error_class = self._classify_error(retry.get("error", result.error))
+                    self._record_outcome(tool_name, False, retry_latency, error_class)
                     return ToolResult(
                         success=False,
                         error=f"Failed after {retry.get('attempts', '?')} attempts: {retry.get('error', result.error)}",
@@ -198,20 +235,29 @@ class Executor:
                     )
 
             if not result.success and result.error:
+                error_class = self._classify_error(result.error)
+                self._record_outcome(tool_name, False, latency_ms, error_class)
                 result.data = {
                     **(result.data or {}),
                     **self._auto_repair_data(tool_name, tool_args, result.error),
                 }
+            else:
+                self._record_outcome(tool_name, True, latency_ms, "")
             return result
 
         except Exception as e:
+            latency_ms = (time.perf_counter() - t0) * 1000
+            error_class = self._classify_error(str(e))
+
             # Exception path — also try resilient retry
             resilient = getattr(self.jarvis, "resilient", None)
             if resilient:
                 retry = resilient.execute_tool(
                     handler, tool_args, tool_name=tool_name,
                 )
+                retry_latency = (time.perf_counter() - t0) * 1000
                 if retry.get("success"):
+                    self._record_outcome(tool_name, True, retry_latency, "")
                     retry_result = retry.get("result")
                     if isinstance(retry_result, ToolResult):
                         return retry_result
@@ -219,11 +265,59 @@ class Executor:
                         success=True,
                         output=str(retry_result) if retry_result else "Done (after retry).",
                     )
+            self._record_outcome(tool_name, False, latency_ms, error_class)
             return ToolResult(
                 success=False,
                 error=str(e),
                 data=self._auto_repair_data(tool_name, tool_args, str(e)),
             )
+
+    # ── Outcome recording ─────────────────────────────────────────
+
+    def _record_outcome(
+        self, tool_name: str, success: bool, latency_ms: float, error_class: str,
+        mode: str = "direct",
+    ):
+        """Persist tool execution outcome to SQLite (non-blocking)."""
+        try:
+            from core.database import get_db
+            get_db().record_tool_outcome(
+                tool_name=tool_name,
+                execution_mode=mode,
+                success=success,
+                latency_ms=round(latency_ms, 1),
+                error_class=error_class,
+            )
+        except Exception:
+            # Never let outcome recording break tool execution
+            pass
+
+    @staticmethod
+    def _classify_error(error: str) -> str:
+        """Classify an error string into a short error class for aggregation."""
+        if not error:
+            return ""
+        el = error.lower()
+        if "timeout" in el or "timed out" in el:
+            return "Timeout"
+        if "permission" in el or "access denied" in el or "forbidden" in el:
+            return "Permission"
+        if "not found" in el or "no such file" in el or "does not exist" in el:
+            return "NotFound"
+        if "connection" in el or "network" in el or "unreachable" in el:
+            return "Network"
+        if "import" in el or "module" in el:
+            return "ImportError"
+        if "memory" in el or "oom" in el:
+            return "Memory"
+        if "syntax" in el or "parse" in el:
+            return "ParseError"
+        # Extract the exception class name if present (e.g. "ValueError: ...")
+        if ":" in error:
+            maybe_class = error.split(":")[0].strip()
+            if maybe_class and " " not in maybe_class and len(maybe_class) < 40:
+                return maybe_class
+        return "Unknown"
 
     def _auto_repair_data(self, tool_name: str, tool_args: dict, error: str) -> dict:
         """Queue a conservative self-repair attempt when a mapped tool keeps failing."""
@@ -592,7 +686,8 @@ class Executor:
             confirmed = self._ask_permission(
                 f"JARVIS wants to control your computer:\n\n"
                 f"  Action: {action_desc}\n\n"
-                f"Allow this?"
+                f"Allow this?",
+                tool_name=action,
             )
 
             if not confirmed:
@@ -675,38 +770,55 @@ class Executor:
             return ToolResult(success=False, error=f"Unknown action: {action}")
         return handler
 
-    def _ask_permission(self, message: str) -> bool:
+    # Low-risk tools that auto-approve when no UI is connected
+    _LOW_RISK_TOOLS = frozenset({
+        "screen_scan", "scan_screen", "system_info", "system_status",
+        "take_screenshot", "screen_find", "screen_read", "list_reminders",
+        "list_plugins", "list_devices", "check_inbox", "disk_usage",
+        "get_weather", "get_news", "get_crypto", "get_quote", "get_joke",
+        "get_fact", "get_nasa", "get_ip_info", "get_wiki", "get_definition",
+    })
+
+    def _ask_permission(self, message: str, tool_name: str = "") -> bool:
         """
-        Ask user for permission — verbal when voice is on, GUI popup otherwise.
+        Ask user for permission — Electron-native, no tkinter.
+
+        Priority order:
+          1. Gemini Live voice active → auto-approve (user is watching)
+          2. Voice plugin active → verbal confirm ("Should I proceed?")
+          3. Electron UI connected → send WebSocket request, show React modal
+          4. No UI + low-risk tool → auto-approve
+          5. No UI + high-risk tool → deny (queue for when UI reconnects)
         """
-        # Try verbal confirmation first (no popups when talking to JARVIS)
+        # 1. Gemini Live active → user is watching/listening, auto-approve
         voice = self.jarvis.plugin_manager.plugins.get("voice")
         if voice and voice.is_enabled:
             if getattr(voice, "uses_gemini_live", lambda: False)():
                 return True
+            # 2. Voice plugin → verbal confirmation
             return voice.verbal_confirm(message)
 
-        # Fallback: tkinter dialog
-        if not hasattr(self.jarvis, 'root') or self.jarvis.root is None:
-            return False
+        # 3. Try Electron WebSocket permission request
+        ws_server = getattr(self.jarvis, "ws_server", None)
+        if ws_server and hasattr(ws_server, "request_permission"):
+            try:
+                result = ws_server.request_permission(message, timeout=60)
+                return bool(result)
+            except Exception:
+                pass
 
-        result_holder = [None]
-        event = threading.Event()
-
-        def _ask():
-            from tkinter import messagebox
-            confirmed = messagebox.askyesno(
-                "JARVIS — Permission Required", message,
+        # 4. No UI connected — auto-approve low-risk, deny high-risk
+        if tool_name and tool_name in self._LOW_RISK_TOOLS:
+            logging.getLogger("jarvis.executor").info(
+                "Auto-approving low-risk tool '%s' (no UI connected)", tool_name,
             )
-            result_holder[0] = confirmed
-            event.set()
+            return True
 
-        try:
-            self.jarvis.root.after(0, _ask)
-            event.wait(timeout=60)
-            return result_holder[0] if result_holder[0] is not None else False
-        except Exception:
-            return False
+        logging.getLogger("jarvis.executor").warning(
+            "Permission denied for '%s' — no UI connected and tool is not low-risk",
+            tool_name or "unknown",
+        )
+        return False
 
     def _research_tool(self, method_name: str):
         """Factory: returns a handler for web research tools."""

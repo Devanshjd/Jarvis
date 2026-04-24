@@ -1,0 +1,1495 @@
+[
+  {
+    "name": "send_msg",
+    "description": "Send a text message to someone via a messaging app. Use when user wants to text, message, DM, or tell someone something on WhatsApp, Telegram, Instagram, or Discord. Examples: 'text Meet on WhatsApp that I am coming', 'tell Aryan I'll be late', 'send a WhatsApp to Meet', 'message him saying hello', 'DM John on Discord hey bro'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "contact": {
+          "type": "STRING",
+          "description": "Name of the person to message. Ask if not provided."
+        },
+        "platform": {
+          "type": "STRING",
+          "description": "Messaging platform. Default to whatsapp if not specified.",
+          "enum": [
+            "whatsapp",
+            "telegram",
+            "instagram",
+            "discord"
+          ]
+        },
+        "message": {
+          "type": "STRING",
+          "description": "The message text to send. Ask if not provided."
+        }
+      },
+      "required": [
+        "contact",
+        "platform",
+        "message"
+      ]
+    }
+  },
+  {
+    "name": "send_email",
+    "description": "Send an email to someone. Examples: 'email John the report', 'send mail to boss'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "to": {
+          "type": "STRING",
+          "description": "Recipient email address."
+        },
+        "subject": {
+          "type": "STRING",
+          "description": "Email subject line."
+        },
+        "body": {
+          "type": "STRING",
+          "description": "Email body text."
+        }
+      },
+      "required": [
+        "to",
+        "subject",
+        "body"
+      ]
+    }
+  },
+  {
+    "name": "check_inbox",
+    "description": "Check email inbox for recent messages. Examples: 'check my email', 'any new mail?'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "count": {
+          "type": "INTEGER",
+          "description": "Number of recent emails to fetch. Default 5."
+        }
+      }
+    }
+  },
+  {
+    "name": "open_app",
+    "description": "Open or launch an application on the computer. Examples: 'open Chrome', 'launch WhatsApp', 'start VS Code', 'open the calculator', 'run Spotify'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "app": {
+          "type": "STRING",
+          "description": "Name of the application to open."
+        }
+      },
+      "required": [
+        "app"
+      ]
+    }
+  },
+  {
+    "name": "lock_screen",
+    "description": "Lock the workstation. Examples: 'lock my computer', 'lock screen'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "set_volume",
+    "description": "Set system volume level. Examples: 'set volume to 50', 'turn volume up', 'mute'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "level": {
+          "type": "INTEGER",
+          "description": "Volume level 0-100."
+        }
+      },
+      "required": [
+        "level"
+      ]
+    }
+  },
+  {
+    "name": "web_search",
+    "description": "Search the web for information. Examples: 'search for Python tutorials', 'Google how to fix CORS', 'look up latest CVEs', 'find React documentation', 'search YouTube for cooking videos', 'search on GitHub for FastAPI'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "query": {
+          "type": "STRING",
+          "description": "The search query."
+        },
+        "platform": {
+          "type": "STRING",
+          "description": "Search platform. Default to google.",
+          "enum": [
+            "google",
+            "youtube",
+            "github",
+            "stackoverflow",
+            "reddit",
+            "spotify"
+          ]
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "get_weather",
+    "description": "Get current weather for a city. Examples: 'what's the weather', 'is it going to rain', 'weather in London', 'how's the weather outside'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "city": {
+          "type": "STRING",
+          "description": "City name. Default to user's location if not specified."
+        }
+      }
+    }
+  },
+  {
+    "name": "get_news",
+    "description": "Get latest news headlines. Examples: 'what's the news', 'news about AI', 'latest headlines'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "topic": {
+          "type": "STRING",
+          "description": "News topic to search for."
+        }
+      }
+    }
+  },
+  {
+    "name": "get_crypto",
+    "description": "Get cryptocurrency price. Examples: 'bitcoin price', 'how much is ETH', 'crypto BTC'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "coin": {
+          "type": "STRING",
+          "description": "Cryptocurrency name or symbol (e.g. bitcoin, ETH)."
+        }
+      },
+      "required": [
+        "coin"
+      ]
+    }
+  },
+  {
+    "name": "get_wiki",
+    "description": "Look up a topic on Wikipedia. Examples: 'wiki quantum computing', 'wikipedia AI'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "topic": {
+          "type": "STRING",
+          "description": "Topic to look up."
+        }
+      },
+      "required": [
+        "topic"
+      ]
+    }
+  },
+  {
+    "name": "get_definition",
+    "description": "Get the definition of a word. Examples: 'define ephemeral', 'what does laconic mean'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "word": {
+          "type": "STRING",
+          "description": "Word to define."
+        }
+      },
+      "required": [
+        "word"
+      ]
+    }
+  },
+  {
+    "name": "get_translation",
+    "description": "Translate text between languages. Examples: 'translate hello to Spanish'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "text": {
+          "type": "STRING",
+          "description": "Text to translate."
+        },
+        "langpair": {
+          "type": "STRING",
+          "description": "Language pair like 'en|es'. Default 'en|es'."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "get_currency",
+    "description": "Convert currency. Examples: '100 USD to INR', 'convert euros to dollars'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "amount": {
+          "type": "NUMBER",
+          "description": "Amount to convert. Default 1."
+        },
+        "from": {
+          "type": "STRING",
+          "description": "Source currency code (e.g. USD)."
+        },
+        "to": {
+          "type": "STRING",
+          "description": "Target currency code (e.g. INR)."
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    }
+  },
+  {
+    "name": "get_quote",
+    "description": "Get an inspirational quote. Examples: 'give me a quote', 'inspire me'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "get_joke",
+    "description": "Get a random joke. Examples: 'tell me a joke', 'make me laugh'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "get_fact",
+    "description": "Get a random interesting fact. Examples: 'tell me a fact', 'random fact'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "get_ip_info",
+    "description": "Get info about an IP address. Examples: 'what's my IP', 'IP info for 8.8.8.8'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "ip": {
+          "type": "STRING",
+          "description": "IP address. Empty for your own."
+        }
+      }
+    }
+  },
+  {
+    "name": "get_nasa",
+    "description": "Get NASA Astronomy Picture of the Day. Examples: 'NASA picture', 'space photo'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "screen_find",
+    "description": "Find a UI element on screen using AI vision. Examples: 'find the send button', 'where is the search bar', 'locate the message input box'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "description": {
+          "type": "STRING",
+          "description": "Description of the UI element to find."
+        }
+      },
+      "required": [
+        "description"
+      ]
+    }
+  },
+  {
+    "name": "screen_click",
+    "description": "Click on a UI element on screen using AI vision. Examples: 'click the send button', 'click on Meet's chat', 'press the call button'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "description": {
+          "type": "STRING",
+          "description": "Description of the UI element to click."
+        },
+        "button": {
+          "type": "STRING",
+          "description": "Mouse button. Default left.",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ]
+        }
+      },
+      "required": [
+        "description"
+      ]
+    }
+  },
+  {
+    "name": "screen_type",
+    "description": "Type text into a UI element on screen. Examples: 'type hello in the message box'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "description": {
+          "type": "STRING",
+          "description": "Description of the UI element to type into."
+        },
+        "text": {
+          "type": "STRING",
+          "description": "Text to type."
+        }
+      },
+      "required": [
+        "description",
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "screen_read",
+    "description": "Read text from a specific area on screen. Examples: 'read the error message', 'what does that say'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "description": {
+          "type": "STRING",
+          "description": "Description of the UI element to read."
+        }
+      },
+      "required": [
+        "description"
+      ]
+    }
+  },
+  {
+    "name": "screen_scan",
+    "description": "Scan and analyze the current screen content with AI vision. Examples: 'what's on my screen', 'scan my screen', 'can you see this', 'look at my screen'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "question": {
+          "type": "STRING",
+          "description": "Specific question about what's on screen."
+        }
+      }
+    }
+  },
+  {
+    "name": "mouse_click",
+    "description": "Click at specific screen coordinates. Examples: 'click at 500, 300'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "x": {
+          "type": "INTEGER",
+          "description": "X coordinate."
+        },
+        "y": {
+          "type": "INTEGER",
+          "description": "Y coordinate."
+        },
+        "button": {
+          "type": "STRING",
+          "description": "Mouse button.",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ]
+        },
+        "clicks": {
+          "type": "INTEGER",
+          "description": "Number of clicks. Default 1."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  },
+  {
+    "name": "mouse_move",
+    "description": "Move mouse to specific coordinates. Examples: 'move mouse to 100, 200'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "x": {
+          "type": "INTEGER",
+          "description": "X coordinate."
+        },
+        "y": {
+          "type": "INTEGER",
+          "description": "Y coordinate."
+        },
+        "duration": {
+          "type": "NUMBER",
+          "description": "Move duration in seconds. Default 0.5."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  },
+  {
+    "name": "mouse_scroll",
+    "description": "Scroll the mouse wheel. Examples: 'scroll down', 'scroll up 5 clicks'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "amount": {
+          "type": "INTEGER",
+          "description": "Scroll amount. Positive = up, negative = down."
+        }
+      },
+      "required": [
+        "amount"
+      ]
+    }
+  },
+  {
+    "name": "type_text",
+    "description": "Type text at the current cursor position. Examples: 'type hello world'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "text": {
+          "type": "STRING",
+          "description": "Text to type at cursor."
+        },
+        "interval": {
+          "type": "NUMBER",
+          "description": "Delay between keystrokes in seconds. Default 0.03."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "key_press",
+    "description": "Press a keyboard key. Examples: 'press Enter', 'hit Escape', 'press Tab'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "key": {
+          "type": "STRING",
+          "description": "Key to press (e.g. 'enter', 'escape', 'tab')."
+        }
+      },
+      "required": [
+        "key"
+      ]
+    }
+  },
+  {
+    "name": "key_combo",
+    "description": "Press a keyboard shortcut. Examples: 'press Ctrl+C', 'Ctrl+Shift+T', 'Alt+F4'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "keys": {
+          "type": "STRING",
+          "description": "Key combination (e.g. 'ctrl+c', 'alt+f4')."
+        }
+      },
+      "required": [
+        "keys"
+      ]
+    }
+  },
+  {
+    "name": "take_screenshot",
+    "description": "Take a screenshot of the current screen. Examples: 'take a screenshot', 'capture screen'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "system_status",
+    "description": "Get full system health via the awareness engine -- CPU, RAM, battery, disk, active apps. Examples: 'how's my system', 'system health', 'what's running'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "system_info",
+    "description": "Get basic system info -- CPU, RAM, disk. Examples: 'check CPU usage', 'how much RAM'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "run_command",
+    "description": "Run a terminal/shell command. Examples: 'run ipconfig', 'execute dir', 'run ping google.com'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "command": {
+          "type": "STRING",
+          "description": "The shell command to execute."
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  {
+    "name": "set_reminder",
+    "description": "Set a reminder. Examples: 'remind me to call Mom in 30 minutes', 'reminder at 3pm'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "message": {
+          "type": "STRING",
+          "description": "What to remind about."
+        },
+        "time": {
+          "type": "STRING",
+          "description": "When to remind (e.g. '30m', '2h', '3pm')."
+        }
+      },
+      "required": [
+        "message",
+        "time"
+      ]
+    }
+  },
+  {
+    "name": "set_timer",
+    "description": "Set a countdown timer. Examples: 'timer for 5 minutes', 'set a 10 minute timer'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "duration": {
+          "type": "STRING",
+          "description": "Timer duration (e.g. '5m', '1h', '30s')."
+        }
+      },
+      "required": [
+        "duration"
+      ]
+    }
+  },
+  {
+    "name": "list_reminders",
+    "description": "List all active reminders. Examples: 'show my reminders', 'what reminders do I have'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "remember",
+    "description": "Save a fact to JARVIS memory. Examples: 'remember my WiFi password is xyz', 'remember this'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "text": {
+          "type": "STRING",
+          "description": "The fact or information to remember."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "url_scan",
+    "description": "Scan a URL for security issues, phishing indicators, and threats.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "URL to scan."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "file_scan",
+    "description": "Scan a file for malware or security issues.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "path": {
+          "type": "STRING",
+          "description": "File path to scan."
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "security_audit",
+    "description": "Run a security audit on the local system. Examples: 'is my system safe', 'security check'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "phishing_detect",
+    "description": "Analyze text or URL for phishing indicators. Examples: 'is this link phishing'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "text": {
+          "type": "STRING",
+          "description": "Text or URL to analyze for phishing."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    }
+  },
+  {
+    "name": "port_scan",
+    "description": "Scan a host for open ports and running services.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "host": {
+          "type": "STRING",
+          "description": "Hostname or IP to scan."
+        }
+      },
+      "required": [
+        "host"
+      ]
+    }
+  },
+  {
+    "name": "wifi_scan",
+    "description": "Scan nearby WiFi networks. Examples: 'scan WiFi', 'what networks are nearby'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "net_scan",
+    "description": "Scan the local network for connected devices.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "network_info",
+    "description": "Get local network information -- IP, gateway, DNS, interfaces.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "threat_lookup",
+    "description": "Look up threat intelligence for an IP address.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "ip": {
+          "type": "STRING",
+          "description": "IP address to look up."
+        }
+      },
+      "required": [
+        "ip"
+      ]
+    }
+  },
+  {
+    "name": "recon",
+    "description": "Run full reconnaissance on a domain -- WHOIS, DNS, subdomains, tech stack.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "subdomain_enum",
+    "description": "Enumerate subdomains for a target domain.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "tech_detect",
+    "description": "Detect technologies used by a website.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "dir_fuzz",
+    "description": "Fuzz directories on a web server to find hidden paths.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "google_dorks",
+    "description": "Generate Google dork queries for a target domain.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "ssl_check",
+    "description": "Check SSL/TLS certificate for a host.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "host": {
+          "type": "STRING",
+          "description": "Hostname to check."
+        }
+      },
+      "required": [
+        "host"
+      ]
+    }
+  },
+  {
+    "name": "cors_check",
+    "description": "Check CORS misconfiguration on a URL.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "xss_test",
+    "description": "Test a URL for reflected XSS vulnerabilities.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL with parameters."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "sqli_test",
+    "description": "Test a URL for SQL injection vulnerabilities.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL with parameters."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "open_redirect",
+    "description": "Test for open redirect vulnerabilities.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "header_audit",
+    "description": "Deep audit of HTTP security headers for a URL.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "Target URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "wayback",
+    "description": "Fetch historical URLs from the Wayback Machine for a domain.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "cve_search",
+    "description": "Search for CVE vulnerabilities by keyword.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "keyword": {
+          "type": "STRING",
+          "description": "Search keyword (e.g. 'apache', 'log4j')."
+        }
+      },
+      "required": [
+        "keyword"
+      ]
+    }
+  },
+  {
+    "name": "exploit_search",
+    "description": "Search for known exploits by keyword.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "keyword": {
+          "type": "STRING",
+          "description": "Search keyword."
+        }
+      },
+      "required": [
+        "keyword"
+      ]
+    }
+  },
+  {
+    "name": "pentest_chain",
+    "description": "Run a full pentest chain on a domain -- recon, scan, test, report.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "quick_recon_chain",
+    "description": "Run a quick reconnaissance chain on a domain.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "web_research",
+    "description": "Deep web research on a topic -- searches, reads, and synthesizes. Examples: 'research the latest in AI security', 'look up OWASP top 10 changes for 2025'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "query": {
+          "type": "STRING",
+          "description": "Research topic or question."
+        },
+        "depth": {
+          "type": "STRING",
+          "description": "Research depth. Default quick.",
+          "enum": [
+            "quick",
+            "deep"
+          ]
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "research_cve",
+    "description": "Research a specific CVE in detail -- description, severity, affected versions.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "cve_id": {
+          "type": "STRING",
+          "description": "CVE ID (e.g. CVE-2024-1234) or keyword."
+        }
+      },
+      "required": [
+        "cve_id"
+      ]
+    }
+  },
+  {
+    "name": "research_target",
+    "description": "OSINT research on a target domain -- certificates, subdomains, intelligence.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "domain": {
+          "type": "STRING",
+          "description": "Target domain."
+        }
+      },
+      "required": [
+        "domain"
+      ]
+    }
+  },
+  {
+    "name": "read_file",
+    "description": "Read the contents of a file.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "path": {
+          "type": "STRING",
+          "description": "File path to read."
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Write content to a file (create or overwrite).",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "path": {
+          "type": "STRING",
+          "description": "File path to write."
+        },
+        "content": {
+          "type": "STRING",
+          "description": "Content to write."
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "find_files",
+    "description": "Search for files by name pattern. Examples: 'find all .py files', 'find readme'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "pattern": {
+          "type": "STRING",
+          "description": "File name pattern or glob (e.g. '*.py', 'readme*')."
+        },
+        "path": {
+          "type": "STRING",
+          "description": "Directory to search in. Default current dir."
+        }
+      },
+      "required": [
+        "pattern"
+      ]
+    }
+  },
+  {
+    "name": "organize_files",
+    "description": "Auto-organize files in a folder by type. Examples: 'organize my Downloads'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "folder": {
+          "type": "STRING",
+          "description": "Folder path to organize."
+        }
+      },
+      "required": [
+        "folder"
+      ]
+    }
+  },
+  {
+    "name": "disk_usage",
+    "description": "Show disk usage and storage info. Examples: 'how much disk space', 'storage'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "save_file",
+    "description": "Save content to a new file on disk.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "filename": {
+          "type": "STRING",
+          "description": "File name or path."
+        },
+        "content": {
+          "type": "STRING",
+          "description": "Content to save."
+        }
+      },
+      "required": [
+        "filename",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "run_python",
+    "description": "Execute Python code. Examples: 'run this Python code', 'execute print(hello)'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "code": {
+          "type": "STRING",
+          "description": "Python code to execute."
+        }
+      },
+      "required": [
+        "code"
+      ]
+    }
+  },
+  {
+    "name": "git_command",
+    "description": "Run a git command. Examples: 'git status', 'git log', 'git diff'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "subcmd": {
+          "type": "STRING",
+          "description": "Git subcommand and args (e.g. 'status', 'log --oneline')."
+        }
+      },
+      "required": [
+        "subcmd"
+      ]
+    }
+  },
+  {
+    "name": "pip_install",
+    "description": "Install a Python package with pip. Examples: 'pip install requests'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "package": {
+          "type": "STRING",
+          "description": "Package name to install."
+        }
+      },
+      "required": [
+        "package"
+      ]
+    }
+  },
+  {
+    "name": "build_project",
+    "description": "Build a project from a description using the dev agent. Examples: 'build a Flask API', 'create a React app', 'make a Discord bot'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "goal": {
+          "type": "STRING",
+          "description": "What to build -- a clear project description."
+        },
+        "language": {
+          "type": "STRING",
+          "description": "Programming language. Default python."
+        }
+      },
+      "required": [
+        "goal"
+      ]
+    }
+  },
+  {
+    "name": "control_lights",
+    "description": "Control smart lights. Examples: 'turn on the lights', 'dim to 50%'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "action": {
+          "type": "STRING",
+          "description": "Light action.",
+          "enum": [
+            "on",
+            "off",
+            "dim",
+            "brighten"
+          ]
+        },
+        "level": {
+          "type": "STRING",
+          "description": "Brightness level (for dim/brighten)."
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  },
+  {
+    "name": "set_thermostat",
+    "description": "Set thermostat temperature. Examples: 'set temp to 72', 'make it cooler'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "temp": {
+          "type": "INTEGER",
+          "description": "Target temperature."
+        }
+      },
+      "required": [
+        "temp"
+      ]
+    }
+  },
+  {
+    "name": "activate_scene",
+    "description": "Activate a smart home scene. Examples: 'activate movie mode', 'bedtime scene'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "scene": {
+          "type": "STRING",
+          "description": "Scene name to activate."
+        }
+      },
+      "required": [
+        "scene"
+      ]
+    }
+  },
+  {
+    "name": "list_devices",
+    "description": "List all smart home devices. Examples: 'what devices are connected'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "create_plugin",
+    "description": "Create a new JARVIS plugin. Examples: 'create a Spotify plugin'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "name": {
+          "type": "STRING",
+          "description": "Plugin name."
+        },
+        "description": {
+          "type": "STRING",
+          "description": "What the plugin does."
+        },
+        "commands": {
+          "type": "OBJECT",
+          "description": "Command map {name: description}."
+        },
+        "code": {
+          "type": "STRING",
+          "description": "Plugin source code."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "modify_file",
+    "description": "Modify a file in the JARVIS project for self-improvement.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "filepath": {
+          "type": "STRING",
+          "description": "Relative path to the file."
+        },
+        "content": {
+          "type": "STRING",
+          "description": "New file content."
+        },
+        "reason": {
+          "type": "STRING",
+          "description": "Why this change is being made."
+        }
+      },
+      "required": [
+        "filepath",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "reload_plugin",
+    "description": "Hot-reload a JARVIS plugin after modification.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "name": {
+          "type": "STRING",
+          "description": "Plugin name to reload."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "list_plugins",
+    "description": "List all JARVIS plugins and their status.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {}
+    }
+  },
+  {
+    "name": "rollback_file",
+    "description": "Rollback a file to its last backup.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "filepath": {
+          "type": "STRING",
+          "description": "File path to rollback."
+        }
+      },
+      "required": [
+        "filepath"
+      ]
+    }
+  },
+  {
+    "name": "web_login",
+    "description": "Automated web login via Selenium. Examples: 'log into university portal'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "site": {
+          "type": "STRING",
+          "description": "Site identifier (e.g. 'university')."
+        },
+        "url": {
+          "type": "STRING",
+          "description": "URL to navigate to."
+        }
+      }
+    }
+  },
+  {
+    "name": "web_navigate",
+    "description": "Navigate to a URL in the automated browser.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "url": {
+          "type": "STRING",
+          "description": "URL to navigate to."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "web_click",
+    "description": "Click an element on the current browser page by CSS selector.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "selector": {
+          "type": "STRING",
+          "description": "CSS selector of the element to click."
+        }
+      },
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "snap_window",
+    "description": "Snap the current window to a screen position. Examples: 'snap left', 'snap right'.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "position": {
+          "type": "STRING",
+          "description": "Snap position.",
+          "enum": [
+            "left",
+            "right",
+            "maximize",
+            "minimize"
+          ]
+        }
+      },
+      "required": [
+        "position"
+      ]
+    }
+  },
+  {
+    "name": "manage_file",
+    "description": "Move, copy, rename, or delete a file.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "action": {
+          "type": "STRING",
+          "description": "File operation.",
+          "enum": [
+            "move",
+            "copy",
+            "rename",
+            "delete"
+          ]
+        },
+        "source": {
+          "type": "STRING",
+          "description": "Source file path."
+        },
+        "destination": {
+          "type": "STRING",
+          "description": "Destination path (for move/copy/rename)."
+        }
+      },
+      "required": [
+        "action",
+        "source"
+      ]
+    }
+  },
+  {
+    "name": "jarvis_chat",
+    "description": "Send a message to JARVIS backend for general AI processing.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "message": {
+          "type": "STRING",
+          "description": "Message text to process."
+        }
+      },
+      "required": [
+        "message"
+      ]
+    }
+  }
+]

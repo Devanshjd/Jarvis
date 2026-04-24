@@ -278,7 +278,10 @@ export default function DashboardView(props: DashboardViewProps) {
                 <span className="text-[10px] font-mono tracking-[0.34em]">NO DATA STREAM</span>
               </div>
             ) : (
-              messages.map((msg) => (
+              messages
+                // Never render messages with null/empty text (backend null-reply guard)
+                .filter((msg) => msg.text != null && String(msg.text).trim() !== '')
+                .map((msg) => (
                 <div
                   key={`${msg.id}-${msg.ts}`}
                   data-testid="transcript-message"
@@ -297,9 +300,9 @@ export default function DashboardView(props: DashboardViewProps) {
                     </div>
                     <div className="whitespace-pre-wrap break-words">
                       {msg.role === 'assistant' ? (
-                        <MarkdownMessage content={msg.text} />
+                        <MarkdownMessage content={msg.text ?? ''} />
                       ) : (
-                        msg.text
+                        String(msg.text ?? '')
                       )}
                     </div>
                   </div>

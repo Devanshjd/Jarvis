@@ -2670,6 +2670,36 @@ export class JarvisGeminiLive {
     )
   }
 
+  /**
+   * Send typed/pasted user text directly into the active Gemini Live session.
+   * Unlike pushContextUpdate() (which is silent system context), this sends
+   * a real user turn that Gemini will respond to out loud + in text.
+   *
+   * Returns true if sent successfully, false if session is not open.
+   */
+  sendUserText(text: string): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false
+    const trimmed = text.trim()
+    if (!trimmed) return false
+
+    // Interrupt any currently playing audio so JARVIS responds immediately
+    this.muteUntil = 0
+
+    this.socket.send(
+      JSON.stringify({
+        clientContent: {
+          turns: [{ role: 'user', parts: [{ text: trimmed }] }],
+          turnComplete: true
+        }
+      })
+    )
+
+    // Update last_input so the green box reflects the typed text immediately
+    this.inputBuffer = trimmed
+    this.updateState({ last_input: trimmed })
+    return true
+  }
+
   async setVisionSource(source: VisionSource) {
     if (source === this.visionSource) {
       return

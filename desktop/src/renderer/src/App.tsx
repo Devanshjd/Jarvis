@@ -191,7 +191,28 @@ export default function App() {
   async function sendPrompt(nextPrompt?: string) {
     const text = (nextPrompt ?? prompt).trim()
     if (!text) return
-    setBusy(true); setError(''); setPrompt('')
+    setError(''); setPrompt('')
+
+    // ── Route: if Gemini Live session is active, inject into it directly ──────
+    // Text typed/pasted in the input box should reach the same JARVIS that is
+    // listening on the mic — NOT a separate REST endpoint. The REST path is for
+    // when voice is OFF.
+    const liveActive = voiceBridgeRef.current?.snapshot().active ?? false
+    if (liveActive) {
+      const sent = voiceBridgeRef.current?.sendUserText(text)
+      if (sent) {
+        // Add the user turn to the transcript so it appears in the right panel
+        setMessages((c) => [
+          ...c,
+          { id: Date.now(), role: 'user', text, ts: new Date().toISOString(), source: 'shell' }
+        ])
+        return
+      }
+      // If sendUserText failed (socket just closed), fall through to REST
+    }
+
+    // ── Route: REST /api/chat when voice is off ───────────────────────────────
+    setBusy(true)
     try {
       const result = await fetchJson<ChatResponse>(`${API_BASE}/api/chat`, {
         method: 'POST',
@@ -199,7 +220,12 @@ export default function App() {
         body: JSON.stringify({ text, approve_desktop: approveDesktop })
       })
       setStatus(result.status ?? status)
-      setMessages((c) => mergeBackendWithShellMessages(result.messages ?? [], c))
+      // Protect against backend returning null reply (e.g. unrecognised input)
+      const messages = result.messages ?? []
+      if (messages.length === 0 && result.reply) {
+        messages.push({ id: Date.now(), role: 'jarvis', text: result.reply, ts: new Date().toISOString() })
+      }
+      setMessages((c) => mergeBackendWithShellMessages(messages, c))
       await refreshAll(false)
     } catch (err) {
       setPrompt(text)

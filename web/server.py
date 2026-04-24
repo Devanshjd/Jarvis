@@ -122,11 +122,15 @@ def api_history(limit: int = 120):
 
 @app.post("/api/chat")
 def api_chat(payload: ChatRequest):
-    return get_runtime().process_text(
+    result = get_runtime().process_text(
         payload.text,
         approve_desktop=payload.approve_desktop,
         timeout=payload.timeout_s,
     )
+    # Never let reply be null/None — the Electron UI renders it literally
+    if not result.get("reply"):
+        result["reply"] = "I'm here, sir. Could you please rephrase your request?"
+    return result
 
 @app.get("/api/voice/status")
 def api_voice_status():

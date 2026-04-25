@@ -256,13 +256,44 @@ class JarvisDB:
         conn = _get_conn()
         return conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
 
+    # Phrases that indicate JARVIS hit a transient capability error.
+    # Injecting these into future sessions poisons the model's beliefs about
+    # what it can do — so we filter them out at context-build time.
+    _MEMORY_POISON_PATTERNS = (
+        "no api key", "api key", "api limit", "api issue", "api error",
+        "currently unavailable", "currently encountering",
+        "image analysis failed", "screen analysis", "vision is unavailable",
+        "i cannot see", "i can't see", "i don't have access",
+        "cannot currently", "research failed", "research could not",
+        "research unavailable", "i am unable",
+    )
+
+    @classmethod
+    def _is_poisoned_assistant_text(cls, text: str) -> bool:
+        if not text:
+            return False
+        low = text.lower()
+        return any(p in low for p in cls._MEMORY_POISON_PATTERNS)
+
     def get_conversations_context(self, max_exchanges: int = 15) -> str:
-        """Format recent conversations for LLM context injection."""
-        recent = self.get_recent_conversations(max_exchanges)
+        """Format recent conversations for LLM context injection.
+
+        Filters out exchanges where JARVIS reported a capability failure —
+        those phrases poison future sessions ("as noted previously...").
+        """
+        # Pull a wider net so filtering doesn't leave us empty
+        recent = self.get_recent_conversations(max_exchanges * 3)
         if not recent:
             return ""
+        clean = [
+            c for c in recent
+            if not self._is_poisoned_assistant_text(c.get("assistant_text", ""))
+        ]
+        clean = clean[-max_exchanges:]
+        if not clean:
+            return ""
         lines = ["[CONVERSATION MEMORY — past exchanges from previous sessions]"]
-        for c in recent:
+        for c in clean:
             ts = c["created_at"][:16].replace("T", " ") if c.get("created_at") else ""
             lines.append(f"  [{ts}] User: {c['user_text']}")
             lines.append(f"  [{ts}] JARVIS: {c['assistant_text']}")

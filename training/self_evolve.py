@@ -537,11 +537,15 @@ def diagnostics():
     except:
         checks.append(("Build", "ERROR", False))
     
-    # Check Gemini API key
+    # Check Gemini API key — try all known config layouts
     config_path = Path.home() / ".jarvis_config.json"
     if config_path.exists():
         config = json.loads(config_path.read_text(encoding='utf-8'))
-        has_key = bool(config.get("geminiApiKey", ""))
+        has_key = bool(
+            (config.get("gemini") or {}).get("api_key")
+            or config.get("api_key")
+            or config.get("geminiApiKey")
+        )
         checks.append(("Gemini API Key", "configured" if has_key else "MISSING", has_key))
     
     # Check learning log

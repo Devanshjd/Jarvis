@@ -2453,7 +2453,7 @@ function createWindow() {
         return { success: false, error: 'Config not found' }
       }
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      const apiKey = config.geminiApiKey
+      const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) {
         return { success: false, error: 'No Gemini API key' }
       }
@@ -2502,7 +2502,7 @@ function createWindow() {
         return { success: false, error: 'Config not found' }
       }
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      const apiKey = config.geminiApiKey
+      const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) {
         return { success: false, error: 'No Gemini API key' }
       }
@@ -2747,7 +2747,7 @@ Provide the complete answer ready to submit.`
       if (!fs.existsSync(configPath)) return 'No config'
 
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      const apiKey = config.geminiApiKey
+      const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) return 'No API key'
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
@@ -3162,7 +3162,7 @@ Provide the complete answer ready to submit.`
       const fs = require('fs')
       if (!fs.existsSync(configPath)) return { success: false, error: 'No config' }
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      const apiKey = config.geminiApiKey
+      const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) return { success: false, error: 'No Gemini API key' }
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`

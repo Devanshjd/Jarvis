@@ -80,6 +80,14 @@ export default function App() {
   const backendStateRef = useRef('OFFLINE')
   const audioAnimRef = useRef<number>(0)
 
+  // ─── Mirror typed-turn replies from live session into transcript ──────────
+  // When the user sends typed text via sendUserText() while voice is active,
+  // we want JARVIS's reply to appear in the transcript (not just the green box).
+  // We watch last_output, debounce for stability, then commit ONCE per typed turn.
+  const expectingLiveReplyRef = useRef(false)
+  const lastCommittedOutputRef = useRef('')
+  const liveReplyDebounceRef = useRef<number | null>(null)
+
   // ─── Refresh helpers ───
 
   const refreshAll = useCallback(async (clearError = true) => {
@@ -162,6 +170,46 @@ export default function App() {
   useEffect(() => { statusRef.current = status }, [status])
   useEffect(() => { backendStateRef.current = backendState }, [backendState])
 
+  // ─── Mirror live-session JARVIS replies into transcript ───────────────────
+  // When the user typed text via sendUserText (expectingLiveReplyRef = true),
+  // wait for last_output to settle (1.2s of stability) then commit it as a
+  // jarvis message in the transcript. This makes typed conversations feel
+  // continuous instead of split between transcript and the green box.
+  useEffect(() => {
+    const out = voiceStatus?.last_output ?? ''
+    if (!expectingLiveReplyRef.current) return
+    if (!out || out === lastCommittedOutputRef.current) return
+
+    // Reset the debounce timer on every change — only fire when stable
+    if (liveReplyDebounceRef.current !== null) {
+      window.clearTimeout(liveReplyDebounceRef.current)
+    }
+    liveReplyDebounceRef.current = window.setTimeout(() => {
+      const finalOut = voiceBridgeRef.current?.snapshot().last_output ?? ''
+      if (finalOut && finalOut !== lastCommittedOutputRef.current) {
+        setMessages((c) => [
+          ...c,
+          {
+            id: Date.now(),
+            role: 'assistant',
+            text: finalOut,
+            ts: new Date().toISOString(),
+            source: 'shell'
+          }
+        ])
+        lastCommittedOutputRef.current = finalOut
+      }
+      expectingLiveReplyRef.current = false
+      liveReplyDebounceRef.current = null
+    }, 1200)
+
+    return () => {
+      if (liveReplyDebounceRef.current !== null) {
+        window.clearTimeout(liveReplyDebounceRef.current)
+      }
+    }
+  }, [voiceStatus?.last_output])
+
   // ─── Audio level polling for sphere reactivity ───
 
   useEffect(() => {
@@ -206,6 +254,9 @@ export default function App() {
           ...c,
           { id: Date.now(), role: 'user', text, ts: new Date().toISOString(), source: 'shell' }
         ])
+        // Arm the live-reply watcher: the next stable last_output will be
+        // mirrored into the transcript as JARVIS's response to this typed turn
+        expectingLiveReplyRef.current = true
         return
       }
       // If sendUserText failed (socket just closed), fall through to REST

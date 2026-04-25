@@ -132,6 +132,51 @@ def api_chat(payload: ChatRequest):
         result["reply"] = "I'm here, sir. Could you please rephrase your request?"
     return result
 
+@app.get("/api/screenshot")
+def api_screenshot():
+    """Take a screenshot using pyautogui — no external API needed.
+    Returns base64-encoded PNG of the entire screen.
+    The Gemini Live session can receive this as inline_data vision input.
+    """
+    try:
+        import pyautogui
+        import io, base64
+        img = pyautogui.screenshot()
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        w, h = img.size
+        return {"success": True, "base64": b64, "width": w, "height": h, "mimeType": "image/png"}
+    except ImportError:
+        return {"success": False, "error": "pyautogui not installed. Run: pip install pyautogui"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/clipboard/text")
+def api_clipboard_text():
+    """Read text from system clipboard — no external API needed."""
+    try:
+        import pyperclip
+        text = pyperclip.paste()
+        if not text or not text.strip():
+            return {"success": False, "error": "Clipboard is empty or contains no text"}
+        return {"success": True, "text": text.strip()}
+    except ImportError:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["powershell", "-command", "Get-Clipboard"],
+                capture_output=True, text=True, timeout=5
+            )
+            text = result.stdout.strip()
+            if text:
+                return {"success": True, "text": text}
+        except Exception:
+            pass
+        return {"success": False, "error": "pyperclip not installed. Run: pip install pyperclip"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.get("/api/voice/status")
 def api_voice_status():
     return get_runtime().voice_snapshot()

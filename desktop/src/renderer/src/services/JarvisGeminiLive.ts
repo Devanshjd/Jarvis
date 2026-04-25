@@ -1859,10 +1859,21 @@ export class JarvisGeminiLive {
 
           case 'web_research':
           case 'research_topic': {
-            const r = await api.jarvisResearch(args.query)
-            output = r.success
-              ? `Research results:\n${r.output}`
-              : `Research failed: ${r.error || r.output}`
+            // Wrap in timeout so a slow/failing research call can't
+            // hang the live session and trigger a reconnect
+            try {
+              type ResearchResult = { success: boolean; output: string; error?: string }
+              const researchPromise: Promise<ResearchResult> = api.jarvisResearch(args.query)
+              const timeoutPromise: Promise<ResearchResult> = new Promise((resolve) =>
+                setTimeout(() => resolve({ success: false, output: '', error: 'Research timed out after 20s' }), 20000)
+              )
+              const r = await Promise.race([researchPromise, timeoutPromise])
+              output = r.success
+                ? `Research results:\n${r.output}`
+                : `Research could not complete (${r.error || r.output}). I can answer from my training knowledge instead.`
+            } catch (researchErr) {
+              output = `Research unavailable: ${researchErr instanceof Error ? researchErr.message : String(researchErr)}. I'll answer from training knowledge.`
+            }
             break
           }
 
@@ -1876,15 +1887,45 @@ export class JarvisGeminiLive {
 
           // ─── Screenshot & Assignment Tools ───
           case 'read_clipboard_image': {
+            // 1. Check text clipboard first — most common case
+            const textClip = await api.clipboardReadText?.()
+            if (textClip?.success && textClip.text) {
+              output = `Clipboard contains text:\n\n${textClip.text}`
+              break
+            }
+            // 2. Check image clipboard (e.g. Win+Shift+S screenshot)
             const clip = await api.clipboardReadImage()
-            if (!clip.success || !clip.base64) {
-              output = 'No image found in clipboard. Copy a screenshot first (use Snipping Tool or Print Screen), then try again.'
+            if (clip.success && clip.base64) {
+              // Inject image directly into the live session — no external API needed
+              const sent = this.sendImageToSession(clip.base64, 'image/png')
+              if (sent) {
+                output = `Screenshot from clipboard (${clip.width}×${clip.height}) sent to your vision — describe what you see.`
+              } else {
+                // Fallback to Gemini Vision API if live session is not open
+                const prompt = args.prompt || 'Describe everything you see in this image in detail. Read all text visible.'
+                const analysis = await api.analyzeImage(clip.base64, prompt)
+                output = analysis.success
+                  ? `Image (${clip.width}×${clip.height}):\n${analysis.text}`
+                  : `Image captured but analysis failed: ${analysis.error}`
+              }
             } else {
-              const prompt = args.prompt || 'Describe everything you see in this image in detail. Read all text visible.'
-              const analysis = await api.analyzeImage(clip.base64, prompt)
-              output = analysis.success
-                ? `Image (${clip.width}x${clip.height}):\n${analysis.text}`
-                : `Image captured but analysis failed: ${analysis.error}`
+              output = 'Clipboard is empty. Copy text, or take a screenshot (Win+Shift+S) and copy it, then try again.'
+            }
+            break
+          }
+
+          case 'take_screen_snapshot':
+          case 'scan_screen':
+          case 'screen_scan': {
+            // Take screenshot via Python pyautogui — no external API needed
+            const shot = await api.takeScreenshot?.()
+            if (shot?.success && shot.base64) {
+              const sent = this.sendImageToSession(shot.base64, 'image/png')
+              output = sent
+                ? `Screen captured (${shot.width}×${shot.height}) and sent to your vision — describe what you see.`
+                : 'Screenshot taken but live session is not active.'
+            } else {
+              output = `Screen capture failed: ${shot?.error ?? 'unknown error'}`
             }
             break
           }
@@ -2806,5 +2847,31 @@ export class JarvisGeminiLive {
         }
       })
     )
+  }
+
+  /**
+   * Inject a static image (base64) directly into the live session's vision stream.
+   * This uses the same realtimeInput channel as the camera/screen stream —
+   * NO separate Gemini API call needed. Works with any base64 PNG/JPEG.
+   *
+   * Use this for:
+   *  - Screenshots taken by Python's pyautogui (no external API)
+   *  - Images copied to clipboard
+   *  - Any one-shot "look at this" image
+   *
+   * Returns true if sent, false if session is not open.
+   */
+  sendImageToSession(base64: string, mimeType: string = 'image/png'): boolean {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false
+    if (!base64) return false
+
+    this.socket.send(
+      JSON.stringify({
+        realtimeInput: {
+          mediaChunks: [{ mimeType, data: base64 }]
+        }
+      })
+    )
+    return true
   }
 }

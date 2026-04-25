@@ -327,7 +327,24 @@ export default function DashboardView(props: DashboardViewProps) {
                   if (!busy && prompt.trim()) onSend()
                 }
               }}
-              placeholder="Type a command or ask JARVIS..."
+              onPaste={(e) => {
+                // Explicit paste handler — ensures Ctrl+V always works in Electron
+                // even when clipboard security context is restricted
+                const pasted = e.clipboardData?.getData('text')
+                if (pasted) {
+                  e.preventDefault()
+                  const ta = e.currentTarget
+                  const start = ta.selectionStart ?? prompt.length
+                  const end = ta.selectionEnd ?? prompt.length
+                  const next = prompt.slice(0, start) + pasted + prompt.slice(end)
+                  setPrompt(next)
+                  // Restore cursor after pasted text
+                  requestAnimationFrame(() => {
+                    ta.selectionStart = ta.selectionEnd = start + pasted.length
+                  })
+                }
+              }}
+              placeholder="Type or paste a command — Ctrl+V works here..."
               className="scrollbar-small h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/40"
             />
             <div className="flex items-center justify-between gap-3">

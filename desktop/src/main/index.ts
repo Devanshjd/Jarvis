@@ -2405,6 +2405,45 @@ function createWindow() {
     }
   })
 
+  // Read clipboard TEXT (for when user copied text, not an image)
+  ipcMain.handle('clipboard-read-text', async () => {
+    try {
+      const { clipboard } = require('electron')
+      const text = clipboard.readText()
+      if (!text || !text.trim()) {
+        return { success: false, error: 'No text in clipboard' }
+      }
+      return { success: true, text: text.trim() }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Take screenshot via Python pyautogui — NO external API needed
+  // Returns base64 PNG of the entire screen taken locally
+  ipcMain.handle('take-screenshot', async () => {
+    try {
+      const { net } = require('electron')
+      const port = global.backendPort ?? 8765
+      const res = await new Promise<{ success: boolean; base64?: string; error?: string }>((resolve) => {
+        const req = net.request({ method: 'GET', url: `http://127.0.0.1:${port}/api/screenshot` })
+        let body = ''
+        req.on('response', (resp: Electron.IncomingMessage) => {
+          resp.on('data', (chunk: Buffer) => { body += chunk.toString() })
+          resp.on('end', () => {
+            try { resolve(JSON.parse(body)) }
+            catch { resolve({ success: false, error: 'Bad JSON from backend' }) }
+          })
+        })
+        req.on('error', (e: Error) => resolve({ success: false, error: e.message }))
+        req.end()
+      })
+      return res
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   // Analyze image with Gemini Vision API (for assignments, screenshots, etc.)
   ipcMain.handle('analyze-image', async (_event, base64: string, prompt: string) => {
     try {

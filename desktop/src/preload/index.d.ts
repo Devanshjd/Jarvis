@@ -177,6 +177,8 @@ declare global {
 
       // ─── Clipboard & Assignment ───
       clipboardReadImage: () => Promise<{ success: boolean; base64?: string; width?: number; height?: number; error?: string }>
+      clipboardReadText: () => Promise<{ success: boolean; text?: string; error?: string }>
+      takeScreenshot: () => Promise<{ success: boolean; base64?: string; width?: number; height?: number; error?: string }>
       analyzeImage: (base64: string, prompt: string) => Promise<{ success: boolean; text?: string; error?: string }>
       assignmentSolve: (base64: string, instructions: string) => Promise<{ success: boolean; text?: string; error?: string }>
 

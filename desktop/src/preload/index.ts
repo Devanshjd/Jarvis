@@ -143,6 +143,10 @@ const desktopApi = {
   // ─── Clipboard & Assignment ───
   clipboardReadImage: () =>
     ipcRenderer.invoke('clipboard-read-image'),
+  clipboardReadText: () =>
+    ipcRenderer.invoke('clipboard-read-text'),
+  takeScreenshot: () =>
+    ipcRenderer.invoke('take-screenshot'),
   analyzeImage: (base64: string, prompt: string) =>
     ipcRenderer.invoke('analyze-image', base64, prompt),
   assignmentSolve: (base64: string, instructions: string) =>

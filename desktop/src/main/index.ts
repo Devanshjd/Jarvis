@@ -2728,8 +2728,18 @@ Provide the complete answer ready to submit.`
   let awarenessActive = false
   let lastAwarenessResult = ''
 
+  // Track consecutive quota failures so we can stop hammering the API
+  let awarenessQuotaExhausted = false
+  // Models to try in order — gemini-2.0-flash often has 0 free quota,
+  // gemini-2.5-flash has a different (higher) free tier
+  const AWARENESS_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash']
+
   const analyzeScreen = async (): Promise<string> => {
     try {
+      if (awarenessQuotaExhausted) {
+        return 'Quota exhausted on REST API — use voice + screen_scan tool to analyze screen via Gemini Live (separate quota).'
+      }
+
       // Take screenshot via desktop capture
       const { desktopCapturer } = require('electron')
       const sources = await desktopCapturer.getSources({
@@ -2741,7 +2751,7 @@ Provide the complete answer ready to submit.`
 
       const screenshot = sources[0].thumbnail.toPNG().toString('base64')
 
-      // Send to Gemini Vision
+      // Read API key
       const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
       const fs = require('fs')
       if (!fs.existsSync(configPath)) return 'No config'
@@ -2750,29 +2760,58 @@ Provide the complete answer ready to submit.`
       const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) return 'No API key'
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
-      const body = JSON.stringify({
-        contents: [{
-          parts: [
-            { inlineData: { mimeType: 'image/png', data: screenshot } },
-            { text: 'Briefly describe what is on this screen. Focus on: 1) Which app is active 2) What the user is doing 3) Any errors or important text visible. Keep it under 100 words. If you see code errors, mention them specifically.' }
-          ]
-        }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 200 }
-      })
+      // Try each model until one succeeds (different models have different free quotas)
+      let lastError = ''
+      for (const model of AWARENESS_MODELS) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        const body = JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType: 'image/png', data: screenshot } },
+              { text: 'Briefly describe what is on this screen. Focus on: 1) Which app is active 2) What the user is doing 3) Any errors or important text visible. Keep it under 100 words. If you see code errors, mention them specifically.' }
+            ]
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 200 }
+        })
 
-      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
-      const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not analyze screen'
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
 
-      lastAwarenessResult = text
+        if (response.status === 429) {
+          // Quota exhausted on this model — try next
+          lastError = `${model}: quota exceeded`
+          continue
+        }
+        if (!response.ok) {
+          lastError = `${model}: HTTP ${response.status}`
+          continue
+        }
 
-      // Send to renderer as context update
-      if (mainWindow) {
-        mainWindow.webContents.send('awareness-update', { text, timestamp: Date.now() })
+        const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        if (text) {
+          lastAwarenessResult = text
+          if (mainWindow) {
+            mainWindow.webContents.send('awareness-update', { text, timestamp: Date.now() })
+          }
+          return text
+        }
+        lastError = `${model}: empty response`
       }
 
-      return text
+      // All models exhausted quota — set the flag so the loop stops hammering
+      if (lastError.includes('quota exceeded')) {
+        awarenessQuotaExhausted = true
+        awarenessActive = false
+        if (awarenessTimer) {
+          clearInterval(awarenessTimer)
+          awarenessTimer = null
+        }
+        const msg = 'Screen awareness disabled: all REST vision models out of free quota. Voice + screen_scan still works (Gemini Live uses a separate quota).'
+        if (mainWindow) mainWindow.webContents.send('awareness-update', { text: msg, timestamp: Date.now() })
+        return msg
+      }
+
+      return `Could not analyze screen: ${lastError}`
     } catch (err: unknown) {
       return `Awareness error: ${(err as Error).message}`
     }

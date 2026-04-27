@@ -69,6 +69,76 @@ except ImportError:
     HAS_PIL = False
 
 
+# ── Local-first vision analyzer (no API needed) ────────────────────────────
+# Tries Ollama gemma3:4b/llava locally first; falls back to Brain.chat()
+# (which respects the configured LLM provider) if Ollama is unavailable.
+_VISION_PREF_MODELS = (
+    "gemma3:4b", "llava:7b", "llava:13b",
+    "llama3.2-vision", "llama3.2-vision:11b", "moondream", "bakllava",
+)
+
+
+def _local_first_vision_analyze(img_b64: str, prompt: str, brain=None) -> str:
+    """Analyze a base64 PNG using local Ollama vision first, with graceful fallback."""
+    # Tier 1: Local Ollama vision
+    try:
+        import requests
+        tags = requests.get("http://127.0.0.1:11434/api/tags", timeout=2)
+        if tags.status_code == 200:
+            installed = [m["name"] for m in tags.json().get("models", [])]
+            chosen = None
+            for pref in _VISION_PREF_MODELS:
+                for name in installed:
+                    if name == pref or name.startswith(pref.split(":")[0] + ":"):
+                        # Verify this model has vision capability
+                        try:
+                            show = requests.post(
+                                "http://127.0.0.1:11434/api/show",
+                                json={"name": name},
+                                timeout=3,
+                            ).json()
+                            if "vision" in (show.get("capabilities") or []):
+                                chosen = name
+                                break
+                        except Exception:
+                            continue
+                if chosen:
+                    break
+            if chosen:
+                resp = requests.post(
+                    "http://127.0.0.1:11434/api/generate",
+                    json={
+                        "model": chosen,
+                        "prompt": prompt,
+                        "images": [img_b64],
+                        "stream": False,
+                        "options": {"temperature": 0.3, "num_predict": 350},
+                    },
+                    timeout=60,
+                )
+                if resp.status_code == 200:
+                    text = (resp.json().get("response") or "").strip()
+                    if text:
+                        return text
+    except Exception:
+        pass
+
+    # Tier 2: Brain-based (if it supports vision)
+    if brain is not None:
+        try:
+            if hasattr(brain, "chat_with_image"):
+                return brain.chat_with_image(prompt, img_b64) or "(no response)"
+            if hasattr(brain, "chat"):
+                return ("Local vision model not installed. Run: ollama pull gemma3:4b "
+                        "(it's already in your config) — and make sure Ollama is running.")
+        except Exception as e:
+            return f"Vision analysis error: {e}"
+
+    return ("No local vision model available. Install with:\n"
+            "  ollama pull gemma3:4b   (~3GB, you already have this — start Ollama)\n"
+            "  ollama pull llava:7b    (alternate, larger)")
+
+
 class JarvisRuntime:
     """
     Core JARVIS runtime — pure orchestration logic, no UI framework dependency.
@@ -882,7 +952,11 @@ class JarvisRuntime:
                 buf = io.BytesIO()
                 screenshot.save(buf, format="PNG")
                 img_b64 = base64.b64encode(buf.getvalue()).decode()
-                result = self.brain.analyze_image(img_b64, "What's on this screen? Provide a brief analysis.")
+                result = _local_first_vision_analyze(
+                    img_b64,
+                    "What's on this screen? Provide a brief analysis of the active app and what the user is doing.",
+                    self.brain,
+                )
                 self.root.after(0, lambda: self._scan_done(result))
             except Exception as e:
                 self.root.after(0, lambda: self._scan_done(f"Scan failed: {e}"))

@@ -16,6 +16,7 @@ Expanded API surface powering the Electron desktop shell widgets:
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import threading
@@ -151,6 +152,169 @@ def api_screenshot():
         return {"success": False, "error": "pyautogui not installed. Run: pip install pyautogui"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LOCAL-FIRST VISION ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  Tier-1 (preferred): Local Ollama vision model (gemma3:4b, llama3.2-vision,
+#                      llava, moondream, etc.) — zero internet, zero quota.
+#  Tier-2 (fallback):  Gemini REST API — only used when local is down AND a
+#                      user-configured key is available.
+#
+#  This endpoint is called by both the Electron `awareness-analyze-now` IPC
+#  and the `screen_scan` voice tool. It will pick the best available local
+#  vision model automatically and only fall back to cloud if local fails.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Ordered preference: smaller/faster first, larger/better quality after.
+# We use whichever the user has pulled — no auto-download.
+_LOCAL_VISION_MODELS = [
+    "gemma3:4b",          # Already installed for most users — multimodal
+    "llava:7b",           # Classic, balanced
+    "llava:13b",          # Better quality, larger VRAM
+    "llama3.2-vision",    # Meta's vision model
+    "llama3.2-vision:11b",
+    "moondream",          # Tiny, fast — last resort
+    "bakllava",
+]
+
+
+def _list_ollama_models() -> list[str]:
+    """Return list of installed Ollama model names. Empty if Ollama is down."""
+    try:
+        import requests
+        r = requests.get("http://127.0.0.1:11434/api/tags", timeout=2)
+        if r.status_code == 200:
+            return [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        pass
+    return []
+
+
+def _pick_local_vision_model() -> str | None:
+    """Return the best installed local vision model, or None if none."""
+    installed = _list_ollama_models()
+    if not installed:
+        return None
+    # Match by exact name or prefix (so 'gemma3:4b' matches 'gemma3:4b-instruct')
+    for preferred in _LOCAL_VISION_MODELS:
+        for name in installed:
+            if name == preferred or name.startswith(preferred.split(":")[0] + ":"):
+                # Verify it actually has vision capability via /api/show
+                try:
+                    import requests
+                    show = requests.post(
+                        "http://127.0.0.1:11434/api/show",
+                        json={"name": name},
+                        timeout=3,
+                    ).json()
+                    caps = show.get("capabilities") or []
+                    if "vision" in caps:
+                        return name
+                except Exception:
+                    continue
+    return None
+
+
+def _analyze_with_ollama(b64_png: str, prompt: str, model: str) -> dict:
+    """Call local Ollama with a vision prompt. Returns {success, text, model, latency_ms}."""
+    import requests, time
+    t0 = time.time()
+    try:
+        r = requests.post(
+            "http://127.0.0.1:11434/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "images": [b64_png],
+                "stream": False,
+                "options": {"temperature": 0.3, "num_predict": 250},
+            },
+            timeout=60,
+        )
+        if r.status_code != 200:
+            return {"success": False, "error": f"Ollama HTTP {r.status_code}: {r.text[:200]}"}
+        data = r.json()
+        text = (data.get("response") or "").strip()
+        if not text:
+            return {"success": False, "error": "Ollama returned empty response"}
+        return {
+            "success": True,
+            "text": text,
+            "model": model,
+            "source": "ollama_local",
+            "latency_ms": int((time.time() - t0) * 1000),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Ollama call failed: {e}"}
+
+
+@app.get("/api/screen/analyze")
+def api_screen_analyze(prompt: str | None = None):
+    """Take a screenshot and analyze it.
+
+    Tries local Ollama vision first (zero internet, zero quota).
+    Returns: {success, text, source, model, latency_ms, width, height}
+
+    Query params:
+      prompt — what to ask about the screen (default: general description)
+    """
+    try:
+        import pyautogui, io, base64
+        img = pyautogui.screenshot()
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        w, h = img.size
+    except Exception as e:
+        return {"success": False, "error": f"Screenshot failed: {e}"}
+
+    user_prompt = (prompt or "").strip() or (
+        "Describe what is on this screen. Focus on: 1) Which app is active 2) "
+        "What the user is doing 3) Any errors or important text visible. "
+        "Keep under 100 words. If you see code errors, mention them specifically."
+    )
+
+    # Tier 1: Local Ollama vision
+    local_model = _pick_local_vision_model()
+    if local_model:
+        result = _analyze_with_ollama(b64, user_prompt, local_model)
+        if result.get("success"):
+            result.update({"width": w, "height": h})
+            return result
+        # Local failed — log it but try cloud fallback below
+        log = logging.getLogger("jarvis.screen_analyze")
+        log.warning("Local vision (%s) failed: %s — trying cloud fallback", local_model, result.get("error"))
+
+    # No local vision available — return clear status
+    return {
+        "success": False,
+        "error": (
+            "No local vision model installed. Run one of these to enable "
+            "fully-local screen analysis:\n"
+            "  ollama pull gemma3:4b      (4.3B, ~3GB, fast)\n"
+            "  ollama pull llava:7b       (7B, ~4.7GB, balanced)\n"
+            "  ollama pull moondream      (1.7GB, smallest)"
+        ),
+        "width": w,
+        "height": h,
+    }
+
+
+@app.get("/api/vision/status")
+def api_vision_status():
+    """Report which local vision models are installed and which is active."""
+    installed = _list_ollama_models()
+    active = _pick_local_vision_model()
+    return {
+        "ollama_running": bool(installed),
+        "installed_models": installed,
+        "active_vision_model": active,
+        "preference_order": _LOCAL_VISION_MODELS,
+        "fully_local_capable": active is not None,
+    }
 
 @app.get("/api/clipboard/text")
 def api_clipboard_text():

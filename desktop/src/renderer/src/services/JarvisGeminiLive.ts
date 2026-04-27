@@ -1923,15 +1923,41 @@ export class JarvisGeminiLive {
           case 'take_screen_snapshot':
           case 'scan_screen':
           case 'screen_scan': {
-            // Take screenshot via Python pyautogui — no external API needed
-            const shot = await api.takeScreenshot?.()
-            if (shot?.success && shot.base64) {
-              const sent = this.sendImageToSession(shot.base64, 'image/png')
-              output = sent
-                ? `Screen captured (${shot.width}×${shot.height}) and sent to your vision — describe what you see.`
-                : 'Screenshot taken but live session is not active.'
-            } else {
-              output = `Screen capture failed: ${shot?.error ?? 'unknown error'}`
+            // Two-tier strategy:
+            //  A) If voice/live session is open, inject the screenshot into the
+            //     Live vision channel — Gemini Live has its own quota that's
+            //     usually fine, and the model can describe + speak it directly.
+            //  B) Always also kick off LOCAL Ollama vision in parallel as a
+            //     guaranteed backup that needs zero cloud quota.
+            try {
+              const shot = await api.takeScreenshot?.()
+              if (shot?.success && shot.base64) {
+                const injected = this.sendImageToSession(shot.base64, 'image/png')
+
+                // Local analysis via the Python backend (Ollama) — free, no quota
+                let localText = ''
+                try {
+                  const r = await fetch(`${this.backendBase}/api/screen/analyze?prompt=${encodeURIComponent(args.question || 'Briefly describe what is on this screen and what app is active.')}`)
+                  if (r.ok) {
+                    const d = await r.json()
+                    if (d?.success && d.text) localText = d.text
+                  }
+                } catch { /* local backend unavailable */ }
+
+                if (injected && localText) {
+                  output = `Screen captured (${shot.width}×${shot.height}). Local vision says:\n${localText}\n\n(Image also sent to your live vision — confirm or add detail.)`
+                } else if (injected) {
+                  output = `Screen captured (${shot.width}×${shot.height}) and sent to your vision — describe what you see.`
+                } else if (localText) {
+                  output = `Screen captured (${shot.width}×${shot.height}). Analysis:\n${localText}`
+                } else {
+                  output = `Screen captured but no analysis path worked. Pull a local vision model: 'ollama pull gemma3:4b'`
+                }
+              } else {
+                output = `Screen capture failed: ${shot?.error ?? 'unknown error'}`
+              }
+            } catch (err) {
+              output = `Screen analysis error: ${err instanceof Error ? err.message : String(err)}`
             }
             break
           }

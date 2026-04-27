@@ -2444,18 +2444,54 @@ function createWindow() {
     }
   })
 
-  // Analyze image with Gemini Vision API (for assignments, screenshots, etc.)
+  // Analyze image — local-first (Ollama vision) with Gemini REST as fallback
   ipcMain.handle('analyze-image', async (_event, base64: string, prompt: string) => {
+    // ── Tier 1: Local Ollama vision (no internet, no quota) ─────────────
+    try {
+      const tagsResp = await fetch('http://127.0.0.1:11434/api/tags')
+      if (tagsResp.ok) {
+        const tagsData = await tagsResp.json() as { models?: Array<{ name: string }> }
+        const installed = (tagsData.models ?? []).map(m => m.name)
+        const VISION_PREF = ['gemma3:4b', 'llava:7b', 'llava:13b', 'llama3.2-vision', 'llama3.2-vision:11b', 'moondream', 'bakllava']
+        let chosen = ''
+        for (const pref of VISION_PREF) {
+          const match = installed.find(n => n === pref || n.startsWith(pref.split(':')[0] + ':'))
+          if (match) { chosen = match; break }
+        }
+        if (chosen) {
+          const olResp = await fetch('http://127.0.0.1:11434/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: chosen,
+              prompt,
+              images: [base64],
+              stream: false,
+              options: { temperature: 0.5, num_predict: 1024 }
+            })
+          })
+          if (olResp.ok) {
+            const olData = await olResp.json() as { response?: string }
+            const text = (olData.response || '').trim()
+            if (text) return { success: true, text, source: 'ollama_local', model: chosen }
+          }
+        }
+      }
+    } catch {
+      // Ollama not running — fall through to cloud
+    }
+
+    // ── Tier 2: Cloud fallback ───────────────────────────────────────────
     try {
       const configPath = require('path').join(require('os').homedir(), '.jarvis_config.json')
       const fs = require('fs')
       if (!fs.existsSync(configPath)) {
-        return { success: false, error: 'Config not found' }
+        return { success: false, error: 'No local vision model installed and config not found. Run: ollama pull gemma3:4b' }
       }
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       const apiKey = config.gemini?.api_key || config.api_key || config.geminiApiKey
       if (!apiKey) {
-        return { success: false, error: 'No Gemini API key' }
+        return { success: false, error: 'No local vision and no Gemini API key. Run: ollama pull gemma3:4b' }
       }
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
@@ -2736,8 +2772,31 @@ Provide the complete answer ready to submit.`
 
   const analyzeScreen = async (): Promise<string> => {
     try {
+      // ── Tier 1: LOCAL Ollama vision (zero internet, zero quota) ──────
+      // Try local first so we never burn cloud quota when local works.
+      try {
+        const port = (global as { backendPort?: number }).backendPort ?? 8765
+        const localResp = await fetch(`http://127.0.0.1:${port}/api/screen/analyze`)
+        if (localResp.ok) {
+          const localData = await localResp.json() as { success: boolean; text?: string; model?: string; latency_ms?: number; error?: string }
+          if (localData.success && localData.text) {
+            const text = localData.text
+            lastAwarenessResult = text
+            if (mainWindow) {
+              mainWindow.webContents.send('awareness-update', {
+                text, timestamp: Date.now(), source: 'ollama_local', model: localData.model
+              })
+            }
+            return text
+          }
+        }
+      } catch {
+        // Backend not reachable — fall through to cloud path
+      }
+
+      // ── Tier 2: Cloud fallback (Gemini REST) ──────────────────────────
       if (awarenessQuotaExhausted) {
-        return 'Quota exhausted on REST API — use voice + screen_scan tool to analyze screen via Gemini Live (separate quota).'
+        return 'Local vision unavailable and cloud quota exhausted. Run: ollama pull gemma3:4b (you already have this — make sure Ollama is running).'
       }
 
       // Take screenshot via desktop capture

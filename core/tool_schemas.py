@@ -428,6 +428,46 @@ TOOL_SCHEMAS: list[dict] = [
         "category": "screen",
         "verify": False,
     },
+    {
+        "name": "read_screen_text",
+        "description": (
+            "Extract all readable text from the current screen using fast OCR (Tesseract). "
+            "Use this when the user wants to READ text on screen — error messages, "
+            "code, page contents — and doesn't need image reasoning. Faster (~750ms) "
+            "and more accurate than vision LLM for pure text. "
+            "Examples: 'read the error on my screen', 'what does the screen say', "
+            "'capture the text I'm looking at', 'read this for me'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "aliases": ["ocr_screen", "screen_ocr"],
+        "layer": "python",
+        "category": "screen",
+        "verify": False,
+    },
+    {
+        "name": "speak_locally",
+        "description": (
+            "Speak text out loud using local Piper TTS — works offline, no internet "
+            "needed, ~100ms latency. Use this for short confirmations or notifications "
+            "when JARVIS wants to talk WITHOUT going through the Gemini Live voice "
+            "channel. Examples: 'say that out loud', 'speak this', 'announce something'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "The text to speak aloud."},
+            },
+            "required": ["text"],
+        },
+        "aliases": ["local_tts", "say_aloud"],
+        "layer": "python",
+        "category": "voice",
+        "verify": False,
+    },
 
     # ==================================================================
     #  MOUSE & KEYBOARD (Direct Input Control)

@@ -1920,6 +1920,55 @@ export class JarvisGeminiLive {
             break
           }
 
+          case 'read_screen_text':
+          case 'ocr_screen':
+          case 'screen_ocr': {
+            // Fast OCR — Tesseract via Python backend, ~750ms, no LLM needed
+            try {
+              const r = await fetch(`${this.backendBase}/api/screen/ocr`)
+              if (r.ok) {
+                const d = await r.json()
+                if (d?.success && d.text) {
+                  const preview = String(d.text).slice(0, 1800)
+                  output = `Screen text (${d.char_count} chars, ${d.line_count} lines, OCR took ${d.latency_ms}ms):\n\n${preview}`
+                } else {
+                  output = `OCR failed: ${d?.error ?? 'unknown'}`
+                }
+              } else {
+                output = `OCR backend returned HTTP ${r.status}`
+              }
+            } catch (err) {
+              output = `OCR call failed: ${err instanceof Error ? err.message : String(err)}`
+            }
+            break
+          }
+
+          case 'speak_locally':
+          case 'local_tts':
+          case 'say_aloud': {
+            // Local TTS via Piper — offline, ~100ms latency
+            try {
+              const text = (args.text || '').trim()
+              if (!text) { output = 'No text provided to speak.'; break }
+              const r = await fetch(`${this.backendBase}/api/tts/speak`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, play: true }),
+              })
+              if (r.ok) {
+                const d = await r.json()
+                output = d?.success
+                  ? `Spoke "${text.slice(0, 80)}" via local Piper TTS (${d.latency_ms}ms, ${d.size_bytes} bytes WAV).`
+                  : `Local TTS failed: ${d?.error ?? 'unknown'}`
+              } else {
+                output = `TTS backend returned HTTP ${r.status}`
+              }
+            } catch (err) {
+              output = `TTS call failed: ${err instanceof Error ? err.message : String(err)}`
+            }
+            break
+          }
+
           case 'take_screen_snapshot':
           case 'scan_screen':
           case 'screen_scan': {

@@ -137,6 +137,33 @@ export default function App() {
           backendState: backendStateRef.current,
           currentTask
         }
+      },
+      // Mirror voice exchanges into the main transcript so spoken replies
+      // appear as proper chat bubbles (not just in the green I/O box).
+      onVoiceTurnComplete: (userText: string, jarvisText: string) => {
+        const now = new Date().toISOString()
+        const newMessages: ChatMessage[] = []
+        if (userText && userText.trim()) {
+          newMessages.push({
+            id: Date.now(),
+            role: 'user',
+            text: userText.trim(),
+            ts: now,
+            source: 'voice'
+          })
+        }
+        if (jarvisText && jarvisText.trim()) {
+          newMessages.push({
+            id: Date.now() + 1,
+            role: 'jarvis',
+            text: jarvisText.trim(),
+            ts: now,
+            source: 'voice'
+          })
+        }
+        if (newMessages.length > 0) {
+          setMessages((c) => [...c, ...newMessages])
+        }
       }
     })
 

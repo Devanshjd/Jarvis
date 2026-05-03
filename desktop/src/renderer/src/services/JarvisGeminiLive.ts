@@ -7,6 +7,10 @@ type VoiceBridgeCallbacks = {
   onBackendTurn?: () => void | Promise<void>
   getApproveDesktop?: () => boolean
   getRealtimeContext?: () => Promise<RealtimeContext> | RealtimeContext
+  // Fired when a voice exchange completes — used by the renderer to mirror
+  // the user/jarvis turn into the main transcript (otherwise voice replies
+  // only appear in the small green I/O box and never reach the chat log).
+  onVoiceTurnComplete?: (userText: string, jarvisText: string) => void
 }
 
 type ChatResponse = {
@@ -1335,6 +1339,17 @@ export class JarvisGeminiLive {
             // ─── Persist this turn to backend memory (async, non-blocking) ───
             if (userSaid && jarvisSaid) {
               void this.saveConversationTurn(userSaid, jarvisSaid)
+            }
+
+            // ─── Mirror the turn into the main UI transcript ───
+            // Without this, voice replies only show in the small green I/O
+            // box at the top and never reach the chat log.
+            if (userSaid || jarvisSaid) {
+              try {
+                this.callbacks.onVoiceTurnComplete?.(userSaid, jarvisSaid)
+              } catch (cbErr) {
+                console.warn('[GeminiLive] onVoiceTurnComplete callback threw:', cbErr)
+              }
             }
 
             this.inputBuffer = ''

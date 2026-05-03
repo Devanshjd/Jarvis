@@ -43,7 +43,7 @@ export type ChatMessage = {
   role: string
   text: string
   ts: string
-  source?: 'backend' | 'shell'
+  source?: 'backend' | 'shell' | 'voice'
 }
 
 export type ChatResponse = {

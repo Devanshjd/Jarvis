@@ -163,8 +163,12 @@ export function extractTaskSummary(task: Record<string, unknown>) {
 
 export function mergeBackendWithShellMessages(backendMessages: ChatMessage[], currentMessages: ChatMessage[]) {
   const backend = backendMessages.filter((m) => m.role !== 'thinking').map((m) => ({ ...m, source: 'backend' as const }))
-  const shell = currentMessages.filter((m) => m.source === 'shell')
-  return [...backend, ...shell].sort((a, b) => {
+  // Preserve BOTH shell AND voice messages — voice mirrors (added by
+  // onVoiceTurnComplete) were being silently dropped on every 2.5s refresh
+  // because they aren't in the backend's history, making the transcript
+  // appear briefly then vanish.
+  const clientOnly = currentMessages.filter((m) => m.source === 'shell' || m.source === 'voice')
+  return [...backend, ...clientOnly].sort((a, b) => {
     const aTs = Date.parse(a.ts || '')
     const bTs = Date.parse(b.ts || '')
     if (Number.isFinite(aTs) && Number.isFinite(bTs) && aTs !== bTs) return aTs - bTs

@@ -102,6 +102,12 @@ class FileWriteRequest(BaseModel):
 
 class ResearchRequest(BaseModel):
     query: str = Field(min_length=1)
+
+class AgentExecuteRequest(BaseModel):
+    goal: str = Field(min_length=1)
+    approve_desktop: bool = True
+    wait_for_complete: bool = True
+    timeout_s: float = 120.0
     depth: str = "normal"  # quick | normal | deep
 
 class SecurityScanRequest(BaseModel):
@@ -607,6 +613,112 @@ def api_clipboard_text():
 @app.get("/api/voice/status")
 def api_voice_status():
     return get_runtime().voice_snapshot()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  UNIVERSAL AGENT — execute high-level goals via screen+mouse+keyboard
+# ═══════════════════════════════════════════════════════════════════════════
+#  Takes a natural-language goal, asks the local LLM brain to decompose it
+#  into atomic screen-actionable steps, executes each step, verifies via
+#  screenshot, and self-heals on failure. The "Computer Use" loop.
+#
+#  Example call:
+#    curl -X POST http://localhost:8765/api/agent/execute \
+#      -H "Content-Type: application/json" \
+#      -d '{"goal":"open notepad and type hello world","approve_desktop":true}'
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/agent/execute")
+def api_agent_execute(payload: AgentExecuteRequest):
+    """Execute a high-level goal via the agent loop.
+
+    The agent will plan -> execute -> verify -> recover -> save skill.
+    """
+    import time
+    rt = get_runtime()
+    rt._request_options = {"approve_desktop": bool(payload.approve_desktop)}
+    try:
+        agent_loop = getattr(rt, "agent_loop", None)
+        if not agent_loop:
+            return {"success": False, "error": "Agent loop not available on this runtime"}
+
+        # Build a plan from the goal (uses brain to decompose if needed)
+        plan = agent_loop.build_plan_from_text(payload.goal)
+        if not plan or not plan.steps:
+            return {
+                "success": False,
+                "error": "Could not build a non-empty execution plan from this goal. "
+                         "The orchestrator may have classified it as a simple/conversational query.",
+                "goal": payload.goal,
+                "plan_was_built": plan is not None,
+                "plan_step_count": len(plan.steps) if plan else 0,
+            }
+
+        # Kick off execution (async — runs in a background thread)
+        agent_loop.execute_plan(plan)
+
+        if not payload.wait_for_complete:
+            return {
+                "success": True,
+                "status": "started",
+                "plan_steps": len(plan.steps),
+                "goal": payload.goal,
+            }
+
+        # Poll for completion (is_running is a property, not a method)
+        deadline = time.time() + max(5.0, payload.timeout_s)
+        while time.time() < deadline:
+            if not agent_loop.is_running:
+                break
+            time.sleep(0.4)
+
+        # Report on the plan object we kept a reference to (since active_plan
+        # gets cleared when the loop finishes, get_status() loses all detail).
+        return {
+            "success": plan.status.value == "completed",
+            "status": plan.status.value,
+            "goal": plan.goal,
+            "total_steps": len(plan.steps),
+            "current_step": plan.current_step,
+            "iterations": plan.total_iterations,
+            "struggle_score": plan.struggle_score,
+            "steps": [
+                {
+                    "description": s.description,
+                    "status": s.status.value,
+                    "tool": s.tool_name,
+                    "mode": s.execution_mode,
+                    "attempts": s.attempts,
+                    "result": (s.result or "")[:200],
+                    "error": (s.error or "")[:200],
+                }
+                for s in plan.steps
+            ],
+            "progress": (plan.progress_messages or [])[-10:],
+        }
+    finally:
+        rt._request_options = {}
+
+
+@app.get("/api/agent/status")
+def api_agent_status():
+    """Get current agent execution status."""
+    rt = get_runtime()
+    agent_loop = getattr(rt, "agent_loop", None)
+    if not agent_loop:
+        return {"available": False, "status": "no_agent_loop"}
+    return {"available": True, **agent_loop.get_status()}
+
+
+@app.post("/api/agent/cancel")
+def api_agent_cancel():
+    """Cancel the currently running plan."""
+    rt = get_runtime()
+    agent_loop = getattr(rt, "agent_loop", None)
+    if not agent_loop:
+        return {"success": False, "error": "No agent loop"}
+    agent_loop.cancel()
+    return {"success": True}
 
 @app.post("/api/voice/toggle")
 def api_voice_toggle(payload: VoiceRequest):

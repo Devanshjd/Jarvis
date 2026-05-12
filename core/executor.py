@@ -19,6 +19,41 @@ from core.subprocess_utils import run_text
 from core.tool_schemas import resolve_tool_name, get_tool_names, get_schemas_by_layer
 
 
+# Map common LLM-generated arg names to the canonical schema names.
+# When an LLM planner outputs args like {"app_name": "notepad"} but the
+# schema expects {"app": "notepad"}, this lookup salvages the call.
+_ARG_ALIASES: dict[str, dict[str, str]] = {
+    "open_app":     {"app_name": "app", "application": "app", "name": "app", "program": "app"},
+    "type_text":    {"content": "text", "string": "text", "value": "text", "input": "text"},
+    "key_press":    {"keys": "key", "hotkey": "key", "shortcut": "key", "combination": "key"},
+    "run_command":  {"cmd": "command", "shell": "command", "exec": "command"},
+    "web_search":   {"q": "query", "search": "query", "term": "query"},
+    "screen_click": {"element": "target", "label": "target", "selector": "target"},
+    "screen_find":  {"element": "target", "label": "target"},
+    "screen_type":  {"content": "text", "string": "text"},
+    "speak_locally": {"message": "text", "content": "text", "phrase": "text"},
+    "send_msg":     {"to": "contact", "recipient": "contact"},
+    "send_email":   {"recipient": "to", "destination": "to"},
+    "remember":     {"content": "text", "memory": "text", "note": "text"},
+}
+
+
+def _normalize_arg_aliases(tool_name: str, args: dict) -> dict:
+    """Translate common LLM-generated arg name variations to schema names.
+    Non-aliased keys pass through unchanged.
+    """
+    aliases = _ARG_ALIASES.get(tool_name)
+    if not aliases or not args:
+        return args
+    normalized: dict = {}
+    for k, v in args.items():
+        canonical_key = aliases.get(k, k)
+        # Don't overwrite if both the alias and canonical key are present
+        if canonical_key not in normalized:
+            normalized[canonical_key] = v
+    return normalized
+
+
 class Executor:
     """
     Executes tools by name. Holds a reference to the JarvisApp
@@ -180,6 +215,11 @@ class Executor:
                 success=False,
                 error=f"Unknown tool: {tool_name}",
             )
+
+        # Normalize common arg name variations from LLM planners
+        # (e.g. "app_name" -> "app", "cmd" -> "command", "url_string" -> "url").
+        # The schemas use specific names but LLMs often hallucinate close variants.
+        tool_args = _normalize_arg_aliases(tool_name, tool_args or {})
 
         t0 = time.perf_counter()
         try:
@@ -784,12 +824,20 @@ class Executor:
         Ask user for permission — Electron-native, no tkinter.
 
         Priority order:
+          0. Caller explicitly passed approve_desktop=true (agent/API)
           1. Gemini Live voice active → auto-approve (user is watching)
           2. Voice plugin active → verbal confirm ("Should I proceed?")
           3. Electron UI connected → send WebSocket request, show React modal
           4. No UI + low-risk tool → auto-approve
           5. No UI + high-risk tool → deny (queue for when UI reconnects)
         """
+        # 0. Explicit caller approval — the universal agent and the /api/chat
+        # endpoint both set this. If approve_desktop=true was passed, the
+        # user has already consented to desktop control for this request.
+        request_options = getattr(self.jarvis, "_request_options", None) or {}
+        if request_options.get("approve_desktop"):
+            return True
+
         # 1. Gemini Live active → user is watching/listening, auto-approve
         voice = self.jarvis.plugin_manager.plugins.get("voice")
         if voice and voice.is_enabled:

@@ -563,12 +563,45 @@ class Executor:
 
                 elif action == "click":
                     button = args.get("button", "left")
+                    double = bool(args.get("double", False))
+                    app_hint = (args.get("app") or args.get("app_hint") or "").strip()
+
+                    # Tier 1+2 (pywinauto control + OCR text) via precise_click.
+                    # Replaces the unreliable vision-LLM coordinate approach for
+                    # the common cases — button labels, link text, icon captions.
+                    try:
+                        from core.precise_click import click_element
+                        pr = click_element(
+                            target=description,
+                            app_hint=app_hint,
+                            button=button,
+                            double=double,
+                        )
+                        if pr.success:
+                            return ToolResult(
+                                success=True,
+                                output=(f"Clicked '{pr.matched_text or description}' "
+                                        f"at ({pr.x}, {pr.y}) via {pr.method}"),
+                            )
+                        # Fall through to legacy vision-coord path on failure
+                        precise_err = pr.error
+                    except Exception as e:
+                        precise_err = f"precise_click error: {e}"
+
+                    # Tier 3 fallback: vision-LLM coordinate grounding (legacy).
+                    # Slow + flaky for small models but might catch image-only
+                    # icons that have no text label and no AutomationTree entry.
                     result = si.click_element(description, button=button)
                     if result.get("success"):
-                        return ToolResult(success=True,
-                            output=f"Clicked '{description}' at ({result['x']}, {result['y']})")
-                    return ToolResult(success=False,
-                        error=result.get("error", f"Could not click '{description}'"))
+                        return ToolResult(
+                            success=True,
+                            output=f"Clicked '{description}' at ({result['x']}, {result['y']}) via vision-coord",
+                        )
+                    return ToolResult(
+                        success=False,
+                        error=(f"Could not click '{description}': {precise_err}. "
+                               f"Vision fallback also failed: {result.get('error','?')}"),
+                    )
 
                 elif action == "type_into":
                     text = args.get("text", "")

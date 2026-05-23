@@ -315,37 +315,222 @@ class AgentLoop:
                     self._active_plan = None
 
     def _save_skill_to_kg(self, plan: ExecutionPlan):
-        """Persist a successful task sequence as a 'skill' entity.
+        """Persist a successful task sequence as an outcome-grounded skill.
 
-        Stored in the knowledge graph so future similar goals can retrieve
-        the same step sequence as a starting template — JARVIS gets faster
-        every time it successfully completes a task.
+        Records not just the steps taken, but:
+          - what worked first try vs. needed retries
+          - what target apps were involved (preconditions for replay)
+          - what evidence verified the outcome
+          - what failed steps were skipped or recovered
+
+        This richer data makes _recall_similar_skill able to suggest both
+        the working plan AND the preconditions that must hold for it to
+        work again. Outcome-grounded learning, not just step memorization.
         """
         kg = getattr(self.jarvis, "knowledge_graph", None)
         if not kg:
             return
 
-        # Build a compact skill description from the successful step sequence
-        step_summary = []
-        for s in plan.steps:
-            if s.status == StepStatus.SUCCEEDED:
-                step_summary.append(f"{s.tool_name or 'step'}: {s.description}")
-        if not step_summary:
+        successful = [s for s in plan.steps if s.status == StepStatus.SUCCEEDED]
+        if not successful:
             return
+
+        # Tool name + arg-summary per step (so replay can reconstruct calls)
+        step_records = []
+        target_apps = set()
+        for s in successful:
+            args_brief = ""
+            if s.tool_args:
+                # Compact representation: just the first 60 chars of args
+                args_brief = str(s.tool_args)[:60]
+            step_records.append(f"{s.tool_name}({args_brief})")
+            # Detect target apps from open_app calls
+            if s.tool_name == "open_app":
+                app = (s.tool_args or {}).get("app") or ""
+                if app:
+                    target_apps.add(app.lower())
 
         # Use a normalized form of the goal as the entity name for retrieval
         import re
         skill_name = re.sub(r"\s+", "_", plan.goal.strip().lower())[:80]
 
+        # Increment usage_count if this skill already existed
+        existing = kg.get_entity(skill_name)
+        usage_count = 1
+        if existing:
+            try:
+                facts_list = existing.get("facts", [])
+                for f in facts_list:
+                    if f.get("predicate") == "usage_count":
+                        usage_count = int(f.get("value", "1")) + 1
+                        break
+            except Exception:
+                pass
+
+        # Count retried vs first-try steps as a quality signal
+        first_try = sum(1 for s in successful if s.attempts <= 1)
+        retried = len(successful) - first_try
+        difficulty = "easy" if first_try == len(successful) else (
+            "needed_retries" if retried <= 1 else "hard"
+        )
+
+        # Did the agent encounter any failures it recovered from?
+        recovered_from = [
+            s.description[:80] for s in plan.steps
+            if s.attempts > 1 and s.status == StepStatus.SUCCEEDED
+        ]
+
         facts = {
             "goal": plan.goal,
-            "step_count": str(len(plan.steps)),
-            "steps": " | ".join(step_summary)[:500],
+            "outcome": "completed",
+            "step_count": str(len(successful)),
+            "steps": " | ".join(step_records)[:600],
+            "target_apps": ",".join(sorted(target_apps)) or "(none)",
+            "preconditions": f"apps_running: {','.join(sorted(target_apps)) or 'none'}",
+            "difficulty": difficulty,
+            "first_try_steps": str(first_try),
+            "retried_steps": str(retried),
+            "recovered_from": " | ".join(recovered_from)[:300] if recovered_from else "(none)",
+            "verified_by": "honest_verifier" if any(
+                "honest" in (s.error or "").lower() or s.tool_name in ("type_text", "key_press")
+                for s in successful
+            ) else "screenshot",
             "completed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "usage_count": str(usage_count),
             "iterations": str(plan.total_iterations),
         }
         kg.add_entity(skill_name, "learned_skill", facts)
-        logger.info("Saved skill to KG: %s (%d steps)", skill_name, len(step_summary))
+        logger.info(
+            "Saved skill to KG: %s (%d steps, %s, usage_count=%d)",
+            skill_name, len(successful), difficulty, usage_count,
+        )
+
+    # ─── TRANSPARENT REASONING (Capability #4) ───────────────────────────
+
+    def _emit_thought(self, plan: ExecutionPlan, thought: str, speak: bool = False):
+        """Record an internal reasoning step so the user sees JARVIS thinking,
+        not just acting. Thoughts go into progress_messages prefixed with '🧠'
+        so the UI can render them differently from action announcements.
+
+        If speak=True and Piper TTS is available, the thought is also said
+        aloud via local TTS (no cloud call).
+        """
+        if not thought:
+            return
+        formatted = f"🧠 {thought}"
+        try:
+            plan.progress_messages.append(formatted)
+        except Exception:
+            pass
+        logger.info("[THOUGHT] %s", thought)
+
+        # Optional spoken narration via local Piper TTS — fire-and-forget
+        if speak:
+            try:
+                import requests, threading
+                def _say():
+                    try:
+                        requests.post(
+                            "http://127.0.0.1:8765/api/tts/speak",
+                            json={"text": thought[:140], "play": True},
+                            timeout=10,
+                        )
+                    except Exception:
+                        pass
+                threading.Thread(target=_say, daemon=True).start()
+            except Exception:
+                pass
+
+    # ─── OUTCOME-GROUNDED LEARNING (Capability #3) ───────────────────────
+
+    def _recall_similar_skill(self, goal: str) -> Optional[dict]:
+        """Look up a previously-learned skill matching this goal.
+
+        Queries the knowledge graph for 'learned_skill' entities whose
+        normalized name fuzzy-matches the new goal. Returns the skill's
+        facts dict (with 'steps', 'outcome', 'preconditions') or None.
+        """
+        kg = getattr(self.jarvis, "knowledge_graph", None)
+        if not kg:
+            return None
+        try:
+            import re as _re
+            normalized = _re.sub(r"\s+", "_", (goal or "").strip().lower())[:80]
+            if not normalized:
+                return None
+
+            # Try exact match first
+            entity = kg.get_entity(normalized)
+            if entity:
+                return entity
+
+            # Try fuzzy substring search across stored skill names
+            try:
+                ctx = kg.get_context_for_llm(goal)
+                # Quick parse: look for "name (learned_skill):" patterns
+                lines = ctx.split("\n") if ctx else []
+                for ln in lines:
+                    if "(learned_skill)" in ln:
+                        # Extract entity name
+                        m = _re.search(r"\s+(\S+)\s+\(learned_skill\)", ln)
+                        if m:
+                            name = m.group(1).strip()
+                            # Loose substring overlap check
+                            goal_words = set(normalized.split("_"))
+                            name_words = set(name.split("_"))
+                            overlap = len(goal_words & name_words)
+                            if overlap >= 2 and overlap / max(len(goal_words), 1) >= 0.5:
+                                e = kg.get_entity(name)
+                                if e:
+                                    return e
+            except Exception:
+                pass
+        except Exception as e:
+            logger.debug("Skill recall error: %s", e)
+        return None
+
+    # ─── ADVERSARIAL SELF-CHECK (Capability #5) ──────────────────────────
+
+    def _adversarial_check(
+        self,
+        plan: ExecutionPlan,
+        step: ExecutionStep,
+        target_app: str,
+    ) -> Optional[bool]:
+        """Skeptical cross-verification after honest_verify returns True.
+
+        Asks: 'Could I be fooled? Let me check via a DIFFERENT method.'
+        - For Calculator: also do a fresh win32-based window enumeration
+          and confirm Calculator is actually foreground or visible
+        - For Notepad: confirm Notepad window has the expected text via
+          a window-specific screenshot pass (when implemented)
+
+        Returns:
+            True  → both checks agree (high confidence)
+            False → checks disagree (downgrade to uncertain)
+            None  → couldn't perform adversarial check (no opinion)
+        """
+        if not target_app:
+            return None
+        try:
+            from core.context_awareness import get_context
+            ctx = get_context()
+            if not ctx.available:
+                return None
+            # Adversarial test 1: is the target app actually visible right now?
+            win = ctx.find_window(target_app)
+            if not win:
+                logger.warning(
+                    "Adversarial check FAILED: honest verify said success but "
+                    "target window %r isn't even visible anymore",
+                    target_app,
+                )
+                return False
+            # Pass: target window exists and was readable by honest_verify
+            return True
+        except Exception as e:
+            logger.debug("Adversarial check error: %s", e)
+            return None
 
     # ─── CONTEXT AWARENESS & HONEST VERIFICATION ─────────────────────────
 
@@ -402,7 +587,7 @@ class AgentLoop:
 
         Calls context_awareness.ensure_focus(target_app). If focus can't be
         established, logs a warning but doesn't abort — the agent loop will
-        catch failures via post-action verification.
+        catch failures via post-action verification. Narrates the decision.
         """
         # Only relevant for tools that send input to the UI
         if step.tool_name not in ("type_text", "key_press", "screen_click",
@@ -424,19 +609,27 @@ class AgentLoop:
         if ctx.is_focused(target):
             return  # already focused — happy path
 
+        fg = getattr(ctx.get_foreground_window(), "title", "(none)")
+        self._emit_thought(
+            plan,
+            f"I need to type into '{target}', but '{fg[:30]}' is currently focused. Switching.",
+        )
         logger.info(
             "Step %r needs target %r focused — currently %r. Switching.",
-            step.description[:50], target,
-            getattr(ctx.get_foreground_window(), "title", "(none)"),
+            step.description[:50], target, fg,
         )
         ok = ctx.ensure_focus(target)
         if not ok:
+            self._emit_thought(
+                plan,
+                f"Couldn't bring '{target}' to the foreground — input may end up in the wrong window.",
+            )
             logger.warning(
                 "Could not bring %r to foreground before %s — input may go to wrong window",
                 target, step.tool_name,
             )
         else:
-            # Brief settle so UI is ready for input
+            self._emit_thought(plan, f"'{target}' is now focused. Ready to send input.")
             time.sleep(0.25)
 
     def _honest_verify_outcome(self, plan: ExecutionPlan, step: ExecutionStep) -> Optional[bool]:
@@ -618,10 +811,34 @@ class AgentLoop:
                 time.sleep(0.4)  # let UI settle
                 honest = self._honest_verify_outcome(plan, step)
                 if honest is True:
-                    # Real evidence the goal was achieved
+                    # Run adversarial self-check before claiming success
+                    target = self._infer_target_app(plan, step)
+                    adv = self._adversarial_check(plan, step, target)
+                    if adv is False:
+                        # Two independent checks disagree → don't claim success
+                        self._emit_thought(
+                            plan,
+                            f"Honest verifier said success but adversarial check disagrees — "
+                            f"target window '{target}' may have closed. Marking uncertain.",
+                        )
+                        step.error = (
+                            "Uncertain: honest verification passed but adversarial check "
+                            "failed (target window not visible during recheck)."
+                        )
+                        return False
+                    # Both checks agree (or adversarial unavailable) — real success
+                    self._emit_thought(
+                        plan,
+                        f"Verified: '{step.description[:60]}' achieved its outcome.",
+                    )
                     return True
                 if honest is False:
                     # Real evidence it was NOT achieved
+                    self._emit_thought(
+                        plan,
+                        f"Verification REJECTED this step — target app doesn't contain "
+                        f"what I expected. The action probably went to the wrong window.",
+                    )
                     logger.warning("Honest verification REJECTED step: %s", step.description)
                     step.error = (
                         "Action executed but post-verification proved the target "
@@ -893,6 +1110,25 @@ class AgentLoop:
         if forced:
             logger.info("Hard-routed %r → %s", text[:60], forced.tool_name)
             return ExecutionPlan(goal=text, steps=[forced])
+
+        # ── Outcome-grounded skill recall ────────────────────────────────
+        # If we've successfully done a similar goal before, log it so the
+        # AI planner can use it as a starting template. (Knowledge graph
+        # context is already auto-injected by the orchestrator; this log
+        # also surfaces it for debugging.)
+        recalled = self._recall_similar_skill(text)
+        if recalled:
+            try:
+                facts_str = ", ".join(
+                    f"{f.get('predicate')}={f.get('value')}"
+                    for f in (recalled.get("facts", []))[:5]
+                )
+                logger.info(
+                    "Recalled prior skill matching goal %r: %s",
+                    text[:60], facts_str[:200],
+                )
+            except Exception:
+                pass
 
         # Detect compound requests (multiple verbs / "and" / "then" connectors)
         # before classifying. Phrases like "open notepad AND type hello" must

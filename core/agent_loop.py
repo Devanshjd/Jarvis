@@ -347,6 +347,220 @@ class AgentLoop:
         kg.add_entity(skill_name, "learned_skill", facts)
         logger.info("Saved skill to KG: %s (%d steps)", skill_name, len(step_summary))
 
+    # ─── CONTEXT AWARENESS & HONEST VERIFICATION ─────────────────────────
+
+    def _infer_target_app(self, plan: ExecutionPlan, step: ExecutionStep) -> str:
+        """Guess which app a step's keyboard/mouse input should target.
+
+        Looks at:
+          1. The step's own description ('Type into Notepad...')
+          2. The most recent open_app step in the plan ('open_app calculator')
+          3. The plan goal itself ('open notepad and type...')
+
+        Returns lowercase app name, or '' if unknown.
+        """
+        import re as _re
+
+        # 1. Step description direct mention
+        text_candidates = [
+            (step.description or "").lower(),
+            " ".join(str(v) for v in (step.tool_args or {}).values()).lower(),
+        ]
+
+        # 2. Walk backwards through plan for the most recent open_app
+        try:
+            idx = plan.steps.index(step) if step in plan.steps else -1
+        except ValueError:
+            idx = -1
+        if idx > 0:
+            for prev in reversed(plan.steps[:idx]):
+                if prev.tool_name == "open_app":
+                    app = (prev.tool_args or {}).get("app") or (prev.tool_args or {}).get("app_name") or ""
+                    if app:
+                        return app.lower().strip()
+                    text_candidates.append(prev.description.lower())
+
+        # 3. Plan goal
+        text_candidates.append((plan.goal or "").lower())
+
+        # Look for known app names in any candidate text
+        known_apps = [
+            "calculator", "notepad", "wordpad", "paint", "chrome", "firefox",
+            "edge", "explorer", "file explorer", "spotify", "vlc", "vscode",
+            "vs code", "code", "whatsapp", "telegram", "discord", "terminal",
+            "powershell", "cmd", "task manager", "settings", "outlook",
+            "word", "excel", "powerpoint",
+        ]
+        for txt in text_candidates:
+            for app in known_apps:
+                if _re.search(r"\b" + _re.escape(app) + r"\b", txt):
+                    return app
+        return ""
+
+    def _ensure_target_focus(self, plan: ExecutionPlan, step: ExecutionStep):
+        """Before keyboard/mouse input, make sure target window is focused.
+
+        Calls context_awareness.ensure_focus(target_app). If focus can't be
+        established, logs a warning but doesn't abort — the agent loop will
+        catch failures via post-action verification.
+        """
+        # Only relevant for tools that send input to the UI
+        if step.tool_name not in ("type_text", "key_press", "screen_click",
+                                  "screen_type", "mouse_click", "screen_find"):
+            return
+        try:
+            from core.context_awareness import get_context
+        except ImportError:
+            return
+
+        target = self._infer_target_app(plan, step)
+        if not target:
+            return
+
+        ctx = get_context()
+        if not ctx.available:
+            return
+
+        if ctx.is_focused(target):
+            return  # already focused — happy path
+
+        logger.info(
+            "Step %r needs target %r focused — currently %r. Switching.",
+            step.description[:50], target,
+            getattr(ctx.get_foreground_window(), "title", "(none)"),
+        )
+        ok = ctx.ensure_focus(target)
+        if not ok:
+            logger.warning(
+                "Could not bring %r to foreground before %s — input may go to wrong window",
+                target, step.tool_name,
+            )
+        else:
+            # Brief settle so UI is ready for input
+            time.sleep(0.25)
+
+    def _honest_verify_outcome(self, plan: ExecutionPlan, step: ExecutionStep) -> Optional[bool]:
+        """Independently verify a step's outcome by reading the target app.
+
+        Strict rules about WHICH steps to verify:
+          - open_app           → only verify that the window now exists
+          - type_text          → verify the typed text appears in the target
+          - key_press (non-=)  → intermediate, return None (don't verify)
+          - key_press (= / enter) on the LAST step → verify final computed
+                                 answer appears in Calculator display
+          - other tools        → return None
+
+        Returns:
+            True  → VERIFIED (real evidence the step succeeded)
+            False → FAILED (real evidence the step did NOT)
+            None  → UNKNOWN (don't penalise the step)
+        """
+        try:
+            from core.honest_verifier import (
+                verify_outcome, verify_window_exists, Verdict,
+            )
+        except ImportError:
+            return None
+
+        target = self._infer_target_app(plan, step)
+        if not target:
+            return None
+
+        tool = step.tool_name
+        is_last_step = (step is plan.steps[-1]) if plan.steps else False
+
+        # ── open_app: only check that a window with that title now exists.
+        # Don't try to verify any content yet (display is blank, text is empty).
+        # Use win32gui-based context_awareness (more reliable than UIA enum
+        # for newly-opened windows) with a few retries while the app boots.
+        if tool == "open_app":
+            try:
+                from core.context_awareness import get_context
+                ctx = get_context()
+                if not ctx.available:
+                    return None
+                # Retry up to 5 times over ~2.5s — newly-opened apps need
+                # a moment for their main window to register.
+                for _ in range(5):
+                    win = ctx.find_window(target)
+                    if win:
+                        return True
+                    time.sleep(0.5)
+                return False
+            except Exception:
+                return None
+
+        # ── type_text: verify the typed text appears in target app.
+        # For Notepad: full text match. For Calculator: digits appear in display.
+        if tool == "type_text":
+            typed = str((step.tool_args or {}).get("text", "")).strip()
+            if not typed:
+                return None
+            try:
+                if "notepad" in target:
+                    r = verify_outcome(app_hint=target, expected_text=typed)
+                elif "calc" in target:
+                    # For Calculator, the typed digit/number should appear
+                    # in the display — but only if it's actually a number
+                    if typed.replace(".", "").replace("-", "").isdigit():
+                        r = verify_outcome(app_hint=target, expected_number=typed)
+                    else:
+                        return None  # Not a number; skip
+                else:
+                    r = verify_outcome(app_hint=target, expected_text=typed)
+                if r.verdict == Verdict.VERIFIED:
+                    return True
+                if r.verdict == Verdict.FAILED:
+                    return False
+                return None
+            except Exception:
+                return None
+
+        # ── key_press: only verify on the FINAL step of a compute goal
+        if tool == "key_press":
+            if not is_last_step:
+                return None  # intermediate keypress, don't verify
+            if "calc" not in target:
+                return None
+            # This is the final = on a calculator goal — compute expected answer
+            import re as _re
+            expected = ""
+            goal_lower = (plan.goal or "").lower()
+            for pattern, op in [
+                (r"(\d+)\s*(?:times|×|\*|x)\s*(\d+)\s*(?:plus|\+)\s*(\d+)",
+                    lambda a, b, c: a * b + c),
+                (r"(\d+)\s*(?:plus|\+)\s*(\d+)",     lambda a, b: a + b),
+                (r"(\d+)\s*(?:minus|-)\s*(\d+)",     lambda a, b: a - b),
+                (r"(\d+)\s*(?:times|×|\*|x)\s*(\d+)", lambda a, b: a * b),
+                (r"(\d+)\s*(?:divided by|÷|/)\s*(\d+)",
+                    lambda a, b: a // b if b else 0),
+            ]:
+                m = _re.search(pattern, goal_lower)
+                if m:
+                    try:
+                        nums = [int(g) for g in m.groups()]
+                        expected = str(op(*nums))
+                    except Exception:
+                        pass
+                    break
+            if not expected:
+                return None
+            try:
+                r = verify_outcome(app_hint=target, expected_number=expected)
+                if r.verdict == Verdict.VERIFIED:
+                    logger.info("Honest verify ✓: calculator shows %r", expected)
+                    return True
+                if r.verdict == Verdict.FAILED:
+                    logger.warning("Honest verify ✗: expected %r, saw %r",
+                                   expected, r.evidence[:80])
+                    return False
+                return None
+            except Exception:
+                return None
+
+        # Other tools: no honest verification available
+        return None
+
     def _execute_step(self, plan: ExecutionPlan, step: ExecutionStep) -> bool:
         """Execute a single step, verify the result, and return True if successful."""
         try:
@@ -356,6 +570,12 @@ class AgentLoop:
                 mode = router.choose_mode(step.tool_name, step.tool_args, step.description)
                 step.execution_mode = mode
                 logger.info("Router chose mode '%s' for tool '%s'", mode, step.tool_name)
+
+            # ── PRE-ACTION CONTEXT AWARENESS ──────────────────────────────
+            # For keyboard/mouse actions, ensure the right window has focus
+            # BEFORE we type into it. Catches the "typed into Claude Code
+            # instead of Calculator" class of bugs at the source.
+            self._ensure_target_focus(plan, step)
 
             # Execute based on mode
             if step.execution_mode == "screen":
@@ -389,6 +609,27 @@ class AgentLoop:
                 schema = get_schema_for_tool(step.tool_name)
                 if schema and schema.get("verify", True):
                     should_verify = True
+
+            # ── POST-ACTION HONEST VERIFICATION ──────────────────────────
+            # Try pywinauto-based verification FIRST (reads actual app state).
+            # Falls through to whole-screen vision verifier only when honest
+            # verifier returns UNKNOWN.
+            if success:
+                time.sleep(0.4)  # let UI settle
+                honest = self._honest_verify_outcome(plan, step)
+                if honest is True:
+                    # Real evidence the goal was achieved
+                    return True
+                if honest is False:
+                    # Real evidence it was NOT achieved
+                    logger.warning("Honest verification REJECTED step: %s", step.description)
+                    step.error = (
+                        "Action executed but post-verification proved the target "
+                        "app does NOT contain the expected content. Most likely the "
+                        "input went to the wrong window."
+                    )
+                    return False
+                # honest is None → fall through to legacy screenshot check
 
             if success and should_verify:
                 # Brief delay to let UI update before taking screenshot

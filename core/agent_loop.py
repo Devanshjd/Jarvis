@@ -645,6 +645,14 @@ class AgentLoop:
                 steps=[ExecutionStep(description=text, tool_name="", execution_mode="auto")],
             )
 
+        # Hard-route obvious single-purpose intents BEFORE classification.
+        # These patterns are too easy to misroute by the LLM planner or the
+        # regex catalog (e.g. "read all the text on my screen" → send_msg).
+        forced = self._hard_route_intent(text)
+        if forced:
+            logger.info("Hard-routed %r → %s", text[:60], forced.tool_name)
+            return ExecutionPlan(goal=text, steps=[forced])
+
         # Detect compound requests (multiple verbs / "and" / "then" connectors)
         # before classifying. Phrases like "open notepad AND type hello" must
         # NOT be treated as a single tool — even though each half matches
@@ -679,42 +687,116 @@ class AgentLoop:
         # Complex task — ask AI to decompose
         return self._ai_decompose(text)
 
+    def _hard_route_intent(self, text: str) -> Optional[ExecutionStep]:
+        """Short-circuit certain unambiguous single-tool intents.
+
+        These intents are too easy for the LLM planner OR the regex catalog
+        to misroute (the famous 'read text on my screen' → send_msg case).
+        Returning an ExecutionStep here makes build_plan_from_text use this
+        verbatim and skip both classification and AI decomposition.
+        """
+        import re
+        msg = (text or "").lower().strip()
+
+        # ── Screen-reading queries ────────────────────────────────────────
+        # ANY phrasing that reads/captures screen text goes to OCR (Tesseract
+        # is faster and more accurate than vision LLM for raw text).
+        if re.search(r"\b(read|capture|extract|get|grab|show)\b.*\b(text|words|content|writing)\b.*\b(screen|display|window)\b", msg) \
+           or re.search(r"\bread\s+(?:all\s+)?(?:of\s+)?(?:the\s+)?(?:text|screen|words|content)\b", msg) \
+           or re.search(r"\bwhat\s+(?:does|is)\s+(?:the\s+)?(?:screen|text)\s+say\b", msg) \
+           or re.search(r"\b(?:OCR|ocr)\s+(?:the\s+)?screen\b", msg):
+            return ExecutionStep(
+                description=text,
+                tool_name="read_screen_text",
+                tool_args={},
+                execution_mode="api",
+            )
+
+        # ── Screen description / vision queries ───────────────────────────
+        if re.search(r"\b(what(?:'s| is)\s+(?:on|visible)\s+(?:my\s+|the\s+)?screen|describe\s+(?:my\s+|the\s+)?screen|look\s+at\s+(?:my\s+|the\s+)?screen)\b", msg) \
+           or re.search(r"\b(?:scan|analyze)\s+(?:my\s+|the\s+)?screen\b", msg):
+            return ExecutionStep(
+                description=text,
+                tool_name="screen_scan",
+                tool_args={},
+                execution_mode="api",
+            )
+
+        # ── Spoken output queries (route to local Piper TTS) ──────────────
+        if re.search(r"\b(?:say|speak|read\s+(?:it\s+)?aloud|tell\s+me\s+aloud)\b", msg) \
+           and not re.search(r"\b(?:to\s+\w+|whatsapp|telegram)\b", msg):
+            # Extract what to speak (everything after the verb)
+            m = re.search(r"\b(?:say|speak)\s+(?:the\s+)?(?:word\s+)?(?:phrase\s+)?[\"']?([^\"']{2,200})[\"']?\s*$", msg)
+            text_to_speak = m.group(1).strip() if m else text
+            return ExecutionStep(
+                description=text,
+                tool_name="speak_locally",
+                tool_args={"text": text_to_speak},
+                execution_mode="api",
+            )
+
+        # ── Single screenshot capture (no analysis) ───────────────────────
+        if re.search(r"^\s*(?:just\s+)?take\s+(?:a\s+)?screenshot\s*\.?\s*$", msg):
+            return ExecutionStep(
+                description=text,
+                tool_name="take_screenshot",
+                tool_args={},
+                execution_mode="api",
+            )
+
+        return None
+
     def _is_compound_request(self, text: str) -> bool:
         """Detect if the input describes multiple actions that should be
         decomposed into separate plan steps.
 
         Heuristics:
           1. Multiple distinct tool patterns hit at non-overlapping positions
-          2. Connector words ('and then', 'then', ' and ') with a verb on each side
-          3. Multiple imperative verbs ("open ... type ...", "click ... wait ...")
+          2. Connectors ('and then', 'then', ' and ', 'after', ',') with
+             different action verbs on each side
+          3. Two or more imperative verbs anywhere in the sentence
         """
         import re
         from core.orchestrator import _TOOL_PATTERNS
 
         msg = text.lower().strip()
 
-        # Count distinct tool matches at distinct non-overlapping spans
+        # Action verbs we recognize as "this is doing something"
+        verb_pattern = re.compile(
+            r"\b(open|launch|start|run|click|type|write|search|find|go to|"
+            r"navigate|press|scroll|select|copy|paste|save|delete|create|"
+            r"read|send|compute|calculate|take|capture|describe|tell|show|"
+            r"play|pause|stop|close|minimize|focus|switch|fill|enter|"
+            r"download|upload|install|open up|set|change|update|check|view)\b"
+        )
+
+        # ─── Heuristic 1: count distinct verbs in the sentence ────────────
+        # If we see 2+ different action verbs, the request is compound.
+        verb_matches = verb_pattern.findall(msg)
+        distinct_verbs = {v for v in verb_matches}
+        if len(distinct_verbs) >= 2:
+            return True
+
+        # ─── Heuristic 2: connector word between verb-containing chunks ───
+        # Splits on connectors and checks if multiple chunks have verbs.
+        connector_split = re.split(
+            r"\b(?:and then|then|after that|after|, then|, and| and |; |, )\b",
+            msg,
+        )
+        verb_chunks = sum(1 for c in connector_split if verb_pattern.search(c or ""))
+        if verb_chunks >= 2:
+            return True
+
+        # ─── Heuristic 3: multiple distinct tool patterns at distinct spans
         hits: list[tuple[int, int, str]] = []
         for entry in _TOOL_PATTERNS:
             pattern, tool_name = entry[0], entry[1]
             for m in pattern.finditer(msg):
                 hits.append((m.start(), m.end(), tool_name))
-
-        # De-dupe overlapping spans of the SAME tool
-        unique_tools_at_distinct_spans = set()
-        for start, _, tool in hits:
-            unique_tools_at_distinct_spans.add((tool, start // 5))  # bucket by ~5-char span
+        # Bucket spans so we don't double-count overlapping regex hits
+        unique_tools_at_distinct_spans = {(t, start // 8) for start, _, t in hits}
         if len({t for t, _ in unique_tools_at_distinct_spans}) >= 2:
             return True
-
-        # Look for explicit sequential connectors
-        if re.search(r"\b(and then|then|, then|, and|; )\b", msg):
-            # Plus at least one action verb on each side
-            verbs = r"\b(open|launch|start|click|type|write|search|find|go to|navigate|press|scroll|select|copy|paste|save|delete|create|read|send)\b"
-            chunks = re.split(r"\b(?:and then|then|, then|, and|; )\b", msg)
-            verb_chunks = sum(1 for c in chunks if re.search(verbs, c))
-            if verb_chunks >= 2:
-                return True
 
         return False
 
@@ -723,18 +805,38 @@ class AgentLoop:
 
         Tolerates both old (pattern, name) and new (pattern, name, score)
         tuple shapes in _TOOL_PATTERNS for backward compatibility.
+
+        Includes guards against obviously-wrong matches: e.g. send_msg should
+        not be picked unless the input actually has messaging keywords like
+        "send", "message", "text to", "tell", "whatsapp", "telegram".
         """
+        import re
         from core.orchestrator import _TOOL_PATTERNS
 
         msg_lower = text.lower().strip()
         for entry in _TOOL_PATTERNS:
-            # Handle both 2-tuple (legacy) and 3-tuple (scored) shapes
             pattern = entry[0]
             tool_name = entry[1]
             m = pattern.search(msg_lower)
-            if m:
-                tool_args = orchestrator._build_tool_args(tool_name, text, m)
-                return tool_name, tool_args
+            if not m:
+                continue
+
+            # ── Guard: validate the match is contextually correct ─────────
+            # send_msg requires messaging-intent keywords; "read text on
+            # screen" should NEVER route to send_msg even if a regex matches.
+            if tool_name in ("send_msg", "send_email"):
+                msg_keywords = re.compile(
+                    r"\b(send|message|msg|text|tell|whatsapp|telegram|email|"
+                    r"reply|chat|to\s+\w+)\b"
+                )
+                screen_keywords = re.compile(r"\b(screen|visible|on display|what(?:'s| is) on)\b")
+                if not msg_keywords.search(msg_lower):
+                    continue  # No messaging intent → skip this match
+                if screen_keywords.search(msg_lower):
+                    continue  # Screen-related query, not a message
+
+            tool_args = orchestrator._build_tool_args(tool_name, text, m)
+            return tool_name, tool_args
 
         # Try capability match
         cap_match = orchestrator._resolve_capability_match(text)
@@ -785,6 +887,22 @@ class AgentLoop:
             "- ONE action per step. Never combine.\n"
             "- 2-6 steps total.\n"
             "- Output ONLY the JSON array. No markdown fences, no prose.\n"
+            "\n"
+            "CRITICAL TOOL-PICKING RULES — common mistakes to avoid:\n"
+            "- \"read text on screen\" / \"what does the screen say\" → use read_screen_text, NEVER send_msg\n"
+            "- \"describe the screen\" / \"what's visible\" → use screen_scan, NEVER send_msg\n"
+            "- \"speak X\" / \"say X aloud\" → use speak_locally, NEVER send_msg\n"
+            "- send_msg is ONLY for messaging contacts on WhatsApp/Telegram\n"
+            "- Never put words from the user's query (like \"currently\", \"now\") as a contact name\n"
+            "- For navigation inside a folder/app, use key_press (Enter, Tab, arrows) — NOT screen_click\n"
+            "- For \"compute X\" / \"calculate X\" — open_app calculator FIRST, then type_text each part separately\n"
+            "\n"
+            "Example for \"open calculator and compute 23 times 7\":\n"
+            '[{"description":"Open Calculator","tool":"open_app","args":{"app":"calculator"}},'
+            '{"description":"Type 23","tool":"type_text","args":{"text":"23"}},'
+            '{"description":"Press multiply","tool":"key_press","args":{"key":"*"}},'
+            '{"description":"Type 7","tool":"type_text","args":{"text":"7"}},'
+            '{"description":"Press equals","tool":"key_press","args":{"key":"enter"}}]\n'
         )
 
         reply_text = self._ask_planner_llm(planner_system, planner_prompt)
@@ -794,23 +912,43 @@ class AgentLoop:
             return ExecutionPlan(goal=text, steps=[ExecutionStep(description=text)])
 
         try:
-            # Strip markdown code fences if present
+            # ── Robust JSON extraction ────────────────────────────────────
+            # LLMs commonly wrap output in ```json fences and occasionally
+            # mix quote styles. Strip both, then locate the JSON array/object
+            # by bracket matching as a last resort.
             clean = reply_text.strip()
+
+            # Strip markdown fence (with or without language tag)
             if clean.startswith("```"):
-                # Remove opening fence (possibly with language tag) and closing fence
-                lines = clean.split("\n")
-                if len(lines) >= 2:
-                    clean = "\n".join(lines[1:])
+                # Drop the first line entirely (```json, ```, ```python, etc.)
+                clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
                 if clean.rstrip().endswith("```"):
                     clean = clean.rstrip()[:-3]
                 clean = clean.strip()
 
-            # Sometimes models output {"steps": [...]} instead of bare array
-            if clean.startswith("{"):
-                parsed = json.loads(clean)
-                steps_data = parsed.get("steps") or parsed.get("plan") or []
-            else:
-                steps_data = json.loads(clean)
+            # Salvage broken single/double quote mixes the LLM emits, e.g.
+            # ' "key": "*\' ' should be ' "key": "*" '
+            import re as _re
+            clean = _re.sub(r"'\}", '"}', clean)
+            clean = _re.sub(r"'\,", '",', clean)
+            clean = _re.sub(r"'\]", '"]', clean)
+
+            # If parse still fails, extract the largest [...] block
+            try:
+                if clean.startswith("{"):
+                    parsed = json.loads(clean)
+                    steps_data = parsed.get("steps") or parsed.get("plan") or []
+                else:
+                    steps_data = json.loads(clean)
+            except json.JSONDecodeError:
+                # Last resort: find first '[' to matching ']' and try that
+                start = clean.find("[")
+                end = clean.rfind("]")
+                if start >= 0 and end > start:
+                    salvaged = clean[start:end + 1]
+                    steps_data = json.loads(salvaged)
+                else:
+                    raise
 
             if not isinstance(steps_data, list) or not steps_data:
                 logger.warning("AI decomposition returned non-list/empty: %r", reply_text[:200])

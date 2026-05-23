@@ -93,6 +93,12 @@ class Executor:
             "get_nasa": self._web_intel("get_nasa", "nasa"),
             # ── Screen / system (canonical names) ─────────────────
             "screen_scan": self._scan_screen,      # canonical (was scan_screen)
+            "read_screen_text": self._read_screen_text,   # Tesseract OCR
+            "ocr_screen": self._read_screen_text,         # alias
+            "screen_ocr": self._read_screen_text,         # alias
+            "speak_locally": self._speak_locally,         # Piper TTS
+            "local_tts": self._speak_locally,             # alias
+            "say_aloud": self._speak_locally,             # alias
             "system_info": self._system_info,
             "lock_screen": self._lock_screen,
             "set_volume": self._set_volume,
@@ -1155,6 +1161,48 @@ class Executor:
         # Trigger scan through the app — it's async, so we just kick it off
         self.jarvis.scan_screen()
         return ToolResult(success=True, output="Screen scan initiated.")
+
+    def _read_screen_text(self, args: dict) -> ToolResult:
+        """Tesseract OCR of current screen — fast, no LLM needed."""
+        try:
+            import requests
+            r = requests.get("http://127.0.0.1:8765/api/screen/ocr", timeout=15)
+            if r.status_code != 200:
+                return ToolResult(success=False, error=f"OCR HTTP {r.status_code}")
+            d = r.json()
+            if not d.get("success"):
+                return ToolResult(success=False, error=d.get("error", "OCR failed"))
+            text = (d.get("text") or "").strip()
+            return ToolResult(
+                success=True,
+                output=f"Screen text ({d.get('char_count', 0)} chars):\n\n{text[:2000]}",
+            )
+        except Exception as e:
+            return ToolResult(success=False, error=f"OCR call failed: {e}")
+
+    def _speak_locally(self, args: dict) -> ToolResult:
+        """Local Piper TTS — speaks the given text aloud."""
+        text = (args.get("text") or "").strip()
+        if not text:
+            return ToolResult(success=False, error="No text provided to speak.")
+        try:
+            import requests
+            r = requests.post(
+                "http://127.0.0.1:8765/api/tts/speak",
+                json={"text": text, "play": True},
+                timeout=30,
+            )
+            if r.status_code != 200:
+                return ToolResult(success=False, error=f"TTS HTTP {r.status_code}")
+            d = r.json()
+            if not d.get("success"):
+                return ToolResult(success=False, error=d.get("error", "TTS failed"))
+            return ToolResult(
+                success=True,
+                output=f"Spoke {len(text)} chars via local Piper ({d.get('latency_ms')}ms).",
+            )
+        except Exception as e:
+            return ToolResult(success=False, error=f"TTS call failed: {e}")
 
     def _system_info(self, args: dict) -> ToolResult:
         auto = self.jarvis.plugin_manager.plugins.get("automation")

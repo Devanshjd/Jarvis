@@ -46,6 +46,68 @@ ALLOWED_DIRS = {
     "core",
 }
 
+# Extensions where saving raw markdown would produce a broken file.
+# When we detect markdown wrapping for these extensions, extract just
+# the code from inside the fence.
+_CODE_FILE_EXTENSIONS = {
+    ".py", ".pyi", ".pyw",
+    ".js", ".jsx", ".mjs", ".cjs",
+    ".ts", ".tsx",
+    ".go", ".rs",
+    ".c", ".h", ".cpp", ".hpp", ".cc", ".hh",
+    ".java", ".kt", ".kts", ".scala",
+    ".swift",
+    ".rb",
+    ".php",
+    ".sh", ".bash", ".zsh", ".fish",
+    ".ps1", ".psm1",
+    ".sql",
+    ".html", ".css", ".scss", ".less",
+    ".vue", ".svelte",
+    ".lua", ".pl", ".dart",
+    ".yaml", ".yml", ".toml", ".ini",
+    ".json", ".xml",
+}
+
+
+def _strip_markdown_for_code_file(filepath: str, content: str) -> str:
+    """If filepath is a code file AND content looks like markdown with a
+    fenced code block, extract just the code. Otherwise return unchanged.
+
+    Catches the common LLM failure mode where the brain emits a markdown
+    explanation with ```python ... ``` fences and the raw text gets saved
+    into a .py file (which then won't parse).
+    """
+    import re as _re
+    import os as _os
+
+    if not content or "```" not in content:
+        return content
+
+    ext = _os.path.splitext(filepath)[1].lower()
+    if ext not in _CODE_FILE_EXTENSIONS:
+        return content
+
+    # Look for the largest fenced block (could be ```python, ```js, etc., or bare ```)
+    fence_re = _re.compile(r"```(?:[a-zA-Z0-9_+-]*)\s*\n(.*?)\n```", _re.DOTALL)
+    matches = fence_re.findall(content)
+    if not matches:
+        return content
+
+    # Use the longest fenced block (most likely the actual code)
+    code = max(matches, key=len).rstrip() + "\n"
+
+    # Sanity check: ensure the extracted code is non-trivial (>20 chars)
+    if len(code.strip()) < 20:
+        return content
+
+    logger.info(
+        "Stripped markdown wrapper from code file %s "
+        "(saved %d chars of prose, kept %d chars of code)",
+        filepath, len(content) - len(code), len(code),
+    )
+    return code
+
 
 class SelfModificationEngine:
     """
@@ -115,6 +177,12 @@ class SelfModificationEngine:
         """
         Write or create a file. Backs up existing files first.
 
+        For code-file extensions (.py, .js, .ts, .go, .rs, .c, .cpp, .h, .sh,
+        .rb, .java, .kt, .swift, etc.) we auto-strip surrounding markdown
+        prose + fenced code blocks. This prevents the bug where the LLM
+        emits a markdown explanation with ```python fences and the raw
+        markdown gets saved into a .py file (invalid syntax).
+
         Returns:
             {"success": bool, "message": str, "backup": str or None}
         """
@@ -124,6 +192,12 @@ class SelfModificationEngine:
 
         full_path = self._to_absolute(filepath)
         backup_path = None
+
+        # ── Markdown salvage for code files ───────────────────────────
+        # If the target is a recognized code file AND the content has
+        # markdown fences, extract just the code from the fence so we
+        # never save broken markdown into a .py / .js / etc.
+        content = _strip_markdown_for_code_file(filepath, content)
 
         try:
             # Backup existing file

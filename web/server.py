@@ -689,7 +689,7 @@ def api_agent_execute(payload: AgentExecuteRequest):
                     "tool": s.tool_name,
                     "mode": s.execution_mode,
                     "attempts": s.attempts,
-                    "result": (s.result or "")[:200],
+                    "result": (s.result or "")[:8000],   # bumped from 200 — research reports are big
                     "error": (s.error or "")[:200],
                 }
                 for s in plan.steps

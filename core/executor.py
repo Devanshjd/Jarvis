@@ -38,6 +38,91 @@ _ARG_ALIASES: dict[str, dict[str, str]] = {
 }
 
 
+def _synthesize_grounded_report(
+    jarvis,
+    query: str,
+    preamble: str,
+    web_summary: str,
+    sources: list,
+) -> str:
+    """Use the local LLM (Ollama) to weave project context + web findings
+    into a single grounded research report.
+
+    The preamble (project decisions from KG) is treated as ground truth.
+    The model is instructed NOT to contradict locked decisions and to
+    reference them by name where relevant. If the LLM call fails, returns
+    empty string so the caller can fall back to the plain summary.
+    """
+    try:
+        import requests
+        from pathlib import Path
+        import json as _json
+
+        # Pick the user's currently-configured Ollama model
+        cfg_path = Path.home() / ".jarvis_config.json"
+        model = "gemma3:4b"  # safe default
+        if cfg_path.exists():
+            try:
+                cfg = _json.loads(cfg_path.read_text(encoding="utf-8"))
+                model = (cfg.get("ollama") or {}).get("model") or model
+            except Exception:
+                pass
+
+        system_prompt = (
+            "You are JARVIS's research analyst. The user has asked you to "
+            "research a topic. You have been given (1) PROJECT CONTEXT "
+            "containing locked decisions about the user's project, and "
+            "(2) WEB FINDINGS from a fresh web search.\n\n"
+            "Your job: synthesize a clear, structured research report that:\n"
+            "- Uses the PROJECT CONTEXT as ground truth (do NOT contradict it)\n"
+            "- References project decisions by name when relevant\n"
+            "- Adds NEW information from WEB FINDINGS where it complements "
+            "  (not contradicts) project context\n"
+            "- Flags any web findings that contradict project decisions, but "
+            "  defaults to project context\n"
+            "- Honestly says 'context is silent on this' rather than guessing\n"
+            "- Output proper markdown with ## Sections, tables where useful\n"
+            "- Cite web sources at the end as a list of URLs\n\n"
+            "NEVER make up part numbers, prices, vendors, or technical specs. "
+            "If the project context lists them, use those values exactly."
+        )
+
+        user_prompt = (
+            f"QUERY: {query}\n\n"
+            f"{preamble}\n\n"
+            f"═══ WEB FINDINGS (from fresh web search) ═══\n"
+            f"{web_summary[:3000]}\n\n"
+            f"Sources cited from web search:\n"
+            + "\n".join(f"  - {s}" for s in (sources or [])[:8])
+            + "\n\nProduce the research report now."
+        )
+
+        r = requests.post(
+            "http://127.0.0.1:11434/api/chat",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "stream": False,
+                "keep_alive": "0s",
+                "options": {"temperature": 0.3, "num_predict": 1500},
+            },
+            timeout=120,
+        )
+        if r.status_code != 200:
+            return ""
+        msg = r.json().get("message", {})
+        return (msg.get("content") or "").strip()
+    except Exception as e:
+        import logging
+        logging.getLogger("jarvis.executor").warning(
+            "Grounded report synthesis failed: %s", e,
+        )
+        return ""
+
+
 def _normalize_arg_aliases(tool_name: str, args: dict) -> dict:
     """Translate common LLM-generated arg name variations to schema names.
     Non-aliased keys pass through unchanged.
@@ -918,10 +1003,45 @@ class Executor:
                 if method_name == "research":
                     query = args.get("query", args.get("topic", ""))
                     depth = args.get("depth", "quick")
+
+                    # ── GROUND THE RESEARCH IN PROJECT CONTEXT ────────────
+                    # Before web research runs, pull relevant KG entities
+                    # (project decisions, BOM items, constraints, goals) and
+                    # prepend them as a preamble. The synthesized output then
+                    # references our actual decisions instead of generic
+                    # training-knowledge guesses (like "Snapdragon XR1" EOL).
+                    project_preamble = ""
+                    try:
+                        from core.project_context import build_preamble
+                        kg = getattr(self.jarvis, "knowledge_graph", None)
+                        project_preamble = build_preamble(
+                            query=query, max_entities=10, knowledge_graph=kg,
+                        )
+                    except Exception:
+                        pass  # graceful — research still runs if preamble fails
+
                     result = researcher.research(query, depth=depth)
-                    output = f"{result.summary}\n\nSources: {', '.join(result.references[:5])}"
-                    if result.facts_extracted:
-                        output += f"\n\nFacts learned: {len(result.facts_extracted)}"
+
+                    # ── SYNTHESIZE GROUNDED REPORT VIA LOCAL LLM ──────────
+                    # If we have project context AND a brain available, use
+                    # the LLM to weave research findings + our decisions into
+                    # a single report that explicitly references our context.
+                    output = ""
+                    if project_preamble:
+                        output = _synthesize_grounded_report(
+                            jarvis=self.jarvis,
+                            query=query,
+                            preamble=project_preamble,
+                            web_summary=result.summary,
+                            sources=result.references[:5],
+                        )
+
+                    if not output:
+                        # Fallback to plain summary if grounded synthesis failed
+                        output = f"{result.summary}\n\nSources: {', '.join(result.references[:5])}"
+                        if result.facts_extracted:
+                            output += f"\n\nFacts learned: {len(result.facts_extracted)}"
+
                     return ToolResult(success=True, output=output)
 
                 elif method_name == "research_cve":

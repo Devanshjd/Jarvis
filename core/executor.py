@@ -184,6 +184,20 @@ class Executor:
             "speak_locally": self._speak_locally,         # Piper TTS
             "local_tts": self._speak_locally,             # alias
             "say_aloud": self._speak_locally,             # alias
+            # ── Office documents (real .docx / .xlsx / .pptx, NOT markdown) ──
+            "write_docx": self._write_docx,
+            "create_word_file": self._write_docx,
+            "create_docx": self._write_docx,
+            "save_as_docx": self._write_docx,
+            "write_xlsx": self._write_xlsx,
+            "create_excel_file": self._write_xlsx,
+            "create_xlsx": self._write_xlsx,
+            "save_as_xlsx": self._write_xlsx,
+            "write_pptx": self._write_pptx,
+            "create_powerpoint": self._write_pptx,
+            "create_pptx": self._write_pptx,
+            "save_as_pptx": self._write_pptx,
+            "create_slides": self._write_pptx,
             "system_info": self._system_info,
             "lock_screen": self._lock_screen,
             "set_volume": self._set_volume,
@@ -1356,6 +1370,69 @@ class Executor:
             )
         except Exception as e:
             return ToolResult(success=False, error=f"TTS call failed: {e}")
+
+    # ── OFFICE DOCUMENT WRITERS — real .docx / .xlsx / .pptx ─────────────
+    # Fixes the long-standing bug where "create a Word file" produced .md
+    # files. Each writer accepts markdown content and converts to native
+    # Office formatting (Heading 1, bullet lists, bold, etc).
+
+    def _write_docx(self, args: dict) -> ToolResult:
+        """Create a real Microsoft Word .docx file (not markdown)."""
+        try:
+            from core.office_writer import write_docx
+        except Exception as e:
+            return ToolResult(success=False, error=f"office_writer import failed: {e}")
+        content = args.get("content") or args.get("text") or ""
+        filename = args.get("filename") or args.get("path") or args.get("name") or "jarvis_document.docx"
+        if not content:
+            return ToolResult(success=False, error="No content provided to write into the Word document.")
+        result = write_docx(content=content, filename=filename)
+        if result.get("success"):
+            return ToolResult(
+                success=True,
+                output=(f"Created Word document: {result['path']}\n"
+                        f"  {result['paragraphs']} paragraphs, {result['size_bytes']} bytes"),
+            )
+        return ToolResult(success=False, error=result.get("error", "Failed to create Word file"))
+
+    def _write_xlsx(self, args: dict) -> ToolResult:
+        """Create a real Microsoft Excel .xlsx file."""
+        try:
+            from core.office_writer import write_xlsx
+        except Exception as e:
+            return ToolResult(success=False, error=f"office_writer import failed: {e}")
+        content = args.get("content") or args.get("text") or args.get("data") or ""
+        filename = args.get("filename") or args.get("path") or args.get("name") or "jarvis_sheet.xlsx"
+        sheet_name = args.get("sheet_name") or args.get("sheet") or "Sheet1"
+        if not content:
+            return ToolResult(success=False, error="No content provided to write into the Excel file.")
+        result = write_xlsx(content=content, filename=filename, sheet_name=sheet_name)
+        if result.get("success"):
+            return ToolResult(
+                success=True,
+                output=(f"Created Excel file: {result['path']}\n"
+                        f"  {result['rows']} rows × {result['cols']} cols, {result['size_bytes']} bytes"),
+            )
+        return ToolResult(success=False, error=result.get("error", "Failed to create Excel file"))
+
+    def _write_pptx(self, args: dict) -> ToolResult:
+        """Create a real Microsoft PowerPoint .pptx file."""
+        try:
+            from core.office_writer import write_pptx
+        except Exception as e:
+            return ToolResult(success=False, error=f"office_writer import failed: {e}")
+        content = args.get("content") or args.get("text") or ""
+        filename = args.get("filename") or args.get("path") or args.get("name") or "jarvis_slides.pptx"
+        if not content:
+            return ToolResult(success=False, error="No content provided to write into the PowerPoint file.")
+        result = write_pptx(content=content, filename=filename)
+        if result.get("success"):
+            return ToolResult(
+                success=True,
+                output=(f"Created PowerPoint file: {result['path']}\n"
+                        f"  {result['slides']} slides, {result['size_bytes']} bytes"),
+            )
+        return ToolResult(success=False, error=result.get("error", "Failed to create PowerPoint file"))
 
     def _system_info(self, args: dict) -> ToolResult:
         auto = self.jarvis.plugin_manager.plugins.get("automation")

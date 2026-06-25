@@ -162,6 +162,15 @@ _BASIC_FACTS_RE = re.compile(
 # Higher score wins when multiple patterns match.
 # This replaces the old first-match system where ordering was fragile.
 _TOOL_PATTERNS = [
+    # ── Office document creation (HIGH specificity: 11 — beats generic file/app) ──
+    # Distinguishes "create Word file" from "open word app" — must specify file/doc
+    (re.compile(r"\b(?:create|make|write|generate|save|export)\s+(?:a\s+|an\s+|the\s+)?(?:new\s+)?(?:word|docx)\s+(?:file|doc|document|report|letter)\b", re.I), "write_docx", 11),
+    (re.compile(r"\b(?:create|make|write|generate|save|export)\s+(?:a\s+|an\s+)?(?:word|docx)\b", re.I), "write_docx", 10),
+    (re.compile(r"\b(?:save|export|put|write)\s+(?:this|that|it|the\s+\w+)\s+(?:as|to|into)\s+(?:a\s+)?(?:word|docx)\b", re.I), "write_docx", 11),
+    (re.compile(r"\b(?:create|make|write|generate)\s+(?:a\s+|an\s+)?(?:excel|xlsx|spreadsheet)\b", re.I), "write_xlsx", 11),
+    (re.compile(r"\b(?:save|export)\s+(?:this|that|it)\s+(?:as|to)\s+(?:a\s+)?(?:excel|xlsx|spreadsheet)\b", re.I), "write_xlsx", 11),
+    (re.compile(r"\b(?:create|make|write|generate|build)\s+(?:a\s+|an\s+)?(?:powerpoint|pptx|presentation|slide\s*deck|slides)\b", re.I), "write_pptx", 11),
+    (re.compile(r"\b(?:save|export)\s+(?:this|that|it)\s+(?:as|to)\s+(?:a\s+)?(?:powerpoint|pptx|presentation|slides)\b", re.I), "write_pptx", 11),
     # ── Platform-specific searches (high specificity: 10) ──
     (re.compile(r"\b(?:open|play|watch|find|search)\s+.+\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b", re.I), "web_search", 10),
     (re.compile(r"\b(?:youtube|spotify)\s+.+", re.I), "web_search", 9),
@@ -1858,6 +1867,51 @@ class TaskOrchestrator:
             query = m.group(1).strip() if m else text.strip()
             depth = "deep" if re.search(r"\b(?:deep|thorough|detailed|comprehensive)\b", msg_lower) else "quick"
             return {"query": query, "depth": depth}
+
+        elif tool_name in ("write_docx", "write_xlsx", "write_pptx"):
+            # Try to extract filename and content from the prompt.
+            # If the user just said "create a word file about X" with no
+            # explicit content, we pass the topic as content and let the
+            # downstream LLM synthesizer expand it (the AI decomposer
+            # in agent_loop will fill in the body).
+            ext_map = {"write_docx": "docx", "write_xlsx": "xlsx", "write_pptx": "pptx"}
+            ext = ext_map[tool_name]
+            # Look for explicit filename ("called X", "named X", "as X.docx")
+            name_match = re.search(
+                r"(?:called|named|titled|as|to)\s+['\"]?([\w\-\. ]+\.\w+|[\w\-]+)['\"]?",
+                text, re.I,
+            )
+            filename = ""
+            if name_match:
+                filename = name_match.group(1).strip()
+                if not filename.lower().endswith(f".{ext}"):
+                    filename = filename.rsplit(".", 1)[0] + f".{ext}"
+            else:
+                # Look for topic to use as filename
+                topic_match = re.search(
+                    r"(?:about|on|for|covering)\s+(.+?)(?:\s+(?:to|as|called|named|in|on)\b|$)",
+                    text, re.I,
+                )
+                if topic_match:
+                    topic = re.sub(r"[^\w\s\-]", "", topic_match.group(1)).strip().replace(" ", "_")[:50]
+                    filename = f"{topic}.{ext}"
+
+            # Content: pull anything in quotes or after "saying" / "with"
+            content_match = re.search(
+                r"(?:saying|with content|containing|that says|with the text)\s+['\"]?(.+?)['\"]?$",
+                text, re.I,
+            )
+            if content_match:
+                content = content_match.group(1).strip()
+            else:
+                # Pass the whole request as a topic — the AI synthesizer
+                # (or planner) will expand it into proper document content
+                content = text
+
+            args = {"content": content}
+            if filename:
+                args["filename"] = filename
+            return args
 
         elif tool_name == "research_cve":
             m = re.search(r"(CVE-\d{4}-\d+)", text, re.I)

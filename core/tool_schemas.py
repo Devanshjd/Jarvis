@@ -1114,7 +1114,7 @@ TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "write_file",
-        "description": "Write content to a file (create or overwrite).",
+        "description": "Write content to a generic text/markdown file. Use this for .txt, .md, .py, .json, etc. — NOT for Word/Excel/PowerPoint (use write_docx / write_xlsx / write_pptx instead).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -1125,6 +1125,72 @@ TOOL_SCHEMAS: list[dict] = [
         },
         "aliases": [],
         "layer": "electron",
+        "category": "file",
+        "verify": False,
+    },
+    {
+        "name": "write_docx",
+        "description": (
+            "Create a real Microsoft Word (.docx) document — NOT a markdown file. "
+            "Use this whenever the user asks for a 'Word file', 'Word document', 'docx', "
+            "'document', 'report', 'letter', or any prose file they'll open in Word. "
+            "Content can be markdown — headings (#), bold (**), bullets (-), code blocks "
+            "will be converted to real Word formatting. "
+            "Default save location is the user's Desktop if filename has no directory."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Document body — supports markdown formatting."},
+                "filename": {"type": "string", "description": "Output filename (.docx auto-added). E.g. 'meeting_notes.docx' or absolute path. If empty, saves as 'jarvis_document.docx' on Desktop."},
+            },
+            "required": ["content"],
+        },
+        "aliases": ["create_word_file", "create_docx", "save_as_docx"],
+        "layer": "python",
+        "category": "file",
+        "verify": False,
+    },
+    {
+        "name": "write_xlsx",
+        "description": (
+            "Create a real Microsoft Excel (.xlsx) spreadsheet. Use when the user asks "
+            "for an 'Excel file', 'spreadsheet', 'xlsx', 'table', or anything tabular. "
+            "Content can be CSV, TSV, or markdown table — will be parsed into proper cells. "
+            "Default save location is the user's Desktop."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Tabular content (CSV, TSV, or markdown table)."},
+                "filename": {"type": "string", "description": "Output filename (.xlsx auto-added)."},
+                "sheet_name": {"type": "string", "description": "Worksheet name (default 'Sheet1')."},
+            },
+            "required": ["content"],
+        },
+        "aliases": ["create_excel_file", "create_xlsx", "save_as_xlsx"],
+        "layer": "python",
+        "category": "file",
+        "verify": False,
+    },
+    {
+        "name": "write_pptx",
+        "description": (
+            "Create a real Microsoft PowerPoint (.pptx) presentation. Use when the user "
+            "asks for 'slides', 'presentation', 'pptx', 'PowerPoint', or 'deck'. "
+            "Each '# Heading' becomes a new slide; bullets become bullet points. "
+            "Default save location is the user's Desktop."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "Markdown content — each '# Heading' is a slide title, bullets are bullet points."},
+                "filename": {"type": "string", "description": "Output filename (.pptx auto-added)."},
+            },
+            "required": ["content"],
+        },
+        "aliases": ["create_powerpoint", "create_pptx", "save_as_pptx", "create_slides"],
+        "layer": "python",
         "category": "file",
         "verify": False,
     },

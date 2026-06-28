@@ -140,11 +140,52 @@ def is_termux() -> bool:
     return "com.termux" in os.environ.get("PREFIX", "") or Path("/data/data/com.termux").exists()
 
 
+def _downscale_jpeg(jpeg_bytes: bytes, max_dim: int = 1280, quality: int = 70) -> bytes:
+    """Resize a JPEG to fit within max_dim on the longest side.
+
+    Flagship phones (Mi 11X = 48MP, recent iPhones = 12-48MP) produce
+    full-resolution JPEGs that are 5-12 MB each. That's wasteful for
+    AI vision (the models downscale internally anyway) and risks hitting
+    WebSocket message size limits. We resize down to 1280px max longest
+    side — about 1080p, ~150-300 KB per frame, plenty for gemma3:4b.
+
+    Falls back to the original bytes if Pillow isn't available.
+    """
+    try:
+        from PIL import Image
+        import io
+    except ImportError:
+        return jpeg_bytes  # Pillow not installed — send full size, rely on WS limit
+
+    try:
+        img = Image.open(io.BytesIO(jpeg_bytes))
+        w, h = img.size
+        max_side = max(w, h)
+        if max_side <= max_dim:
+            # Already small enough — re-encode at target quality to save bandwidth
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, "JPEG", quality=quality, optimize=True)
+            return buf.getvalue()
+        # Resize maintaining aspect ratio
+        scale = max_dim / max_side
+        new_size = (int(w * scale), int(h * scale))
+        img = img.convert("RGB").resize(new_size, Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=quality, optimize=True)
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning("Frame downscale failed (%s) — sending original", e)
+        return jpeg_bytes
+
+
 def capture_frame(camera_id: int = 0, quality: int = 70) -> bytes:
     """Capture a single JPEG frame from the phone camera.
 
     On Termux: uses termux-camera-photo (requires Termux:API app installed).
     On non-Termux (e.g. for local testing on PC): uses cv2 if available.
+
+    Automatically downscales large frames (1280px max longest side) to
+    keep bandwidth + processing latency reasonable.
 
     Returns JPEG bytes, or b'' on failure.
     """
@@ -160,7 +201,9 @@ def capture_frame(camera_id: int = 0, quality: int = 70) -> bytes:
                 return b""
             if not TEMP_FRAME_PATH.exists() or TEMP_FRAME_PATH.stat().st_size < 200:
                 return b""
-            return TEMP_FRAME_PATH.read_bytes()
+            raw = TEMP_FRAME_PATH.read_bytes()
+            # Downscale to keep frames manageable (48MP phone → ~200 KB)
+            return _downscale_jpeg(raw, max_dim=1280, quality=quality)
         except FileNotFoundError:
             logger.error("termux-camera-photo not installed. Run: pkg install termux-api")
             logger.error("Also install the Termux:API APK from F-Droid")
@@ -350,7 +393,7 @@ async def run_session(cfg: dict, state: ClientState) -> None:
     uri = f"ws://{cfg['server_host']}:{cfg['server_port']}"
     logger.info("Connecting to %s ...", uri)
 
-    async with ws_connect(uri, max_size=5 * 1024 * 1024) as ws:
+    async with ws_connect(uri, max_size=20 * 1024 * 1024) as ws:
         state.connected = True
         logger.info("Connected — authenticating")
 

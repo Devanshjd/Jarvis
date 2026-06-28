@@ -64,7 +64,8 @@ HEARTBEAT_INTERVAL = 5.0                 # seconds between pings
 CONNECTION_TIMEOUT = 15.0                # disconnect if no message for this long
 MIN_FRAME_PROCESS_INTERVAL = 0.5         # max 2 vision LLM calls/sec/connection
 MAX_FRAME_BACKLOG = 3                    # drop frames if queue grows past this
-MAX_MESSAGE_BYTES = 5 * 1024 * 1024      # 5 MB cap per message (1080p JPEG = ~500 KB)
+MAX_MESSAGE_BYTES = 20 * 1024 * 1024     # 20 MB cap — accommodates 48MP phone cameras at full JPEG quality
+                                          # (Mi 11X / similar can produce 5-8 MB frames; iPhone Pro models up to 12 MB)
 
 CONFIG_FILE = Path.home() / ".jarvis_config.json"
 

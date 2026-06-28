@@ -471,8 +471,8 @@ async def serve(host: str = "0.0.0.0", port: int = PORT) -> None:
     async with websockets.serve(
         handle_connection, host, port,
         max_size=MAX_MESSAGE_BYTES,
-        ping_interval=20,
-        ping_timeout=20,
+        ping_interval=30,    # bumped from 20 — slow AI inference can block client briefly
+        ping_timeout=60,     # bumped from 20 — give Pi-class clients headroom during heavy work
     ) as server:
         logger.info("Stormbreaker edge_bridge READY — waiting for edge clients")
         await stop_event.wait()

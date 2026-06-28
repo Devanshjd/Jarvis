@@ -303,8 +303,16 @@ async def authenticate(ws, cfg: dict) -> bool:
 
 
 async def receiver_loop(ws, cfg: dict, state: ClientState) -> None:
-    """Process messages coming back from the edge_bridge."""
+    """Process messages coming back from the edge_bridge.
+
+    CRITICAL: audio playback runs in an executor, NEVER inline.
+    Inline play_audio() was blocking this loop for 5-30 seconds while
+    the audio played, preventing WebSocket pong responses, which made
+    the server kill the connection at ping_timeout (20s).
+    """
     speak = bool(cfg.get("speak_responses", True))
+    loop = asyncio.get_running_loop()
+
     async for raw in ws:
         try:
             payload = parse_incoming(raw)
@@ -323,7 +331,9 @@ async def receiver_loop(ws, cfg: dict, state: ClientState) -> None:
             binary_b64 = payload.get("binary_b64", "")
             if binary_b64:
                 wav = base64.b64decode(binary_b64)
-                play_audio(wav)
+                # Fire-and-forget audio playback so we don't block the
+                # event loop (and miss WebSocket pings).
+                asyncio.create_task(loop.run_in_executor(None, play_audio, wav))
         elif ptype == "ack":
             of = data.get("of", "")
             if of == "frame" and data.get("dropped"):
@@ -350,7 +360,8 @@ async def sender_loop(ws, cfg: dict, state: ClientState) -> None:
                 None, capture_frame, camera_id, quality,
             )
             if not jpeg:
-                logger.warning("No frame captured — skipping")
+                logger.warning("⚠️  No frame captured — camera permission denied? "
+                               "Run: termux-camera-photo /tmp/test.jpg")
                 await asyncio.sleep(interval)
                 continue
 
@@ -362,8 +373,9 @@ async def sender_loop(ws, cfg: dict, state: ClientState) -> None:
 
             state.frames_sent += 1
             state.bytes_sent += len(jpeg)
-            logger.debug("Sent frame %d (%d bytes, capture %dms)",
-                         state.frames_sent, len(jpeg),
+            # Promoted from debug to info so user can SEE frames going out
+            logger.info("📸 Sent frame #%d (%d KB, captured in %dms)",
+                         state.frames_sent, len(jpeg) // 1024,
                          int((time.time() - t0) * 1000))
 
             # Sleep the remainder of the interval

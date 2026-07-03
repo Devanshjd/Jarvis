@@ -236,26 +236,52 @@ def record_audio(seconds: int = 4) -> bytes:
     """Record a short audio clip from the phone mic. Returns audio bytes.
 
     On Termux: uses termux-microphone-record (needs Termux:API + mic perm).
-    Records to a temp file for `seconds`, then reads it back.
+    Uses the default AAC encoder (m4a container) — NOT wav, which isn't a
+    valid termux-microphone-record encoder. Whisper/ffmpeg decodes m4a fine.
     """
     if not is_termux():
         return b""
-    audio_path = Path("/data/data/com.termux/files/usr/tmp/stormbreaker_question.wav")
+    # .m4a — termux-microphone-record default encoder is AAC
+    audio_path = Path("/data/data/com.termux/files/usr/tmp/stormbreaker_question.m4a")
     audio_path.parent.mkdir(parents=True, exist_ok=True)
+    # Remove any stale file first
     try:
-        # Start recording (limited to `seconds`)
-        subprocess.run(
-            ["termux-microphone-record", "-f", str(audio_path),
-             "-l", str(seconds), "-e", "wav"],
-            capture_output=True, timeout=seconds + 5,
+        if audio_path.exists():
+            audio_path.unlink()
+    except Exception:
+        pass
+
+    try:
+        # Start recording — returns immediately, records in background.
+        # -l LIMIT auto-stops after LIMIT seconds. No -e (use default AAC).
+        r = subprocess.run(
+            ["termux-microphone-record", "-f", str(audio_path), "-l", str(seconds)],
+            capture_output=True, timeout=10,
         )
-        # termux-microphone-record with -l auto-stops after the limit, but
-        # call stop to be safe
-        time.sleep(seconds + 0.5)
+        if r.returncode != 0:
+            err = r.stderr.decode()[:200]
+            logger.warning("mic record start failed: %s", err)
+            # Common cause: mic permission not granted to Termux:API
+            if "permission" in err.lower():
+                logger.error("Grant Microphone permission: Settings > Apps > Termux:API > Permissions")
+            return b""
+
+        # Wait for the recording to complete (limit + small margin)
+        time.sleep(seconds + 1.0)
+
+        # Explicitly stop in case -l didn't auto-stop
         subprocess.run(["termux-microphone-record", "-q"],
                        capture_output=True, timeout=5)
-        if audio_path.exists() and audio_path.stat().st_size > 200:
-            return audio_path.read_bytes()
+
+        # Give the file a moment to finalize
+        time.sleep(0.3)
+
+        if audio_path.exists() and audio_path.stat().st_size > 500:
+            data = audio_path.read_bytes()
+            logger.info("Recorded %d KB of audio", len(data) // 1024)
+            return data
+        logger.warning("Recorded file too small/missing (%d bytes) — mic may be muted or no permission",
+                       audio_path.stat().st_size if audio_path.exists() else 0)
     except FileNotFoundError:
         logger.error("termux-microphone-record not found. Run: pkg install termux-api")
     except Exception as e:

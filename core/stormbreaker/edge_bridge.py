@@ -200,10 +200,11 @@ def analyze_frame_locally(jpeg_bytes: bytes, prompt: str = "") -> dict:
                 "prompt": question,
                 "images": [img_b64],
                 "stream": False,
-                "keep_alive": "30s",
+                "keep_alive": "5m",     # keep model warm between requests
                 "options": {"temperature": 0.3, "num_predict": 150},
             },
-            timeout=30,
+            timeout=90,                 # bumped from 30 — Ollama can be slow when
+                                         # a query lands while a frame is mid-flight
         )
         if r.status_code == 200:
             text = (r.json().get("response") or "").strip()

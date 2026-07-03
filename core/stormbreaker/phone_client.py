@@ -65,10 +65,13 @@ DEFAULT_CONFIG = {
     "server_port": 8766,
     "client_id": "mi11x-pocket",
     "shared_secret": "REPLACE_WITH_SECRET_FROM_JARVIS_CONFIG",
+    "mode": "passive",           # "passive" = auto-describe on a timer
+                                  # "command" = press Enter to ask a question
     "frame_interval_s": 2.0,
     "camera_id": 0,
     "speak_responses": True,
     "frame_quality": 70,
+    "voice_record_seconds": 4,   # how long to record your question in command mode
     "reconnect_delay_s": 5.0,
     "heartbeat_interval_s": 5.0,
 }
@@ -229,6 +232,37 @@ def capture_frame(camera_id: int = 0, quality: int = 70) -> bytes:
         return b""
 
 
+def record_audio(seconds: int = 4) -> bytes:
+    """Record a short audio clip from the phone mic. Returns audio bytes.
+
+    On Termux: uses termux-microphone-record (needs Termux:API + mic perm).
+    Records to a temp file for `seconds`, then reads it back.
+    """
+    if not is_termux():
+        return b""
+    audio_path = Path("/data/data/com.termux/files/usr/tmp/stormbreaker_question.wav")
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # Start recording (limited to `seconds`)
+        subprocess.run(
+            ["termux-microphone-record", "-f", str(audio_path),
+             "-l", str(seconds), "-e", "wav"],
+            capture_output=True, timeout=seconds + 5,
+        )
+        # termux-microphone-record with -l auto-stops after the limit, but
+        # call stop to be safe
+        time.sleep(seconds + 0.5)
+        subprocess.run(["termux-microphone-record", "-q"],
+                       capture_output=True, timeout=5)
+        if audio_path.exists() and audio_path.stat().st_size > 200:
+            return audio_path.read_bytes()
+    except FileNotFoundError:
+        logger.error("termux-microphone-record not found. Run: pkg install termux-api")
+    except Exception as e:
+        logger.warning("Audio record failed: %s", e)
+    return b""
+
+
 def play_audio(wav_bytes: bytes) -> bool:
     """Play WAV bytes through the phone's audio output (speakers/BT earbuds)."""
     if not wav_bytes:
@@ -327,6 +361,15 @@ async def receiver_loop(ws, cfg: dict, state: ClientState) -> None:
             text = data.get("text", "")
             latency = data.get("latency_ms", 0)
             print(f"\n[ANALYSIS in {latency}ms] {text}\n", flush=True)
+        elif ptype == "answer":
+            question = data.get("question", "")
+            text = data.get("text", "")
+            latency = data.get("latency_ms", 0)
+            print(f"\n❓ You asked: {question}", flush=True)
+            print(f"💬 JARVIS ({latency}ms): {text}\n", flush=True)
+            print("Press ENTER to ask again...", flush=True)
+        elif ptype == "transcript":
+            print(f"\n📝 Heard: {data.get('text','')}\n", flush=True)
         elif ptype == "tts_audio" and speak:
             binary_b64 = payload.get("binary_b64", "")
             if binary_b64:
@@ -400,6 +443,52 @@ async def heartbeat_loop(ws, cfg: dict) -> None:
             return
 
 
+async def command_loop(ws, cfg: dict, state: ClientState) -> None:
+    """Interactive command mode: press Enter -> record question + capture
+    frame -> send as a 'query' -> answer comes back via receiver_loop.
+
+    This is the goggles experience: you ASK, it answers. Silent otherwise.
+    Later (Path B glasses) the Enter trigger becomes a physical button or
+    wake word — the pipeline is identical.
+    """
+    secret = cfg["shared_secret"]
+    camera_id = int(cfg.get("camera_id", 0))
+    quality = int(cfg.get("frame_quality", 70))
+    record_secs = int(cfg.get("voice_record_seconds", 4))
+    loop = asyncio.get_running_loop()
+
+    print("\n" + "=" * 60, flush=True)
+    print(" COMMAND MODE — press ENTER, then speak your question", flush=True)
+    print(" (e.g. 'what am I looking at?', 'read this', 'what colour is this?')", flush=True)
+    print("=" * 60 + "\n", flush=True)
+
+    while True:
+        # Wait for Enter (non-blocking on the event loop)
+        await loop.run_in_executor(None, sys.stdin.readline)
+
+        print(f"🎤 Recording {record_secs}s — speak now...", flush=True)
+        audio = await loop.run_in_executor(None, record_audio, record_secs)
+        print("📸 Capturing frame...", flush=True)
+        jpeg = await loop.run_in_executor(None, capture_frame, camera_id, quality)
+
+        if not jpeg:
+            print("⚠️  No frame captured — check camera permission", flush=True)
+            continue
+
+        data = {"speak": True}
+        if audio:
+            data["audio_b64"] = base64.b64encode(audio).decode()
+        else:
+            print("⚠️  No audio recorded — asking default 'what am I looking at?'", flush=True)
+            data["question"] = "What am I looking at?"
+
+        print("🧠 Asking JARVIS...", flush=True)
+        try:
+            await send_envelope(ws, secret, "query", data, binary=jpeg)
+        except ConnectionClosed:
+            return
+
+
 async def run_session(cfg: dict, state: ClientState) -> None:
     """One full WebSocket session: connect, auth, run loops until disconnect."""
     uri = f"ws://{cfg['server_host']}:{cfg['server_port']}"
@@ -412,10 +501,16 @@ async def run_session(cfg: dict, state: ClientState) -> None:
         if not await authenticate(ws, cfg):
             return
 
-        # Spawn three concurrent loops
+        # Receiver + heartbeat always run. The third loop depends on mode:
+        #   passive → sender_loop (auto-describe every N seconds)
+        #   command → command_loop (press Enter to ask a question)
+        mode = str(cfg.get("mode", "passive")).lower()
+        third_loop = command_loop if mode == "command" else sender_loop
+        logger.info("Mode: %s", mode.upper())
+
         tasks = [
             asyncio.create_task(receiver_loop(ws, cfg, state)),
-            asyncio.create_task(sender_loop(ws, cfg, state)),
+            asyncio.create_task(third_loop(ws, cfg, state)),
             asyncio.create_task(heartbeat_loop(ws, cfg)),
         ]
         try:

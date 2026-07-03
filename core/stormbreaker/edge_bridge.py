@@ -218,6 +218,40 @@ def analyze_frame_locally(jpeg_bytes: bytes, prompt: str = "") -> dict:
 _tts_backend_down_until = 0.0
 
 
+def transcribe_audio(audio_bytes: bytes) -> str:
+    """Send audio to JARVIS's local Whisper STT endpoint. Returns text."""
+    try:
+        b64 = base64.b64encode(audio_bytes).decode()
+        r = requests.post(
+            f"{JARVIS_REST_BASE}/api/stt/transcribe",
+            json={"audio_base64": b64, "language": "en"},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            d = r.json()
+            if d.get("success"):
+                return (d.get("text") or "").strip()
+    except Exception as e:
+        logger.warning("STT failed: %s", e)
+    return ""
+
+
+def answer_visual_question(jpeg_bytes: bytes, question: str) -> dict:
+    """Answer a specific question about an image using local vision LLM.
+
+    Unlike analyze_frame_locally (which gives a generic description), this
+    answers the USER'S question — 'what color is the car?', 'read the sign',
+    'is anyone in the room?'. The interactive goggles experience.
+    """
+    prompt = question.strip() or "Describe what you see."
+    # Frame the prompt so the model answers directly + concisely (spoken aloud)
+    framed = (
+        f"Answer this question about the image directly and concisely, "
+        f"in one or two spoken sentences: {prompt}"
+    )
+    return analyze_frame_locally(jpeg_bytes, framed)
+
+
 def synthesize_speech(text: str) -> bytes:
     """Call JARVIS's /api/tts/speak to get WAV bytes of synthesized speech.
 
@@ -324,10 +358,19 @@ async def handle_message(conn: EdgeConnection, raw: str | bytes) -> None:
         # TODO v1: trigger JARVIS skill based on gesture
         return
 
-    # ── audio chunk (STT in v1+) ─────────────────────────────────────
+    # ── audio chunk (standalone STT) ─────────────────────────────────
     if msg.type == "audio":
-        # v0: just acknowledge. STT pipeline lands in v1.
-        await send_ack(conn, "audio", {"bytes": len(msg.binary)})
+        # Transcribe and send back the text
+        loop = asyncio.get_running_loop()
+        text = await loop.run_in_executor(None, transcribe_audio, msg.binary)
+        await send_message(conn, "transcript", {"text": text})
+        return
+
+    # ── interactive query: frame + spoken question → answer ──────────
+    # This is the real goggles experience: user asks a question (audio),
+    # a frame is attached, we transcribe -> answer about the image -> speak.
+    if msg.type == "query":
+        await handle_query(conn, msg)
         return
 
     # ── status update ────────────────────────────────────────────────
@@ -392,6 +435,62 @@ async def handle_frame(conn: EdgeConnection, msg: IncomingMessage) -> None:
         wav_bytes = await loop.run_in_executor(None, synthesize_speech, text)
         if wav_bytes:
             await send_message(conn, "tts_audio", {"format": "wav"}, binary=wav_bytes)
+
+
+async def handle_query(conn: EdgeConnection, msg: IncomingMessage) -> None:
+    """Interactive Q&A: user's spoken question + a camera frame → answer.
+
+    The message carries:
+      - binary: the JPEG frame (what the user is looking at)
+      - data.audio_b64: base64 audio of the spoken question (optional)
+      - data.question: text question (optional — if voice not used)
+
+    Flow: transcribe audio (if present) → answer the question about the
+    image via vision LLM → synthesize speech → ship text + audio back.
+    """
+    loop = asyncio.get_running_loop()
+
+    jpeg = msg.binary
+    if not jpeg or len(jpeg) < 200:
+        await send_error(conn, "bad_query", "no frame attached to query")
+        return
+
+    # Get the question — from attached audio or from text field
+    question = (msg.data.get("question") or "").strip()
+    audio_b64 = msg.data.get("audio_b64", "")
+    if audio_b64 and not question:
+        try:
+            audio_bytes = base64.b64decode(audio_b64)
+            question = await loop.run_in_executor(None, transcribe_audio, audio_bytes)
+            logger.info("Query transcribed: %r", question)
+        except Exception as e:
+            logger.warning("Query audio decode failed: %s", e)
+
+    if not question:
+        question = "What am I looking at?"
+
+    # Answer the question about the image
+    t0 = time.time()
+    result = await loop.run_in_executor(
+        None, answer_visual_question, jpeg, question,
+    )
+    if not result.get("success"):
+        await send_error(conn, "query_failed", result.get("error", "unknown"))
+        return
+
+    answer = result.get("text", "")
+    logger.info("Query answered (%dms): Q=%r A=%r",
+                int((time.time() - t0) * 1000), question[:40], answer[:80])
+
+    # Ship the answer back — both text and speech
+    await send_message(conn, "answer", {
+        "question": question,
+        "text": answer,
+        "latency_ms": int((time.time() - t0) * 1000),
+    })
+    wav_bytes = await loop.run_in_executor(None, synthesize_speech, answer)
+    if wav_bytes:
+        await send_message(conn, "tts_audio", {"format": "wav"}, binary=wav_bytes)
 
 
 # ─── Outgoing helpers ────────────────────────────────────────────────────

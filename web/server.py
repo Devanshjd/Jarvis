@@ -585,6 +585,103 @@ def api_tts_speak(payload: TTSRequest):
     except Exception as e:
         return {"success": False, "error": f"TTS failed: {e}"}
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LOCAL SPEECH-TO-TEXT — faster-whisper, runs on GPU, fully offline
+# ═══════════════════════════════════════════════════════════════════════════
+
+_whisper_model = None
+
+
+def _get_whisper_model():
+    """Lazy-load the faster-whisper model. Cached after first call.
+
+    Uses 'base.en' — good accuracy, fast on RTX 4060. Runs on CUDA if
+    available, falls back to CPU int8. First load downloads ~140 MB once.
+    """
+    global _whisper_model
+    if _whisper_model is not None:
+        return _whisper_model if _whisper_model != "missing" else None
+    try:
+        from faster_whisper import WhisperModel
+        # Try GPU first, fall back to CPU
+        try:
+            _whisper_model = WhisperModel("base.en", device="cuda", compute_type="float16")
+            logging.getLogger("jarvis.stt").info("Whisper loaded on CUDA (base.en)")
+        except Exception:
+            _whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
+            logging.getLogger("jarvis.stt").info("Whisper loaded on CPU (base.en int8)")
+        return _whisper_model
+    except Exception as e:
+        logging.getLogger("jarvis.stt").warning("Whisper unavailable: %s", e)
+        _whisper_model = "missing"
+        return None
+
+
+class STTRequest(BaseModel):
+    audio_base64: str            # base64-encoded audio (WAV/MP3/OGG/etc — ffmpeg decodes)
+    language: str = "en"
+
+
+@app.get("/api/stt/status")
+def api_stt_status():
+    """Report whether local STT is ready."""
+    try:
+        from faster_whisper import WhisperModel  # noqa: F401
+        available = True
+    except ImportError:
+        available = False
+    return {"stt_available": available, "engine": "faster-whisper", "model": "base.en"}
+
+
+@app.post("/api/stt/transcribe")
+def api_stt_transcribe(payload: STTRequest):
+    """Transcribe base64-encoded audio to text using local Whisper.
+
+    Accepts any audio format ffmpeg can decode (WAV, MP3, OGG, M4A, etc).
+    Runs entirely on-device — no cloud. Latency ~0.3-1s for a short clip
+    on the RTX 4060.
+    """
+    model = _get_whisper_model()
+    if model is None:
+        return {"success": False, "error": "faster-whisper not installed. Run: pip install faster-whisper"}
+    try:
+        import base64, tempfile, os, time
+        audio_bytes = base64.b64decode(payload.audio_base64)
+        if len(audio_bytes) < 100:
+            return {"success": False, "error": "audio too short"}
+
+        # Write to temp file (faster-whisper reads a path or file-like)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tf.write(audio_bytes)
+            tmp_path = tf.name
+
+        try:
+            t0 = time.time()
+            segments, info = model.transcribe(
+                tmp_path,
+                language=payload.language or "en",
+                beam_size=1,          # fast
+                vad_filter=True,      # skip silence
+            )
+            text = " ".join(seg.text for seg in segments).strip()
+            latency = int((time.time() - t0) * 1000)
+            return {
+                "success": True,
+                "text": text,
+                "language": info.language,
+                "latency_ms": latency,
+                "source": "faster-whisper-local",
+            }
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+    except Exception as e:
+        return {"success": False, "error": f"STT failed: {e}"}
+
+
 @app.get("/api/clipboard/text")
 def api_clipboard_text():
     """Read text from system clipboard — no external API needed."""

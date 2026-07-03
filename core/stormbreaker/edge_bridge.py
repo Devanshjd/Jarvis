@@ -61,7 +61,10 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedError, Conne
 PORT = 8766                              # Stormbreaker port — distinct from JARVIS 8765
 JARVIS_REST_BASE = "http://127.0.0.1:8765"
 HEARTBEAT_INTERVAL = 5.0                 # seconds between pings
-CONNECTION_TIMEOUT = 15.0                # disconnect if no message for this long
+CONNECTION_TIMEOUT = 45.0                # disconnect if no message for this long
+                                          # (generous: a single gemma3:4b frame analysis
+                                          # can take 10-12s; 45s absorbs a few slow frames
+                                          # queued behind heartbeats without false-killing)
 MIN_FRAME_PROCESS_INTERVAL = 0.5         # max 2 vision LLM calls/sec/connection
 MAX_FRAME_BACKLOG = 3                    # drop frames if queue grows past this
 MAX_MESSAGE_BYTES = 20 * 1024 * 1024     # 20 MB cap — accommodates 48MP phone cameras at full JPEG quality
@@ -210,19 +213,42 @@ def analyze_frame_locally(jpeg_bytes: bytes, prompt: str = "") -> dict:
         return {"success": False, "error": f"Analyze failed: {e}"}
 
 
+# Track whether the JARVIS backend TTS endpoint is reachable so we don't
+# spam warnings + waste time on every frame when it's down.
+_tts_backend_down_until = 0.0
+
+
 def synthesize_speech(text: str) -> bytes:
-    """Call JARVIS's /api/tts/speak to get WAV bytes of synthesized speech."""
+    """Call JARVIS's /api/tts/speak to get WAV bytes of synthesized speech.
+
+    If the JARVIS backend (web_main.py, port 8765) isn't running, we back
+    off for 30s rather than retrying + logging on every single frame.
+    """
+    global _tts_backend_down_until
+    if time.time() < _tts_backend_down_until:
+        return b""  # backend known-down, skip fast
+
     try:
         r = requests.post(
             f"{JARVIS_REST_BASE}/api/tts/speak",
             json={"text": text[:500], "play": False},  # don't play on host
-            timeout=20,
+            timeout=15,
         )
         if r.status_code != 200:
             return b""
         d = r.json()
         if d.get("success") and d.get("audio_base64"):
             return base64.b64decode(d["audio_base64"])
+        return b""
+    except requests.exceptions.ConnectionError:
+        # Backend not running — back off, log once
+        if time.time() >= _tts_backend_down_until:
+            logger.warning(
+                "TTS backend (JARVIS web_main.py on :8765) not running — "
+                "audio disabled. Frames still analyzed. Start it with: "
+                "python web_main.py"
+            )
+        _tts_backend_down_until = time.time() + 30.0
         return b""
     except Exception as e:
         logger.warning("TTS synth failed: %s", e)

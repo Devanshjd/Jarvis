@@ -1171,6 +1171,26 @@
     }
   },
   {
+    "name": "create_folder",
+    "description": "Create a new folder/directory. Use whenever the user says 'create a folder', 'make a folder', 'new folder', 'make a directory'. Default location is the Desktop if no path given. Do NOT use build_project for this — that's for code projects.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "name": {
+          "type": "STRING",
+          "description": "Folder name to create."
+        },
+        "location": {
+          "type": "STRING",
+          "description": "Where to create it (desktop, documents, downloads, or a full path). Default: desktop."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
     "name": "find_files",
     "description": "Search for files by name pattern. Examples: 'find all .py files', 'find readme'.",
     "parameters": {

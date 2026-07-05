@@ -1195,6 +1195,27 @@ TOOL_SCHEMAS: list[dict] = [
         "verify": False,
     },
     {
+        "name": "create_folder",
+        "description": (
+            "Create a new folder/directory. Use whenever the user says "
+            "'create a folder', 'make a folder', 'new folder', 'make a directory'. "
+            "Default location is the Desktop if no path given. Do NOT use "
+            "build_project for this — that's for code projects."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Folder name to create."},
+                "location": {"type": "string", "description": "Where to create it (desktop, documents, downloads, or a full path). Default: desktop."},
+            },
+            "required": ["name"],
+        },
+        "aliases": ["make_folder", "new_folder", "make_directory", "mkdir"],
+        "layer": "python",
+        "category": "file",
+        "verify": False,
+    },
+    {
         "name": "find_files",
         "description": "Search for files by name pattern. Examples: 'find all .py files', 'find readme'.",
         "input_schema": {

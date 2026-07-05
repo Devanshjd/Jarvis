@@ -184,6 +184,12 @@ class Executor:
             "speak_locally": self._speak_locally,         # Piper TTS
             "local_tts": self._speak_locally,             # alias
             "say_aloud": self._speak_locally,             # alias
+            # ── Folder creation (real mkdir, NOT build_project) ──
+            "create_folder": self._create_folder,
+            "make_folder": self._create_folder,
+            "new_folder": self._create_folder,
+            "make_directory": self._create_folder,
+            "mkdir": self._create_folder,
             # ── Office documents (real .docx / .xlsx / .pptx, NOT markdown) ──
             "write_docx": self._write_docx,
             "create_word_file": self._write_docx,
@@ -1375,6 +1381,42 @@ class Executor:
     # Fixes the long-standing bug where "create a Word file" produced .md
     # files. Each writer accepts markdown content and converts to native
     # Office formatting (Heading 1, bullet lists, bold, etc).
+
+    def _create_folder(self, args: dict) -> ToolResult:
+        """Create a folder/directory — real mkdir, resolves common locations."""
+        import os
+        name = (args.get("name") or args.get("folder") or args.get("path") or "").strip()
+        if not name:
+            return ToolResult(success=False, error="No folder name provided.")
+
+        location = (args.get("location") or "").strip().lower()
+        home = os.path.expanduser("~")
+        # If name is already an absolute path, honor it
+        if os.path.isabs(name):
+            target = name
+        else:
+            base_map = {
+                "desktop": os.path.join(home, "Desktop"),
+                "documents": os.path.join(home, "Documents"),
+                "downloads": os.path.join(home, "Downloads"),
+                "home": home,
+                "": os.path.join(home, "Desktop"),   # default → Desktop
+            }
+            # location could also be a full path
+            if location and os.path.isabs(location):
+                base = location
+            else:
+                base = base_map.get(location, os.path.join(home, "Desktop"))
+            target = os.path.join(base, name)
+
+        try:
+            already = os.path.isdir(target)
+            os.makedirs(target, exist_ok=True)
+            if already:
+                return ToolResult(success=True, output=f"Folder already existed: {target}")
+            return ToolResult(success=True, output=f"Created folder: {target}")
+        except Exception as e:
+            return ToolResult(success=False, error=f"Could not create folder: {e}")
 
     def _write_docx(self, args: dict) -> ToolResult:
         """Create a real Microsoft Word .docx file (not markdown)."""

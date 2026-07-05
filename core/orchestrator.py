@@ -259,6 +259,10 @@ _TOOL_PATTERNS = [
     (re.compile(r"\btype\s+(?:into|in)\s+(?:the\s+)?(?:field|input|box|search)\b", re.I), "screen_type", 7),
     (re.compile(r"\bread\s+(?:the\s+)?(?:screen|text|content|page)\b", re.I), "screen_read", 7),
     # ── Dev agent (specificity: 8) ────────────────────────
+    # Folder creation — HIGH specificity (11) so "create a folder" never
+    # falls through to build_project (which needs a code-project goal)
+    (re.compile(r"\b(?:create|make|new|add)\s+(?:a\s+|me\s+(?:a\s+)?)?(?:new\s+)?(?:folder|directory)\b", re.I), "create_folder", 11),
+    (re.compile(r"\bmkdir\b", re.I), "create_folder", 11),
     (re.compile(r"\b(?:build|create|make|generate)\s+(?:a\s+|me\s+(?:a\s+)?)?(?:project|app|application|program|tool|script|website|game)\b", re.I), "build_project", 8),
 ]
 
@@ -1867,6 +1871,26 @@ class TaskOrchestrator:
             query = m.group(1).strip() if m else text.strip()
             depth = "deep" if re.search(r"\b(?:deep|thorough|detailed|comprehensive)\b", msg_lower) else "quick"
             return {"query": query, "depth": depth}
+
+        elif tool_name == "create_folder":
+            # Extract folder name: "called X", "named X", or the word after folder
+            name = ""
+            m = re.search(r"(?:called|named|titled)\s+['\"]?([\w\-. ]+?)['\"]?(?:\s+(?:on|in|at|under)\b|$)", text, re.I)
+            if m:
+                name = m.group(1).strip()
+            else:
+                m = re.search(r"(?:folder|directory)\s+(?:called|named)?\s*['\"]?([\w\-.]+)['\"]?", text, re.I)
+                if m:
+                    name = m.group(1).strip()
+            # Location: on the desktop / in documents / etc.
+            location = ""
+            lm = re.search(r"\b(?:on|in|at|under)\s+(?:the\s+|my\s+)?(desktop|documents|downloads|home)\b", text, re.I)
+            if lm:
+                location = lm.group(1).lower()
+            args = {"name": name or "New Folder"}
+            if location:
+                args["location"] = location
+            return args
 
         elif tool_name in ("write_docx", "write_xlsx", "write_pptx"):
             # Try to extract filename and content from the prompt.

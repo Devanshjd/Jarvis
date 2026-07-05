@@ -380,6 +380,20 @@ class HeadlessJarvisRuntime(JarvisRuntime):
                 self.send_message(text)
                 result = self._wait_for_turn(start_index, timeout)
                 result["status"] = self.status_snapshot()
+
+                # ── Automatic memory extraction ──────────────────────────
+                # After each turn, extract durable facts from the exchange
+                # and store them in the knowledge graph (background thread,
+                # never blocks). This is how JARVIS learns from every
+                # conversation, not just when explicitly told to remember.
+                try:
+                    from core.memory_extractor import get_extractor
+                    reply = result.get("reply", "")
+                    if reply:
+                        get_extractor(self).extract_async(text, reply)
+                except Exception:
+                    pass  # memory extraction must never break the response
+
                 return result
             finally:
                 self._request_options = {}

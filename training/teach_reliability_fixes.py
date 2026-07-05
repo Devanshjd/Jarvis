@@ -58,14 +58,17 @@ RELIABILITY_LESSONS = [
         },
     },
     {
-        "name": "complex_chain_false_positives",
+        "name": "llm_decompose_drops_steps",
         "type": "bug_pattern",
         "facts": {
-            "symptom": "3+ step tasks (open notepad + type + ctrl-s) report success but don't complete; honest verifier misses because it only checks the FINAL state",
-            "root_cause": "honest_verifier verifies end-state (Calculator display, Notepad text) but has no per-step verification, so a chain that fails at step 2 but reaches step 3 can look done",
-            "diagnosis": "reliability_harness --extreme: chain3 tasks fail with agent_claimed=True (false positive)",
-            "fix_status": "PARTIAL — calculator chains now deterministic (fixed). notepad+save chains still need per-step verification.",
-            "tags": "agent-loop, verification, chains, false-positive",
+            "symptom": "'take a screenshot then open paint' only did the screenshot — the 'then open paint' step was DROPPED. Looked like a false positive but was actually a planning failure.",
+            "root_cause": "gemma3:4b's _ai_decompose is unreliable at multi-action decomposition — it turned a 2-action goal into a 1-step plan, losing the second action entirely.",
+            "diagnosis": "compound detection fired (correct) but the LLM decomposer produced fewer steps than the goal contained. Diagnosed by inspecting agent steps: only 1 step for a 2-action goal.",
+            "fix": "New _try_sequential_plan() in agent_loop, runs before _ai_decompose. Splits the goal on connectors (then/and then/after that/next/;) and maps each chunk to a tool DETERMINISTICALLY via _chunk_to_steps (open X, take screenshot, type X, press X, save, read screen, search X). Only used if EVERY chunk maps cleanly; else falls to LLM. Never drops a step.",
+            "fix_files": "core/agent_loop.py (_try_sequential_plan, _chunk_to_steps)",
+            "verified": "'take a screenshot then open paint' -> 2 steps [take_screenshot, open_app paint] -> Paint verified open. '3-step notepad+type+ctrl-s' -> 3 steps.",
+            "lesson": "For sequential 'X then Y then Z' goals, split deterministically in code — a small LLM silently drops steps.",
+            "tags": "agent-loop, decomposition, chains, dropped-steps, deterministic",
         },
     },
     {
@@ -116,6 +119,11 @@ ROUTING_PAIRS = [
     # teach the pattern anyway for the classifier
     ("compute 45 times 3 plus 15", "calculator_plan", {"expected": "150"}),
     ("what is 15 percent of 240", "calculator_plan", {"expected": "36"}),
+    # Sequential multi-step goals — deterministic split, all steps preserved
+    ("take a screenshot then open paint", "sequential_plan",
+     {"steps": ["take_screenshot", "open_app:paint"]}),
+    ("open notepad then type hello then press ctrl s", "sequential_plan",
+     {"steps": ["open_app:notepad", "type_text:hello", "key_press:ctrl+s"]}),
 ]
 
 

@@ -1125,6 +1125,17 @@ class AgentLoop:
                         text[:50], len(calc_plan.steps))
             return calc_plan
 
+        # ── Deterministic sequential planning ────────────────────────────
+        # "take a screenshot then open paint" — the LLM decomposer drops
+        # steps (turned this into just [take_screenshot]). If the goal splits
+        # cleanly on connectors into chunks that each map to a known tool,
+        # build the plan deterministically so NO step is ever lost.
+        seq_plan = self._try_sequential_plan(text)
+        if seq_plan:
+            logger.info("Deterministic sequential plan for %r (%d steps)",
+                        text[:50], len(seq_plan.steps))
+            return seq_plan
+
         # ── Outcome-grounded skill recall ────────────────────────────────
         # If we've successfully done a similar goal before, log it so the
         # AI planner can use it as a starting template. (Knowledge graph
@@ -1265,6 +1276,107 @@ class AgentLoop:
         # Stash expected answer so honest verify can check it exactly
         plan.expected_calc_result = expected_str  # type: ignore[attr-defined]
         return plan
+
+    def _try_sequential_plan(self, text: str) -> Optional[ExecutionPlan]:
+        """Split a 'do X then Y then Z' goal on connectors and map each chunk
+        to a tool DETERMINISTICALLY, so no step is ever dropped (the LLM
+        decomposer loses steps — turned 'screenshot then open paint' into
+        just [take_screenshot]).
+
+        Returns a plan only if EVERY chunk maps cleanly to a known action.
+        Otherwise None (fall through to LLM decomposition).
+        """
+        import re as _re
+        low = text.strip()
+
+        # Split on sequential connectors (order matters — longest first)
+        chunks = _re.split(
+            r"\s*(?:,\s*and\s+then|,\s*then|\band\s+then\b|\bthen\b|"
+            r"\bafter\s+that\b|\bafter\s+which\b|\bnext\b|;)\s*",
+            low, flags=_re.IGNORECASE,
+        )
+        chunks = [c.strip(" ,.") for c in chunks if c and c.strip(" ,.")]
+        if len(chunks) < 2:
+            return None  # not a sequential multi-action goal
+
+        steps: list[ExecutionStep] = []
+        for chunk in chunks:
+            mapped = self._chunk_to_steps(chunk)
+            if mapped is None:
+                # A chunk we can't map deterministically — bail to LLM
+                return None
+            steps.extend(mapped)
+
+        if len(steps) < 2:
+            return None
+        return ExecutionPlan(goal=text, steps=steps)
+
+    def _chunk_to_steps(self, chunk: str) -> Optional[list[ExecutionStep]]:
+        """Map a single action chunk to one or more ExecutionSteps.
+
+        Handles the common atomic actions. Returns None if the chunk doesn't
+        match a known pattern (caller then falls back to LLM decomposition).
+        """
+        import re as _re
+        c = chunk.strip().lower()
+
+        # take a screenshot
+        if _re.match(r"^(?:take|capture|grab)\s+(?:a\s+)?screenshot$", c):
+            return [ExecutionStep(description="Take a screenshot",
+                                  tool_name="take_screenshot", tool_args={},
+                                  execution_mode="api")]
+
+        # open / launch <app>
+        m = _re.match(r"^(?:open|launch|start|run)\s+(?:up\s+)?(?:the\s+)?(.+)$", c)
+        if m:
+            app = m.group(1).strip()
+            # strip trailing "app"/"application"
+            app = _re.sub(r"\s+(?:app|application)$", "", app)
+            return [ExecutionStep(description=f"Open {app}",
+                                  tool_name="open_app", tool_args={"app": app},
+                                  execution_mode="api")]
+
+        # type <text>  (handles "type hello", "type 'buy milk'", "write X")
+        m = _re.match(r"^(?:type|write|enter|input)\s+(?:in\s+|out\s+)?['\"]?(.+?)['\"]?$", c)
+        if m:
+            txt = m.group(1).strip()
+            return [ExecutionStep(description=f"Type {txt!r}",
+                                  tool_name="type_text", tool_args={"text": txt},
+                                  execution_mode="api")]
+
+        # press <key>  (handles "press enter", "press ctrl s", "press ctrl+s")
+        m = _re.match(r"^press\s+(.+)$", c)
+        if m:
+            key = m.group(1).strip()
+            key = _re.sub(r"\s+", "+", key)   # "ctrl s" -> "ctrl+s"
+            # word keys
+            key = key.replace("control", "ctrl")
+            return [ExecutionStep(description=f"Press {m.group(1).strip()}",
+                                  tool_name="key_press", tool_args={"key": key},
+                                  execution_mode="api")]
+
+        # save (ctrl+s shortcut)
+        if _re.match(r"^save(?:\s+(?:it|the\s+file|the\s+document))?$", c):
+            return [ExecutionStep(description="Save (Ctrl+S)",
+                                  tool_name="key_press", tool_args={"key": "ctrl+s"},
+                                  execution_mode="api")]
+
+        # read / scan screen
+        if _re.search(r"\bread\b.*\b(?:screen|text)\b|\bscan\b.*screen", c):
+            return [ExecutionStep(description="Read screen text",
+                                  tool_name="read_screen_text", tool_args={},
+                                  execution_mode="api")]
+
+        # search for <query>
+        m = _re.match(r"^(?:search|google|look\s+up)\s+(?:for\s+)?(.+)$", c)
+        if m:
+            return [ExecutionStep(description=f"Search for {m.group(1).strip()}",
+                                  tool_name="web_search",
+                                  tool_args={"query": m.group(1).strip()},
+                                  execution_mode="api")]
+
+        # Unknown chunk — can't map deterministically
+        return None
 
     def _hard_route_intent(self, text: str) -> Optional[ExecutionStep]:
         """Short-circuit certain unambiguous single-tool intents.

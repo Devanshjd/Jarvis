@@ -1232,10 +1232,15 @@ class AgentLoop:
         except Exception:
             return None
 
-        # Build the step sequence: open calc, then type each token
+        # Build the step sequence: open calc, CLEAR any leftover state, then
+        # type each token. The clear (Escape) prevents digit bleed from a
+        # previous calculation corrupting this one — caught by the harness
+        # when 12x12 flaked (passed once, failed next run) due to leftover state.
         steps = [
             ExecutionStep(description="Open Calculator", tool_name="open_app",
                           tool_args={"app": "calculator"}, execution_mode="api"),
+            ExecutionStep(description="Clear calculator", tool_name="key_press",
+                          tool_args={"key": "escape"}, execution_mode="api"),
         ]
         op_names = {"+": "add", "-": "subtract", "*": "multiply", "/": "divide"}
         # Calculator key presses for operators

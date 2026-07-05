@@ -44,13 +44,27 @@ RELIABILITY_LESSONS = [
         },
     },
     {
+        "name": "calculator_operator_confusion",
+        "type": "bug_pattern",
+        "facts": {
+            "symptom": "'compute 45 times 3 plus 15' gave 78 instead of 150 — the LLM planner pressed PLUS instead of MULTIPLY for the first operator",
+            "root_cause": "gemma3:4b decomposed the math but confused operator words — it mapped 'times' to the + key. Small models are unreliable at operator mapping in multi-op expressions.",
+            "diagnosis": "agent steps showed 'Press plus' where 'Press multiply' was needed; Calculator displayed 78 (=45+3+15) not 150 (=45*3+15). honest_verifier CORRECTLY caught it (not a false positive).",
+            "fix": "Added _try_calculator_plan() in agent_loop — for compute goals, parse the math expression DETERMINISTICALLY (regex tokenize numbers+operators, normalize word-operators to symbols, eval the expected answer ourselves) and emit the exact key sequence. Never lets the LLM guess operators. Handles times/plus/minus/divided-by AND 'X percent of Y'.",
+            "fix_files": "core/agent_loop.py (_try_calculator_plan, called before _ai_decompose)",
+            "verified": "45 times 3 plus 15 -> presses multiply then add -> Display is 150 VERIFIED. Also 12x12=144, 200/8=25, 15% of 240=36.",
+            "lesson": "For deterministic domains (math), parse+compute in code — don't delegate to a small LLM that hallucinates operators.",
+            "tags": "calculator, math, planner, operators, deterministic",
+        },
+    },
+    {
         "name": "complex_chain_false_positives",
         "type": "bug_pattern",
         "facts": {
             "symptom": "3+ step tasks (open notepad + type + ctrl-s) report success but don't complete; honest verifier misses because it only checks the FINAL state",
             "root_cause": "honest_verifier verifies end-state (Calculator display, Notepad text) but has no per-step verification, so a chain that fails at step 2 but reaches step 3 can look done",
             "diagnosis": "reliability_harness --extreme: chain3 tasks fail with agent_claimed=True (false positive)",
-            "fix_status": "IN PROGRESS — per-step verification is the next hardening target",
+            "fix_status": "PARTIAL — calculator chains now deterministic (fixed). notepad+save chains still need per-step verification.",
             "tags": "agent-loop, verification, chains, false-positive",
         },
     },
@@ -98,6 +112,10 @@ ROUTING_PAIRS = [
     ("mkdir test_folder on my desktop", "create_folder",
      {"name": "test_folder", "location": "desktop"}),
     ("make me a folder called photos", "create_folder", {"name": "photos"}),
+    # Calculator math is handled by deterministic planner (not routing) but
+    # teach the pattern anyway for the classifier
+    ("compute 45 times 3 plus 15", "calculator_plan", {"expected": "150"}),
+    ("what is 15 percent of 240", "calculator_plan", {"expected": "36"}),
 ]
 
 

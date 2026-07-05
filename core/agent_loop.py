@@ -1115,6 +1115,16 @@ class AgentLoop:
             logger.info("Hard-routed %r → %s", text[:60], forced.tool_name)
             return ExecutionPlan(goal=text, steps=[forced])
 
+        # ── Deterministic calculator planning ────────────────────────────
+        # "compute 45 times 3 plus 15" must NOT be decomposed by the LLM —
+        # gemma3:4b confuses operators (types + instead of ×). We parse the
+        # math expression deterministically and emit the exact key sequence.
+        calc_plan = self._try_calculator_plan(text)
+        if calc_plan:
+            logger.info("Deterministic calculator plan for %r (%d steps)",
+                        text[:50], len(calc_plan.steps))
+            return calc_plan
+
         # ── Outcome-grounded skill recall ────────────────────────────────
         # If we've successfully done a similar goal before, log it so the
         # AI planner can use it as a starting template. (Knowledge graph
@@ -1167,6 +1177,89 @@ class AgentLoop:
 
         # Complex task — ask AI to decompose
         return self._ai_decompose(text)
+
+    def _try_calculator_plan(self, text: str) -> Optional[ExecutionPlan]:
+        """If the goal is a calculator/compute request, build a DETERMINISTIC
+        plan by parsing the math expression — never letting the LLM guess
+        operators (it confuses 'times' with 'plus').
+
+        Returns an ExecutionPlan (open calc + type/press exact keys + verify)
+        or None if this isn't a calculator goal.
+        """
+        import re as _re
+        low = text.lower()
+
+        # Must be a calculator/compute intent
+        if not _re.search(r"\b(?:calculat|compute|what\s+is|work\s+out|solve)\b", low):
+            return None
+        # Must contain at least one number and one operator word/symbol
+        if not _re.search(r"\d", low):
+            return None
+
+        # Normalize operator words → symbols
+        expr = low
+        # multi-word operators first
+        expr = _re.sub(r"\b(?:multiplied\s+by|times)\b", " * ", expr)
+        expr = _re.sub(r"\b(?:divided\s+by|over)\b", " / ", expr)
+        expr = _re.sub(r"\b(?:plus|add(?:ed)?(?:\s+to)?)\b", " + ", expr)
+        expr = _re.sub(r"\b(?:minus|subtract(?:ed)?|less)\b", " - ", expr)
+        expr = expr.replace("×", " * ").replace("÷", " / ").replace("x", " * ")
+        # percent: "15 percent of 240" → 15 / 100 * 240
+        pm = _re.search(r"(\d+(?:\.\d+)?)\s*(?:percent|%)\s+of\s+(\d+(?:\.\d+)?)", low)
+        if pm:
+            a, b = pm.group(1), pm.group(2)
+            tokens = [a, "/", "100", "*", b]
+        else:
+            # Extract number/operator tokens in order
+            tokens = _re.findall(r"\d+(?:\.\d+)?|[+\-*/]", expr)
+
+        # Need at least: number operator number
+        nums = [t for t in tokens if _re.match(r"^\d", t)]
+        ops = [t for t in tokens if t in "+-*/"]
+        if len(nums) < 2 or len(ops) < 1:
+            return None
+
+        # Safety: compute the expected answer ourselves so verification is exact
+        try:
+            # Build a clean infix string and eval safely (digits + operators only)
+            clean = " ".join(tokens)
+            if not _re.match(r"^[\d\s+\-*/.]+$", clean):
+                return None
+            expected = eval(clean, {"__builtins__": {}}, {})  # noqa: S307 — sanitized
+            if isinstance(expected, float) and expected.is_integer():
+                expected = int(expected)
+            expected_str = str(expected)
+        except Exception:
+            return None
+
+        # Build the step sequence: open calc, then type each token
+        steps = [
+            ExecutionStep(description="Open Calculator", tool_name="open_app",
+                          tool_args={"app": "calculator"}, execution_mode="api"),
+        ]
+        op_names = {"+": "add", "-": "subtract", "*": "multiply", "/": "divide"}
+        # Calculator key presses for operators
+        op_keys = {"+": "+", "-": "-", "*": "*", "/": "/"}
+        for tok in tokens:
+            if _re.match(r"^\d", tok):
+                # Type the number (may be multi-digit / decimal)
+                steps.append(ExecutionStep(
+                    description=f"Type {tok}", tool_name="type_text",
+                    tool_args={"text": tok}, execution_mode="api"))
+            elif tok in op_keys:
+                steps.append(ExecutionStep(
+                    description=f"Press {op_names[tok]}", tool_name="key_press",
+                    tool_args={"key": op_keys[tok]}, execution_mode="api"))
+        # Equals
+        steps.append(ExecutionStep(
+            description=f"Press equals (expect {expected_str})",
+            tool_name="key_press", tool_args={"key": "enter"},
+            execution_mode="api"))
+
+        plan = ExecutionPlan(goal=text, steps=steps)
+        # Stash expected answer so honest verify can check it exactly
+        plan.expected_calc_result = expected_str  # type: ignore[attr-defined]
+        return plan
 
     def _hard_route_intent(self, text: str) -> Optional[ExecutionStep]:
         """Short-circuit certain unambiguous single-tool intents.

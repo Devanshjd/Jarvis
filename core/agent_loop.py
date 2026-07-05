@@ -90,11 +90,15 @@ class ExecutionPlan:
 # ═══════════════════════════════════════════════════════════════════
 
 # Limits
-MAX_ITERATIONS = 50        # absolute ceiling per task
-MAX_STEP_ATTEMPTS = 3      # retries per individual step
+# Raised 50 -> 150 to grind harder on multi-step tasks before giving up.
+# Inspired by vierisid/jarvis's "200 iterations until the task is complete,
+# not until the response looks done" — persistence is what makes an agent
+# FEEL autonomous. 150 balances thoroughness against runaway loops.
+MAX_ITERATIONS = 150       # absolute ceiling per task (was 50)
+MAX_STEP_ATTEMPTS = 4      # retries per individual step (was 3)
 STRUGGLE_THRESHOLD = 0.6   # when to flag self-struggle
 STEP_TIMEOUT = 60.0        # seconds per step execution
-PLAN_TIMEOUT = 300.0       # 5 min total for a plan
+PLAN_TIMEOUT = 600.0       # 10 min total for a plan (was 5 — matches deeper iteration)
 
 
 class AgentLoop:

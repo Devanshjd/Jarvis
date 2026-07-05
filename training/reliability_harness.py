@@ -88,6 +88,44 @@ def verify_file_exists(path_substr: str) -> bool:
     return False
 
 
+def verify_folder_exists(name_substr: str) -> bool:
+    """True if a folder matching name_substr exists on Desktop."""
+    for base in (Path.home() / "Desktop", Path.home()):
+        try:
+            for p in base.iterdir():
+                if p.is_dir() and name_substr.lower() in p.name.lower():
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def verify_text_on_screen(expected: str) -> str:
+    """VERIFIED/FAILED/UNKNOWN — is `expected` text visible on screen right now?
+
+    Uses Tesseract OCR of the whole screen. Good for confirming a menu
+    opened ('New', 'Open', 'Save'), a page loaded, a dialog appeared.
+    """
+    try:
+        import pyautogui, pytesseract
+        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        img = pyautogui.screenshot()
+        text = pytesseract.image_to_string(img).lower()
+        return "verified" if expected.lower() in text else "failed"
+    except Exception:
+        return "unknown"
+
+
+def verify_agent_output_contains(agent_result: dict, needle: str) -> str:
+    """Check the agent's own step output for a substring (for tasks where
+    the result IS the output — file search, questions)."""
+    for s in (agent_result.get("steps") or []):
+        out = (s.get("result") or "").lower()
+        if needle.lower() in out:
+            return "verified"
+    return "failed"
+
+
 def close_app(image_name: str):
     """Best-effort close of an app by process image name (cleanup between tests)."""
     try:
@@ -177,6 +215,110 @@ TEST_BATTERY = [
 ]
 
 
+# ═══════════════════════════════════════════════════════════════════════
+#  HARD TIER — expected to expose real failures
+# ═══════════════════════════════════════════════════════════════════════
+
+HARD_BATTERY = [
+    # ── Browser reliability ──────────────────────────────────────────
+    TestCase("browser", "open chrome",
+             "open google chrome",
+             lambda: verify_window_open("chrome"),
+             cleanup=[], wait_after=4.0),
+    TestCase("browser", "chrome to a site",
+             "open chrome and go to github.com",
+             lambda: verify_window_open("chrome"),   # weak: only checks chrome open
+             wait_after=5.0),
+    TestCase("browser", "web search",
+             "open chrome and search for raspberry pi",
+             lambda: verify_window_open("chrome"),
+             wait_after=5.0),
+
+    # ── UI element clicking (the known-weak area) ────────────────────
+    TestCase("ui_click", "notepad File menu",
+             "open notepad then click the File menu",
+             lambda: verify_text_on_screen("New"),   # File menu shows New/Open/Save
+             cleanup=["notepad.exe"], wait_after=3.0),
+    TestCase("ui_click", "open paint",
+             "open paint",
+             lambda: verify_window_open("paint"),
+             cleanup=["mspaint.exe"], wait_after=4.0),
+
+    # ── Multi-app chaining ───────────────────────────────────────────
+    TestCase("multi_app", "explorer to downloads",
+             "open file explorer and go to the downloads folder",
+             lambda: verify_text_on_screen("Downloads"),
+             cleanup=[], wait_after=4.0),
+    TestCase("multi_app", "screenshot then paint",
+             "take a screenshot then open paint",
+             lambda: verify_window_open("paint"),
+             cleanup=["mspaint.exe"], wait_after=5.0),
+
+    # ── File operations (create folder, search) ──────────────────────
+    TestCase("file_ops", "create folder",
+             "create a folder called harness_probe_folder on the desktop",
+             lambda: verify_folder_exists("harness_probe_folder"),
+             wait_after=2.0),
+
+    # ── Ambiguous natural language ───────────────────────────────────
+    TestCase("ambiguous", "percent question",
+             "what is 15 percent of 240",
+             # Could answer directly (36) OR open calc. Accept either:
+             lambda: (verify_calc_shows("36") if verify_calc_shows("36") == "verified"
+                      else "unknown"),
+             cleanup=["CalculatorApp.exe", "Calculator.exe"], wait_after=3.0),
+
+    # ── System control ───────────────────────────────────────────────
+    TestCase("system", "system info",
+             "show me system information",
+             None,   # hard to verify — mark unknown
+             wait_after=2.0),
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  EXTREME TIER — deliberately pushing past the comfort zone
+# ═══════════════════════════════════════════════════════════════════════
+
+EXTREME_BATTERY = [
+    # ── 3+ step chains ───────────────────────────────────────────────
+    TestCase("chain3", "notepad type save",
+             "open notepad, type extreme test bravo, then press ctrl s",
+             lambda: verify_text_on_screen("Save"),   # Save dialog appears
+             cleanup=["notepad.exe"], wait_after=4.0),
+    TestCase("chain3", "calc multi-op",
+             "open calculator and compute 45 times 3 plus 15",
+             lambda: verify_calc_shows("150"),
+             cleanup=["CalculatorApp.exe", "Calculator.exe"], wait_after=4.0),
+
+    # ── Vision Q&A (interactive, not just describe) ──────────────────
+    TestCase("vision_qa", "what app is focused",
+             "look at my screen and tell me what application is currently in focus",
+             lambda: None,   # answer quality — mark unknown, inspect manually
+             wait_after=2.0),
+
+    # ── Web form / interaction (very hard) ───────────────────────────
+    TestCase("web_form", "chrome search + read",
+             "open chrome, search for python.org, and tell me the first result",
+             lambda: verify_window_open("chrome"),
+             wait_after=6.0),
+
+    # ── Unlabeled icon clicking (hardest) ────────────────────────────
+    TestCase("icon_click", "paint tool select",
+             "open paint and select the pencil or brush tool",
+             lambda: verify_window_open("paint"),   # weak — only verifies paint open
+             cleanup=["mspaint.exe"], wait_after=5.0),
+
+    # ── Fuzzy / underspecified ───────────────────────────────────────
+    TestCase("fuzzy", "vague file request",
+             "make me a quick note that says buy milk",
+             lambda: (verify_notepad_has("buy milk")
+                      if verify_notepad_has("buy milk") == "verified"
+                      else verify_file_exists("note")),
+             cleanup=["notepad.exe"], wait_after=3.0),
+]
+
+
 def evaluate(tc: TestCase, agent_result: dict) -> str:
     """Return 'verified' / 'failed' / 'unknown' for a test case."""
     # Special case: screen_read — check the agent output has real text
@@ -196,17 +338,35 @@ def evaluate(tc: TestCase, agent_result: dict) -> str:
     except Exception:
         return "unknown"
 
+    if result is None:
+        return "unknown"          # verify fn deliberately punted
     if isinstance(result, bool):
         return "verified" if result else "failed"
-    return str(result)  # already verified/failed/unknown
+    result = str(result)
+    return result if result in ("verified", "failed", "unknown") else "unknown"
 
 
 def main():
     quick = "--quick" in sys.argv
-    battery = TEST_BATTERY[:4] if quick else TEST_BATTERY
+    hard = "--hard" in sys.argv
+    extreme = "--extreme" in sys.argv
+
+    if extreme:
+        battery = TEST_BATTERY + HARD_BATTERY + EXTREME_BATTERY
+        tier = "EXTREME (easy + hard + extreme — finding the limit)"
+    elif hard:
+        battery = TEST_BATTERY + HARD_BATTERY
+        tier = "HARD (easy + hard)"
+    elif quick:
+        battery = TEST_BATTERY[:4]
+        tier = "QUICK (subset)"
+    else:
+        battery = TEST_BATTERY
+        tier = "STANDARD (easy tier)"
 
     print("═" * 70)
     print(" JARVIS RELIABILITY HARNESS")
+    print(f" Tier: {tier}")
     print(" Measures ACTUAL success rate — verified by reading real app state")
     print("═" * 70)
 

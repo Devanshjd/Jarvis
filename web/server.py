@@ -797,6 +797,39 @@ def api_agent_execute(payload: AgentExecuteRequest):
         rt._request_options = {}
 
 
+@app.post("/api/faceid/enroll")
+def api_faceid_enroll(name: str = "Dev", samples: int = 30):
+    """Enroll a face from the webcam. Look at the camera during capture."""
+    try:
+        from core.face_id import get_faceid
+        result = get_faceid().enroll(name=name, num_samples=samples)
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/faceid/status")
+def api_faceid_status():
+    """Report enrollment status."""
+    try:
+        from core.face_id import get_faceid
+        fid = get_faceid()
+        return {"enrolled": fid.is_enrolled(), "names": fid.enrolled_names()}
+    except Exception as e:
+        return {"enrolled": False, "error": str(e)}
+
+
+@app.get("/api/faceid/recognize")
+def api_faceid_recognize():
+    """Grab one webcam frame and report who's recognized."""
+    try:
+        from core.face_id import get_faceid
+        name, conf = get_faceid().recognize_webcam()
+        return {"recognized": name is not None, "name": name, "confidence": conf}
+    except Exception as e:
+        return {"recognized": False, "error": str(e)}
+
+
 @app.post("/api/self_improve/run")
 def api_self_improve_run(tier: str = "quick"):
     """Manually trigger one self-improvement cycle (measure -> diagnose ->

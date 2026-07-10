@@ -234,6 +234,32 @@ class JarvisRuntime:
         except Exception as e:
             print(f"Screen awareness: {e}")
 
+        # ── Self-improvement daemon (OPT-IN, defaults OFF) ───────────────
+        # Runs the harness -> diagnoses failures -> learns -> flags fixes,
+        # on schedule (3am) and when idle (20 min). Because it takes over
+        # the mouse/keyboard to test itself, it is DISABLED by default and
+        # only starts if config self_improve.enabled is explicitly true —
+        # so it never hijacks the machine without the user opting in.
+        try:
+            si_cfg = self.config.get("self_improve", {}) or {}
+            if si_cfg.get("enabled"):
+                from core.self_improve_daemon import get_daemon, DaemonConfig
+                dcfg = DaemonConfig(
+                    enabled=True,
+                    schedule_hour=int(si_cfg.get("schedule_hour", 3)),
+                    idle_minutes=float(si_cfg.get("idle_minutes", 20)),
+                )
+                self.self_improve = get_daemon(self)
+                self.self_improve.cfg = dcfg
+                self.self_improve.start()
+                print("[JARVIS] Self-improvement daemon ENABLED (schedule + idle)")
+            else:
+                # Still create it (so /api can trigger manual cycles) but idle
+                from core.self_improve_daemon import get_daemon
+                self.self_improve = get_daemon(self)
+        except Exception as e:
+            print(f"Self-improve daemon: {e}")
+
     def _on_proactive_notification(self, notification: dict):
         """Handle proactive engine notifications."""
         msg = notification.get("message", "")

@@ -797,6 +797,37 @@ def api_agent_execute(payload: AgentExecuteRequest):
         rt._request_options = {}
 
 
+@app.post("/api/self_improve/run")
+def api_self_improve_run(tier: str = "quick"):
+    """Manually trigger one self-improvement cycle (measure -> diagnose ->
+    learn -> fix known -> report). tier: quick / hard / extreme."""
+    rt = get_runtime()
+    try:
+        from core.self_improve_daemon import get_daemon
+        daemon = get_daemon(rt)
+        report = daemon.run_cycle(reason="manual_api", tier=tier)
+        return {"success": True, "report": report}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/self_improve/status")
+def api_self_improve_status():
+    """Report the last self-improvement cycle result."""
+    rt = get_runtime()
+    try:
+        from core.self_improve_daemon import get_daemon
+        daemon = get_daemon(rt)
+        last = daemon.get_last_report()
+        return {
+            "available": True,
+            "enabled": bool(getattr(daemon.cfg, "enabled", False)),
+            "last_report": last,
+        }
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+
 @app.get("/api/agent/status")
 def api_agent_status():
     """Get current agent execution status."""

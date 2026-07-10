@@ -8,7 +8,7 @@ import {
 
 export default function Titlebar({
   maximized,
-  title = 'JARVIS OS // SYSTEM',
+  title = 'STORMBREAKER // TACTICAL AI',
   onToggleMax
 }: {
   maximized: boolean
@@ -20,7 +20,7 @@ export default function Titlebar({
   return (
     <div className="drag-region flex h-8 items-center justify-between border-b border-white/5 bg-zinc-950/90 px-4 backdrop-blur-md">
       <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 opacity-65">
-        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
+        <div className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_10px_#FFB020] animate-pulse" />
         <div className="text-[11px] font-bold tracking-[0.28em] text-zinc-300">{windowLabel}</div>
       </div>
 

@@ -83,7 +83,7 @@ export default function ResearchWidget({ widget }: { widget: WidgetInstance }) {
           <button
             onClick={runResearch}
             disabled={loading || !query.trim()}
-            className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40"
+            className="rounded-lg bg-amber-500/20 p-2 text-amber-400 hover:bg-amber-500/30 disabled:opacity-40"
           >
             {loading ? <RiLoader4Line size={14} className="animate-spin" /> : <RiSendPlaneFill size={14} />}
           </button>
@@ -92,9 +92,9 @@ export default function ResearchWidget({ widget }: { widget: WidgetInstance }) {
         {/* Results */}
         <div className="scrollbar-small flex-1 space-y-3 overflow-y-auto p-4">
           {loading && (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <RiLoader4Line className="animate-spin text-emerald-400" size={14} />
-              <span className="text-[11px] text-emerald-300">Researching...</span>
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+              <RiLoader4Line className="animate-spin text-amber-400" size={14} />
+              <span className="text-[11px] text-amber-300">Researching...</span>
             </div>
           )}
           {results.length === 0 && !loading ? (
@@ -116,9 +116,9 @@ export default function ResearchWidget({ widget }: { widget: WidgetInstance }) {
               {results.map(r => (
                 <div key={r.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-[10px] font-bold tracking-[0.14em] text-emerald-400 uppercase">{r.query}</span>
+                    <span className="text-[10px] font-bold tracking-[0.14em] text-amber-400 uppercase">{r.query}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[8px] font-mono tracking-[0.14em] ${r.source === 'native' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      <span className={`text-[8px] font-mono tracking-[0.14em] ${r.source === 'native' ? 'text-amber-500' : 'text-amber-500'}`}>
                         {r.source === 'native' ? 'GOOGLE' : 'AI'}
                       </span>
                       <span className="text-[8px] font-mono text-zinc-600">{new Date(r.ts).toLocaleTimeString()}</span>

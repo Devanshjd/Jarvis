@@ -39,33 +39,33 @@ export default function EmailWidget({ widget }: { widget: WidgetInstance }) {
     <WidgetShell id={widget.id} title={widget.title} icon={<RiMailLine />} x={widget.x} y={widget.y} width={widget.width} height={widget.height} minimized={widget.minimized}>
       <div className="flex h-full flex-col gap-3 p-4">
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-          <RiMailSendLine className="text-emerald-400" size={14} />
-          <span className="text-[10px] font-bold tracking-[0.2em] text-emerald-400">COMPOSE</span>
+          <RiMailSendLine className="text-amber-400" size={14} />
+          <span className="text-[10px] font-bold tracking-[0.2em] text-amber-400">COMPOSE</span>
         </div>
 
         <input
           value={to}
           onChange={(e) => setTo(e.target.value)}
           placeholder="To (email address)..."
-          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-500/40"
+          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-amber-500/40"
         />
         <input
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Subject..."
-          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-500/40"
+          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-amber-500/40"
         />
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Message body..."
-          className="scrollbar-small flex-1 resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-500/40"
+          className="scrollbar-small flex-1 resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-amber-500/40"
         />
 
         <button
           onClick={sendEmail}
           disabled={sending || !to.trim() || !subject.trim()}
-          className="rounded-xl bg-emerald-500 py-2.5 text-xs font-black tracking-[0.18em] text-black transition-colors hover:bg-emerald-400 disabled:opacity-40"
+          className="rounded-xl bg-amber-500 py-2.5 text-xs font-black tracking-[0.18em] text-black transition-colors hover:bg-amber-400 disabled:opacity-40"
         >
           {sending ? 'SENDING...' : 'SEND EMAIL'}
         </button>
@@ -73,7 +73,7 @@ export default function EmailWidget({ widget }: { widget: WidgetInstance }) {
         {result && (
           <div className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[10px] leading-5 ${
             result.success
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
               : 'border-red-500/30 bg-red-500/10 text-red-200'
           }`}>
             {result.success ? <RiCheckLine className="mt-0.5 shrink-0" /> : <RiAlertLine className="mt-0.5 shrink-0" />}

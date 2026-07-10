@@ -460,18 +460,18 @@ export default function App() {
   // ─── FULL SHELL ───
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-zinc-100">
-      <Titlebar maximized={maximized} onToggleMax={() => setMaximized((v) => !v)} title="JARVIS OS // SYSTEM" />
+      <Titlebar maximized={maximized} onToggleMax={() => setMaximized((v) => !v)} title="STORMBREAKER // TACTICAL AI" />
 
       <div className="flex h-[calc(100vh-32px)] flex-col overflow-hidden">
         {/* Header nav */}
         <div className="flex h-14 items-center justify-between border-b border-white/5 bg-zinc-950/80 px-6 backdrop-blur-md">
           <div className="hidden items-center gap-3 lg:flex">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 p-2">
-              <RiShieldKeyholeLine className="text-emerald-400" size={20} />
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-2">
+              <RiShieldKeyholeLine className="text-amber-400" size={20} />
             </div>
             <div className="leading-none">
-              <div className="text-sm font-black tracking-[0.22em] text-zinc-100">JARVIS AI</div>
-              <div className="mt-1 text-[10px] font-mono tracking-[0.22em] text-emerald-500/70">NEURAL INTERFACE</div>
+              <div className="text-sm font-black tracking-[0.22em] text-zinc-100">STORMBREAKER</div>
+              <div className="mt-1 text-[10px] font-mono tracking-[0.22em] text-amber-500/70">JARVIS TACTICAL CORE</div>
             </div>
           </div>
 
@@ -482,7 +482,7 @@ export default function App() {
                 <button key={item.id} onClick={() => setActiveTab(item.id)}
                   className={`flex items-center gap-2 rounded-lg px-5 py-2 text-[10px] font-bold tracking-[0.18em] transition-all ${
                     activeTab === item.id
-                      ? 'border border-emerald-500/20 bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.08)]'
+                      ? 'border border-amber-500/20 bg-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(255,176,32,0.08)]'
                       : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
                   }`}
                 >
@@ -493,7 +493,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-6 text-[10px] font-mono font-bold">
-            <div className="flex items-center gap-2 text-emerald-500">
+            <div className="flex items-center gap-2 text-amber-500">
               <RiWifiLine />
               <span>{backendState === 'OFFLINE' ? 'DISCONNECTED' : 'LINKED'}</span>
             </div>
@@ -557,19 +557,19 @@ export default function App() {
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="iris-panel w-full max-w-md p-2 shadow-[0_24px_120px_rgba(0,0,0,0.65)]">
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <span className="text-xs font-black tracking-[0.22em] text-emerald-400">ESTABLISH UPLINK</span>
+                <span className="text-xs font-black tracking-[0.22em] text-amber-400">ESTABLISH LINK</span>
                 <button type="button" onClick={() => setShowVisionSourceModal(false)} className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-white">×</button>
               </div>
               <div className="grid grid-cols-2 gap-4 p-5">
                 <button data-testid="vision-camera-source" type="button" onClick={() => void startVision('camera')}
-                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10">
-                  <div className="rounded-full bg-zinc-900 p-3 text-zinc-400 transition-colors group-hover:bg-emerald-500 group-hover:text-black"><RiCameraLine size={26} /></div>
-                  <span className="text-[10px] font-black tracking-[0.22em] text-zinc-300 group-hover:text-emerald-300">CAMERA FEED</span>
+                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:border-amber-500/40 hover:bg-amber-500/10">
+                  <div className="rounded-full bg-zinc-900 p-3 text-zinc-400 transition-colors group-hover:bg-amber-500 group-hover:text-black"><RiCameraLine size={26} /></div>
+                  <span className="text-[10px] font-black tracking-[0.22em] text-zinc-300 group-hover:text-amber-300">CAMERA FEED</span>
                 </button>
                 <button data-testid="vision-screen-source" type="button" onClick={() => void startVision('screen')}
-                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10">
-                  <div className="rounded-full bg-zinc-900 p-3 text-zinc-400 transition-colors group-hover:bg-emerald-500 group-hover:text-black"><RiComputerLine size={26} /></div>
-                  <span className="text-[10px] font-black tracking-[0.22em] text-zinc-300 group-hover:text-emerald-300">SCREEN SHARE</span>
+                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-black/40 p-6 transition-all hover:border-amber-500/40 hover:bg-amber-500/10">
+                  <div className="rounded-full bg-zinc-900 p-3 text-zinc-400 transition-colors group-hover:bg-amber-500 group-hover:text-black"><RiComputerLine size={26} /></div>
+                  <span className="text-[10px] font-black tracking-[0.22em] text-zinc-300 group-hover:text-amber-300">SCREEN SHARE</span>
                 </button>
               </div>
               <div className="border-t border-white/5 px-5 py-4 text-center text-[10px] font-mono tracking-[0.18em] text-zinc-500">SELECT INPUT SOURCE FOR NEURAL PROCESSING</div>

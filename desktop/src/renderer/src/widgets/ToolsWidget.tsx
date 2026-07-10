@@ -22,12 +22,12 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
   // Batch A-C: Core Desktop
-  { name: 'read_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
-  { name: 'write_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
-  { name: 'manage_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
-  { name: 'open_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
-  { name: 'read_directory', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
-  { name: 'create_folder', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#10b981' },
+  { name: 'read_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
+  { name: 'write_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
+  { name: 'manage_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
+  { name: 'open_file', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
+  { name: 'read_directory', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
+  { name: 'create_folder', phase: 'Core', icon: <RiFolder3Line size={12} />, color: '#FFB020' },
   { name: 'open_app', phase: 'Core', icon: <RiTerminalBoxLine size={12} />, color: '#6366f1' },
   { name: 'close_app', phase: 'Core', icon: <RiTerminalBoxLine size={12} />, color: '#6366f1' },
   { name: 'run_terminal', phase: 'Core', icon: <RiTerminalBoxLine size={12} />, color: '#6366f1' },
@@ -73,7 +73,7 @@ const TOOLS: ToolDef[] = [
 
 const PHASES = ['Core', 'Desktop', 'Comms', 'Cyber', 'RAG', 'Creative']
 const PHASE_COLORS: Record<string, string> = {
-  Core: '#10b981', Desktop: '#ec4899', Comms: '#84cc16', Cyber: '#ef4444', RAG: '#a855f7', Creative: '#f59e0b'
+  Core: '#FFB020', Desktop: '#ec4899', Comms: '#84cc16', Cyber: '#ef4444', RAG: '#a855f7', Creative: '#f59e0b'
 }
 
 export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {
@@ -91,7 +91,7 @@ export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {
       <div className="flex h-full flex-col p-4">
         {/* Header */}
         <div className="mb-3 flex items-center justify-between border-b border-white/5 pb-3">
-          <span className="text-[10px] font-mono tracking-[0.24em] text-emerald-500">{TOOLS.length} NATIVE TOOLS</span>
+          <span className="text-[10px] font-mono tracking-[0.24em] text-amber-500">{TOOLS.length} NATIVE TOOLS</span>
         </div>
 
         {/* Search */}
@@ -110,7 +110,7 @@ export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {
           <button
             onClick={() => setSelectedPhase(null)}
             className={`rounded-lg px-2.5 py-1.5 text-[8px] font-bold tracking-[0.14em] transition-all ${
-              !selectedPhase ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 border border-white/5'
+              !selectedPhase ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-zinc-500 border border-white/5'
             }`}
           >
             ALL
@@ -134,7 +134,7 @@ export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {
           {filtered.map(tool => (
             <div
               key={tool.name}
-              className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-all hover:border-emerald-500/20"
+              className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-all hover:border-amber-500/20"
             >
               <div className="flex h-6 w-6 items-center justify-center rounded-lg" style={{ backgroundColor: tool.color + '20', color: tool.color }}>
                 {tool.icon}
@@ -142,7 +142,7 @@ export default function ToolsWidget({ widget }: { widget: WidgetInstance }) {
               <div className="flex-1">
                 <span className="text-[10px] font-bold tracking-[0.1em] text-zinc-200">{tool.name}</span>
               </div>
-              <RiCheckboxCircleFill className="text-emerald-500/60" size={12} />
+              <RiCheckboxCircleFill className="text-amber-500/60" size={12} />
             </div>
           ))}
         </div>

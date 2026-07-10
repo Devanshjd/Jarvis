@@ -115,7 +115,7 @@ export default function MiniOverlay({
           {/* Vision */}
           <button
             onClick={onToggleVision}
-            className={`rounded-full p-2 transition-colors ${visionActive ? 'bg-emerald-500/15 text-emerald-400' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+            className={`rounded-full p-2 transition-colors ${visionActive ? 'bg-amber-500/15 text-amber-400' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
           >
             <RiCameraLine size={16} />
           </button>
@@ -125,7 +125,7 @@ export default function MiniOverlay({
             onClick={onToggleVoice}
             className={`rounded-full p-2.5 transition-all ${
               voiceActive || voiceConnecting
-                ? 'bg-emerald-500 text-black shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                ? 'bg-amber-500 text-black shadow-[0_0_14px_rgba(255,176,32,0.4)]'
                 : 'bg-red-500/15 text-red-400 hover:bg-red-500/25'
             }`}
           >
@@ -137,7 +137,7 @@ export default function MiniOverlay({
             onClick={onToggleMic}
             className={`rounded-full p-2 transition-colors ${
               voiceActive && !micMuted
-                ? 'bg-emerald-500/15 text-emerald-400'
+                ? 'bg-amber-500/15 text-amber-400'
                 : voiceActive && micMuted
                   ? 'bg-red-500/10 text-red-400'
                   : 'text-zinc-500 hover:bg-white/5'
@@ -159,7 +159,7 @@ export default function MiniOverlay({
           {/* Expand back to full UI */}
           <button
             onClick={onExpand}
-            className="rounded-full p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-emerald-400"
+            className="rounded-full p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-amber-400"
           >
             <RiExpandLeftRightFill size={14} />
           </button>

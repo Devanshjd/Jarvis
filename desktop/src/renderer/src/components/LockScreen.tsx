@@ -63,7 +63,7 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden"
       style={{
-        background: 'radial-gradient(circle at 50% 30%, rgba(16,185,129,0.06), transparent 50%), #000'
+        background: 'radial-gradient(circle at 50% 30%, rgba(255,176,32,0.06), transparent 50%), #000'
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
@@ -80,7 +80,7 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
       {/* Top status bar */}
       <div className="absolute top-0 inset-x-0 flex items-center justify-between px-8 py-4">
         <div className="flex items-center gap-2 text-[10px] font-mono tracking-[0.3em] text-zinc-600">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
+          <div className="h-1.5 w-1.5 rounded-full bg-amber-500/50 animate-pulse" />
           JARVIS SECURITY PROTOCOL
         </div>
         <div className="text-[10px] font-mono tracking-[0.3em] text-zinc-600">
@@ -97,13 +97,13 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
       >
         <div className={`rounded-full border-2 p-6 transition-all duration-500 ${
           success
-            ? 'border-emerald-400 bg-emerald-500/20 shadow-[0_0_60px_rgba(16,185,129,0.3)]'
+            ? 'border-amber-400 bg-amber-500/20 shadow-[0_0_60px_rgba(255,176,32,0.3)]'
             : error
               ? 'border-red-500 bg-red-500/10 shadow-[0_0_40px_rgba(239,68,68,0.2)]'
               : 'border-zinc-700 bg-zinc-900/50'
         }`}>
           {success ? (
-            <RiShieldKeyholeLine size={48} className="text-emerald-400" />
+            <RiShieldKeyholeLine size={48} className="text-amber-400" />
           ) : (
             <RiLockLine size={48} className={error ? 'text-red-400' : 'text-zinc-400'} />
           )}
@@ -139,9 +139,9 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
               borderColor: error
                 ? '#ef4444'
                 : success
-                  ? '#10b981'
+                  ? '#FFB020'
                   : i < pin.length
-                    ? '#10b981'
+                    ? '#FFB020'
                     : 'rgba(255,255,255,0.15)'
             }}
             transition={{ duration: 0.15 }}
@@ -151,7 +151,7 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className={`h-3 w-3 rounded-full ${success ? 'bg-emerald-400' : error ? 'bg-red-400' : 'bg-emerald-400'}`}
+                className={`h-3 w-3 rounded-full ${success ? 'bg-amber-400' : error ? 'bg-red-400' : 'bg-amber-400'}`}
               />
             ) : null}
           </motion.div>
@@ -182,7 +182,7 @@ export default function LockScreen({ onUnlock }: LockScreenProps) {
             <button
               key={i}
               onClick={() => handleDigit(key)}
-              className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/50 text-lg font-bold text-white transition-all hover:border-emerald-500/30 hover:bg-zinc-800 active:scale-95 active:bg-emerald-500/20"
+              className="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/50 text-lg font-bold text-white transition-all hover:border-amber-500/30 hover:bg-zinc-800 active:scale-95 active:bg-amber-500/20"
             >
               {key}
             </button>

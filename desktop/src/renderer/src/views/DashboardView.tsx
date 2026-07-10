@@ -83,10 +83,10 @@ export default function DashboardView(props: DashboardViewProps) {
           {/* Feed source selector */}
           {dashboardVisionSource === 'none' && (
             <div className="absolute bottom-3 inset-x-3 flex gap-2">
-              <button onClick={() => onSetDashboardVision('camera')} className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950/80 py-2 text-[9px] font-bold tracking-[0.2em] text-zinc-400 transition-colors hover:border-emerald-500/30 hover:text-emerald-400">
+              <button onClick={() => onSetDashboardVision('camera')} className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950/80 py-2 text-[9px] font-bold tracking-[0.2em] text-zinc-400 transition-colors hover:border-amber-500/30 hover:text-amber-400">
                 CAMERA
               </button>
-              <button onClick={() => onSetDashboardVision('screen')} className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950/80 py-2 text-[9px] font-bold tracking-[0.2em] text-zinc-400 transition-colors hover:border-emerald-500/30 hover:text-emerald-400">
+              <button onClick={() => onSetDashboardVision('screen')} className="flex-1 rounded-lg border border-zinc-800 bg-zinc-950/80 py-2 text-[9px] font-bold tracking-[0.2em] text-zinc-400 transition-colors hover:border-amber-500/30 hover:text-amber-400">
                 SCREEN
               </button>
             </div>
@@ -102,7 +102,7 @@ export default function DashboardView(props: DashboardViewProps) {
         <div className="iris-panel p-4">
           <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
             <span className="iris-label">NEURAL UPLINK</span>
-            <span className={`text-[10px] font-mono tracking-[0.2em] ${backendOnline ? 'text-emerald-400' : 'text-zinc-600'}`}>
+            <span className={`text-[10px] font-mono tracking-[0.2em] ${backendOnline ? 'text-amber-400' : 'text-zinc-600'}`}>
               {backendOnline ? 'LINKED' : 'STANDBY'}
             </span>
           </div>
@@ -110,7 +110,7 @@ export default function DashboardView(props: DashboardViewProps) {
             <div>
               <div className="text-[10px] font-mono tracking-[0.2em] text-zinc-600">HOST NODE</div>
               <div className="mt-2 flex items-center gap-2 text-sm font-black text-white">
-                <RiWifiLine className={backendOnline ? 'text-emerald-400' : 'text-zinc-600'} />
+                <RiWifiLine className={backendOnline ? 'text-amber-400' : 'text-zinc-600'} />
                 {status?.provider?.local ? 'LOCAL' : 'REMOTE'}
               </div>
             </div>
@@ -134,7 +134,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 <RiCpuLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">CPU LOAD</span>
               </div>
-              <div className="mt-auto text-right text-lg font-black text-emerald-400">
+              <div className="mt-auto text-right text-lg font-black text-amber-400">
                 {systemStats ? `${systemStats.cpuLoad}%` : '--'}
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 <RiHardDriveLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">RAM</span>
               </div>
-              <div className="mt-auto text-right text-lg font-black text-emerald-400">
+              <div className="mt-auto text-right text-lg font-black text-amber-400">
                 {systemStats ? `${systemStats.ramPercent}%` : '--'}
               </div>
             </div>
@@ -152,7 +152,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 <RiTempColdLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">TEMP</span>
               </div>
-              <div className="mt-auto text-right text-lg font-black text-emerald-400">
+              <div className="mt-auto text-right text-lg font-black text-amber-400">
                 {systemStats?.temperature != null ? `${systemStats.temperature}°` : '--'}
               </div>
             </div>
@@ -161,7 +161,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 <RiTimerLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">UPTIME</span>
               </div>
-              <div className="mt-auto text-right text-lg font-black text-emerald-400">
+              <div className="mt-auto text-right text-lg font-black text-amber-400">
                 {systemStats?.uptime ?? '--'}
               </div>
             </div>
@@ -175,7 +175,7 @@ export default function DashboardView(props: DashboardViewProps) {
 
         {/* Status badge */}
         <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
-          <div className="rounded-full border border-emerald-500/20 bg-black/40 px-4 py-1.5 text-[10px] font-mono tracking-[0.34em] text-zinc-500 backdrop-blur-md">
+          <div className="rounded-full border border-amber-500/20 bg-black/40 px-4 py-1.5 text-[10px] font-mono tracking-[0.34em] text-zinc-500 backdrop-blur-md">
             {status?.waiting_for_input ? 'AWAITING INPUT' : busy ? 'PROCESSING' : voiceLive ? 'VOICE CORE ACTIVE' : 'SYSTEM READY'}
           </div>
         </div>
@@ -209,7 +209,7 @@ export default function DashboardView(props: DashboardViewProps) {
             <button
               data-testid="dashboard-vision-button"
               onClick={onToggleVision}
-              className={`rounded-full p-3 transition-colors ${visionSource !== 'none' ? 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' : 'text-zinc-500 hover:bg-white/10 hover:text-emerald-300'}`}
+              className={`rounded-full p-3 transition-colors ${visionSource !== 'none' ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'text-zinc-500 hover:bg-white/10 hover:text-amber-300'}`}
             >
               <RiCameraLine size={20} />
             </button>
@@ -218,7 +218,7 @@ export default function DashboardView(props: DashboardViewProps) {
               onClick={onToggleVoice}
               className={`rounded-full border-2 p-4 transition-all ${
                 voiceConnecting || voiceLive
-                  ? 'border-emerald-400 bg-emerald-500 text-black shadow-[0_0_18px_rgba(16,185,129,0.45)]'
+                  ? 'border-amber-400 bg-amber-500 text-black shadow-[0_0_18px_rgba(255,176,32,0.45)]'
                   : 'border-red-500/50 bg-red-500/10 text-red-400'
               }`}
             >
@@ -229,10 +229,10 @@ export default function DashboardView(props: DashboardViewProps) {
               onClick={onToggleMic}
               className={`rounded-full p-3 transition-colors ${
                 voiceLive && !voiceMuted
-                  ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                  ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
                   : voiceLive && voiceMuted
                     ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                    : 'text-zinc-500 hover:bg-white/10 hover:text-emerald-300'
+                    : 'text-zinc-500 hover:bg-white/10 hover:text-amber-300'
               }`}
             >
               {voiceLive && !voiceMuted ? <RiMicLine size={20} /> : <RiMicOffLine size={20} />}
@@ -249,16 +249,16 @@ export default function DashboardView(props: DashboardViewProps) {
               <RiTerminalBoxLine />
               TRANSCRIPT
             </span>
-            <span className="text-[10px] font-mono tracking-[0.24em] text-emerald-500/70">LIVE-LOG</span>
+            <span className="text-[10px] font-mono tracking-[0.24em] text-amber-500/70">LIVE-LOG</span>
           </div>
 
           {/* Live voice I/O — green box (keeps voice working) */}
           {voiceLive && (voice?.last_input || voice?.last_output) && (
-            <div className="mb-3 space-y-1.5 rounded-xl border border-emerald-500/15 bg-emerald-900/10 px-3 py-2.5">
+            <div className="mb-3 space-y-1.5 rounded-xl border border-amber-500/15 bg-amber-900/10 px-3 py-2.5">
               {voice?.last_input && (
                 <div className="flex items-start gap-2 text-[10px]">
-                  <RiMicLine size={12} className="mt-0.5 shrink-0 text-emerald-400" />
-                  <span className="font-mono text-emerald-200/80 line-clamp-2">{voice.last_input}</span>
+                  <RiMicLine size={12} className="mt-0.5 shrink-0 text-amber-400" />
+                  <span className="font-mono text-amber-200/80 line-clamp-2">{voice.last_input}</span>
                 </div>
               )}
               {voice?.last_output && (
@@ -289,7 +289,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 >
                   <div className={`max-w-[94%] rounded-xl border px-4 py-3 text-[12px] font-mono leading-6 ${
                     msg.role === 'user'
-                      ? 'rounded-br-none border-emerald-500/25 bg-emerald-900/20 text-emerald-100/90'
+                      ? 'rounded-br-none border-amber-500/25 bg-amber-900/20 text-amber-100/90'
                       : msg.role === 'system'
                         ? 'rounded-bl-none border-zinc-700 bg-zinc-900/30 text-zinc-500 italic'
                         : 'rounded-bl-none border-white/5 bg-zinc-900/50 text-zinc-300'
@@ -345,7 +345,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 }
               }}
               placeholder="Type or paste a command — Ctrl+V works here..."
-              className="scrollbar-small h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-500/40"
+              className="scrollbar-small h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/40"
             />
             <div className="flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-[11px] font-mono tracking-[0.12em] text-zinc-500">
@@ -362,7 +362,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 type="button"
                 disabled={busy}
                 onClick={onSend}
-                className="rounded-xl bg-emerald-500 px-5 py-3 text-xs font-black tracking-[0.18em] text-black transition-all hover:bg-emerald-400 disabled:cursor-default disabled:opacity-60"
+                className="rounded-xl bg-amber-500 px-5 py-3 text-xs font-black tracking-[0.18em] text-black transition-all hover:bg-amber-400 disabled:cursor-default disabled:opacity-60"
               >
                 {busy ? 'PROCESSING' : 'SEND'}
               </button>

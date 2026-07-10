@@ -63,7 +63,7 @@ export default function MemoryWidget({ widget }: { widget: WidgetInstance }) {
             className="flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
           />
           <span className="text-[9px] font-mono tracking-[0.18em] text-zinc-600">{total} ITEMS</span>
-          <button onClick={loadMemories} className="rounded p-1 text-zinc-500 hover:text-emerald-400">
+          <button onClick={loadMemories} className="rounded p-1 text-zinc-500 hover:text-amber-400">
             <RiRefreshLine size={12} />
           </button>
         </div>
@@ -100,7 +100,7 @@ export default function MemoryWidget({ widget }: { widget: WidgetInstance }) {
           <button
             onClick={addMemory}
             disabled={saving || !newMemory.trim()}
-            className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40"
+            className="rounded-lg bg-amber-500/20 p-2 text-amber-400 hover:bg-amber-500/30 disabled:opacity-40"
           >
             <RiAddLine size={14} />
           </button>

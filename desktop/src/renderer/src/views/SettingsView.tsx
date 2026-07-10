@@ -166,11 +166,11 @@ export default function SettingsView({
                     <span className="iris-input-label">New 4-Digit PIN</span>
                     <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))} className="iris-input text-center text-2xl tracking-[0.5em]" placeholder="••••" maxLength={4} />
                   </label>
-                  <button onClick={() => { if (pinInput.length === 4) setPinSaved(true) }} className="w-full rounded-xl bg-white py-3 text-xs font-bold tracking-[0.18em] text-black transition-colors hover:bg-emerald-400">
+                  <button onClick={() => { if (pinInput.length === 4) setPinSaved(true) }} className="w-full rounded-xl bg-white py-3 text-xs font-bold tracking-[0.18em] text-black transition-colors hover:bg-amber-400">
                     UPDATE PIN
                   </button>
                   {pinSaved && (
-                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-[11px] text-emerald-200">PIN updated successfully.</div>
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-[11px] text-amber-200">PIN updated successfully.</div>
                   )}
                 </div>
               </div>

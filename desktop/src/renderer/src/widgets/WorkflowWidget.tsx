@@ -74,7 +74,7 @@ function ModeIcon({ mode }: { mode: string }) {
 function StepStatus({ status }: { status: string }) {
   switch (status) {
     case 'succeeded':
-      return <RiCheckLine className="text-emerald-400 shrink-0" />
+      return <RiCheckLine className="text-amber-400 shrink-0" />
     case 'failed':
       return <RiCloseLine className="text-red-400 shrink-0" />
     case 'running':
@@ -93,7 +93,7 @@ function StruggleBar({ score }: { score: number }) {
   const color =
     pct > 70 ? '#ef4444'
     : pct > 40 ? '#f59e0b'
-    : '#10b981'
+    : '#FFB020'
   return (
     <div className="flex items-center gap-2">
       <span className="iris-label text-[9px] w-16 shrink-0">STRUGGLE</span>
@@ -113,7 +113,7 @@ function StepNode({ step, index, isCurrent }: { step: StepData; index: number; i
     <div
       className={`
         relative flex items-start gap-3 p-3 rounded-xl transition-all duration-300
-        ${isCurrent ? 'bg-white/[0.06] ring-1 ring-emerald-500/30' : 'bg-white/[0.02]'}
+        ${isCurrent ? 'bg-white/[0.06] ring-1 ring-amber-500/30' : 'bg-white/[0.02]'}
         ${step.status === 'failed' ? 'ring-1 ring-red-500/20' : ''}
       `}
     >
@@ -121,7 +121,7 @@ function StepNode({ step, index, isCurrent }: { step: StepData; index: number; i
       <div className="flex flex-col items-center shrink-0">
         <div className={`
           w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold
-          ${step.status === 'succeeded' ? 'bg-emerald-500/20 text-emerald-400' :
+          ${step.status === 'succeeded' ? 'bg-amber-500/20 text-amber-400' :
             step.status === 'failed' ? 'bg-red-500/20 text-red-400' :
             step.status === 'running' ? 'bg-cyan-500/20 text-cyan-400' :
             'bg-white/5 text-zinc-500'}
@@ -151,7 +151,7 @@ function StepNode({ step, index, isCurrent }: { step: StepData; index: number; i
           <p className="mt-1 text-[10px] text-red-400/80 truncate">{step.error}</p>
         )}
         {step.result && step.status === 'succeeded' && (
-          <p className="mt-1 text-[10px] text-emerald-400/60 truncate">{step.result}</p>
+          <p className="mt-1 text-[10px] text-amber-400/60 truncate">{step.result}</p>
         )}
       </div>
     </div>
@@ -208,7 +208,7 @@ export default function WorkflowWidget({ widget }: { widget: WidgetInstance }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${
-              isActive ? 'bg-emerald-400 animate-pulse' :
+              isActive ? 'bg-amber-400 animate-pulse' :
               loop.status === 'stuck' ? 'bg-amber-400 animate-pulse' :
               loop.status === 'failed' ? 'bg-red-400' :
               'bg-zinc-600'

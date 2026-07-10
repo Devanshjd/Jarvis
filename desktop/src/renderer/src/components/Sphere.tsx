@@ -158,7 +158,7 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
           />
         </bufferGeometry>
         <pointsMaterial
-          color="#10b981"
+          color="#FFB020"
           size={0.008}
           transparent
           opacity={0.3}

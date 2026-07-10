@@ -70,7 +70,7 @@ export default function WidgetShell({
             onPointerUp={onPointerUp}
           >
             <div className="flex items-center gap-2">
-              {icon && <span className="text-emerald-400 text-sm">{icon}</span>}
+              {icon && <span className="text-amber-400 text-sm">{icon}</span>}
               <span className="text-[10px] font-bold tracking-[0.24em] text-zinc-400 select-none">{title.toUpperCase()}</span>
             </div>
             <div className="flex items-center gap-1">

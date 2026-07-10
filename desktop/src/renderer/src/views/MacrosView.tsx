@@ -149,12 +149,12 @@ export default function MacrosView() {
       {/* ─── Left sidebar — Macro list ─── */}
       <aside className="scrollbar-small hidden h-full w-72 flex-col overflow-y-auto border-r border-white/5 bg-[#111113] p-4 lg:flex">
         <div className="mb-4 flex items-center justify-between border-b border-[#27272a] pb-3">
-          <h2 className="text-[10px] font-black tracking-[0.24em] text-emerald-500">
+          <h2 className="text-[10px] font-black tracking-[0.24em] text-amber-500">
             NEURAL PATTERNS
           </h2>
           <button
             onClick={createNew}
-            className="rounded-lg border border-[#27272a] bg-[#18181b] p-2 text-zinc-400 transition-colors hover:border-emerald-500/30 hover:text-emerald-400"
+            className="rounded-lg border border-[#27272a] bg-[#18181b] p-2 text-zinc-400 transition-colors hover:border-amber-500/30 hover:text-amber-400"
           >
             <RiAddLine size={14} />
           </button>
@@ -164,7 +164,7 @@ export default function MacrosView() {
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-zinc-700">
             <RiCommandLine size={28} />
             <span className="text-[10px] font-mono tracking-[0.28em]">NO MACROS YET</span>
-            <button onClick={createNew} className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-bold tracking-[0.16em] text-emerald-400 hover:bg-emerald-500/20">
+            <button onClick={createNew} className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[10px] font-bold tracking-[0.16em] text-amber-400 hover:bg-amber-500/20">
               CREATE FIRST MACRO
             </button>
           </div>
@@ -176,8 +176,8 @@ export default function MacrosView() {
                 onClick={() => selectMacro(macro)}
                 className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
                   selected?.id === macro.id
-                    ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
-                    : 'border-[#27272a] bg-[#18181b] text-zinc-200 hover:border-emerald-500/20'
+                    ? 'border-amber-500/40 bg-amber-950/30 text-amber-300'
+                    : 'border-[#27272a] bg-[#18181b] text-zinc-200 hover:border-amber-500/20'
                 }`}
               >
                 <div className="text-[11px] font-bold tracking-[0.16em]">{macro.name}</div>
@@ -208,7 +208,7 @@ export default function MacrosView() {
         <div className="relative flex h-full flex-col">
           {/* Top toolbar */}
           <div className="z-10 flex items-center gap-3 border-b border-white/5 bg-black/60 px-4 py-3 backdrop-blur-lg">
-            <button onClick={createNew} className="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5 text-zinc-400 transition-colors hover:text-emerald-400">
+            <button onClick={createNew} className="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5 text-zinc-400 transition-colors hover:text-amber-400">
               <RiAddLine size={16} />
             </button>
             {selected && (
@@ -216,21 +216,21 @@ export default function MacrosView() {
                 <input
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
-                  className="rounded-lg border border-[#27272a] bg-[#18181b] px-4 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500/40"
+                  className="rounded-lg border border-[#27272a] bg-[#18181b] px-4 py-2.5 text-sm font-bold text-white outline-none focus:border-amber-500/40"
                   placeholder="Macro name..."
                 />
                 <div className="flex-1" />
                 <button
                   onClick={runCurrent}
                   disabled={running || editSteps.length === 0}
-                  className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-5 py-2.5 text-[11px] font-black tracking-[0.18em] text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
+                  className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/30 px-5 py-2.5 text-[11px] font-black tracking-[0.18em] text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-40"
                 >
                   <RiPlayFill className={running ? 'animate-pulse' : ''} /> {running ? 'RUNNING...' : 'RUN'}
                 </button>
                 <button
                   onClick={saveCurrent}
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 text-[11px] font-black tracking-[0.18em] text-black transition-colors hover:bg-emerald-400"
+                  className="flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-[11px] font-black tracking-[0.18em] text-black transition-colors hover:bg-amber-400"
                 >
                   <RiSave3Line /> {saving ? 'SAVING...' : 'SAVE'}
                 </button>
@@ -250,7 +250,7 @@ export default function MacrosView() {
               <div className="text-center">
                 <RiCommandLine size={48} className="mx-auto text-zinc-800" />
                 <p className="mt-4 text-[10px] font-mono tracking-[0.3em] text-zinc-700">SELECT OR CREATE A MACRO TO START</p>
-                <button onClick={createNew} className="mt-4 rounded-xl bg-emerald-500 px-6 py-3 text-[11px] font-black tracking-[0.18em] text-black hover:bg-emerald-400">
+                <button onClick={createNew} className="mt-4 rounded-xl bg-amber-500 px-6 py-3 text-[11px] font-black tracking-[0.18em] text-black hover:bg-amber-400">
                   + NEW MACRO
                 </button>
               </div>
@@ -261,15 +261,15 @@ export default function MacrosView() {
                 {editSteps.map((step, idx) => {
                   const typeDef = STEP_TYPES.find(s => s.value === step.type) || STEP_TYPES[0]
                   return (
-                    <div key={idx} className="group rounded-2xl border border-white/5 bg-[#111113] p-4 transition-all hover:border-emerald-500/20">
+                    <div key={idx} className="group rounded-2xl border border-white/5 bg-[#111113] p-4 transition-all hover:border-amber-500/20">
                       <div className="mb-3 flex items-center gap-3">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-[10px] font-black text-emerald-400">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-[10px] font-black text-amber-400">
                           {idx + 1}
                         </span>
                         <select
                           value={step.type}
                           onChange={e => updateStep(idx, 'type', e.target.value)}
-                          className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] font-bold tracking-[0.12em] text-emerald-400 outline-none focus:border-emerald-500/40"
+                          className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-[11px] font-bold tracking-[0.12em] text-amber-400 outline-none focus:border-amber-500/40"
                         >
                           {STEP_TYPES.map(st => (
                             <option key={st.value} value={st.value}>{st.label}</option>
@@ -293,7 +293,7 @@ export default function MacrosView() {
                             value={step.params[field.key] || ''}
                             onChange={e => updateStep(idx, field.key, e.target.value)}
                             placeholder={field.placeholder}
-                            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-500/40"
+                            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-amber-500/40"
                           />
                         ))}
                       </div>
@@ -303,7 +303,7 @@ export default function MacrosView() {
 
                 <button
                   onClick={addStep}
-                  className="w-full rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-[10px] font-bold tracking-[0.2em] text-zinc-500 transition-colors hover:border-emerald-500/30 hover:text-emerald-400"
+                  className="w-full rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-4 text-[10px] font-bold tracking-[0.2em] text-zinc-500 transition-colors hover:border-amber-500/30 hover:text-amber-400"
                 >
                   + ADD STEP
                 </button>
@@ -311,11 +311,11 @@ export default function MacrosView() {
 
               {/* Run result */}
               {runResult && (
-                <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-emerald-500/20 bg-emerald-900/10 p-4">
-                  <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-[0.18em] text-emerald-400">
+                <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-amber-500/20 bg-amber-900/10 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-[0.18em] text-amber-400">
                     <RiTerminalBoxLine size={14} /> EXECUTION LOG
                   </div>
-                  <pre className="whitespace-pre-wrap text-[11px] font-mono leading-6 text-emerald-200/80">
+                  <pre className="whitespace-pre-wrap text-[11px] font-mono leading-6 text-amber-200/80">
                     {runResult}
                   </pre>
                 </div>

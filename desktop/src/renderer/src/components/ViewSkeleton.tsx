@@ -31,7 +31,7 @@ export default function ViewSkeleton() {
         </div>
 
         {/* Centered spinner */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-emerald-500/50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-amber-500/50">
           <RiLoader4Line className="animate-spin text-4xl" />
           <span className="text-[10px] font-mono tracking-[0.3em]">INITIALIZING MODULE...</span>
         </div>

@@ -42,7 +42,7 @@ export default function PluginsWidget({ widget }: { widget: WidgetInstance }) {
           <span className="text-[9px] font-mono tracking-[0.2em] text-zinc-500">
             {plugins.length} PLUGINS INSTALLED
           </span>
-          <span className="text-[9px] font-mono tracking-[0.2em] text-emerald-500">
+          <span className="text-[9px] font-mono tracking-[0.2em] text-amber-500">
             {plugins.filter(p => p.active).length} ACTIVE
           </span>
         </div>
@@ -57,11 +57,11 @@ export default function PluginsWidget({ widget }: { widget: WidgetInstance }) {
           )}
           {plugins.map((p) => (
             <div key={p.name} className={`rounded-xl border p-3 space-y-2 transition-all ${
-              p.active ? 'border-emerald-500/15 bg-emerald-500/[0.02]' : 'border-white/5 bg-white/[0.02] opacity-60'
+              p.active ? 'border-amber-500/15 bg-amber-500/[0.02]' : 'border-white/5 bg-white/[0.02] opacity-60'
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <RiPlugLine className={p.active ? 'text-emerald-400' : 'text-zinc-600'} size={14} />
+                  <RiPlugLine className={p.active ? 'text-amber-400' : 'text-zinc-600'} size={14} />
                   <div>
                     <span className="text-[11px] font-bold text-zinc-200">{p.name}</span>
                     {p.version && <span className="ml-2 text-[9px] text-zinc-600">v{p.version}</span>}
@@ -71,7 +71,7 @@ export default function PluginsWidget({ widget }: { widget: WidgetInstance }) {
                   <button onClick={() => togglePlugin(p.name)}
                     className="rounded p-1 hover:bg-white/5 transition-all">
                     {p.active
-                      ? <RiToggleFill className="text-emerald-400" size={18} />
+                      ? <RiToggleFill className="text-amber-400" size={18} />
                       : <RiToggleLine className="text-zinc-600" size={18} />
                     }
                   </button>

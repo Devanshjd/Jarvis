@@ -69,12 +69,12 @@ export default function NotesView() {
       <div className="col-span-4 flex h-full flex-col overflow-hidden">
         <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2 text-zinc-100">
-            <RiStickyNoteLine className="text-emerald-400" />
+            <RiStickyNoteLine className="text-amber-400" />
             <span className="text-xs font-bold tracking-[0.18em]">MEMORY BANK</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono tracking-[0.18em] text-zinc-500">{notes.length} ITEMS</span>
-            <button onClick={() => setShowCreate(true)} className="rounded-lg border border-zinc-800 p-1.5 text-zinc-500 transition-colors hover:border-emerald-500/30 hover:text-emerald-400">
+            <button onClick={() => setShowCreate(true)} className="rounded-lg border border-zinc-800 p-1.5 text-zinc-500 transition-colors hover:border-amber-500/30 hover:text-amber-400">
               <RiAddLine size={14} />
             </button>
           </div>
@@ -88,10 +88,10 @@ export default function NotesView() {
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="Note title..."
-              className="flex-1 rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-zinc-200 outline-none focus:border-emerald-500/40"
+              className="flex-1 rounded-xl border border-white/10 bg-black px-3 py-2 text-xs text-zinc-200 outline-none focus:border-amber-500/40"
               autoFocus
             />
-            <button onClick={handleCreate} className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-black">ADD</button>
+            <button onClick={handleCreate} className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-black">ADD</button>
           </div>
         )}
 
@@ -108,11 +108,11 @@ export default function NotesView() {
                   onClick={() => { setSelectedId(note.id); setEditing(false) }}
                   className={`flex-1 rounded-2xl border p-4 text-left transition-all ${
                     selected?.id === note.id
-                      ? 'border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.08)]'
+                      ? 'border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(255,176,32,0.08)]'
                       : 'border-white/5 bg-zinc-900/40 hover:border-white/10 hover:bg-white/5'
                   }`}
                 >
-                  <div className={`text-xs font-bold ${selected?.id === note.id ? 'text-emerald-100' : 'text-zinc-200'}`}>{note.title}</div>
+                  <div className={`text-xs font-bold ${selected?.id === note.id ? 'text-amber-100' : 'text-zinc-200'}`}>{note.title}</div>
                   <div className="mt-1 line-clamp-2 text-[10px] text-zinc-500">{note.content.slice(0, 80) || 'Empty note'}</div>
                   <div className="mt-2 text-[10px] font-mono text-zinc-600">{shortTime(note.updatedAt)}</div>
                 </button>
@@ -139,13 +139,13 @@ export default function NotesView() {
               </div>
               <div className="flex items-center gap-2">
                 {editing ? (
-                  <button onClick={handleSave} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-black">
+                  <button onClick={handleSave} className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-black">
                     <RiSave3Line size={12} /> SAVE
                   </button>
                 ) : (
                   <button
                     onClick={() => { setEditing(true); setEditContent(selected.content) }}
-                    className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-mono tracking-[0.18em] text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+                    className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-mono tracking-[0.18em] text-zinc-400 hover:border-amber-500/30 hover:text-amber-400"
                   >
                     <RiEdit2Line size={12} /> EDIT
                   </button>

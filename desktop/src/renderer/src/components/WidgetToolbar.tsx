@@ -46,8 +46,8 @@ export default function WidgetToolbar() {
         onClick={() => setExpanded((v) => !v)}
         className={`rounded-full border p-3 transition-all shadow-[0_8px_32px_rgba(0,0,0,0.4)] ${
           expanded
-            ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-400'
-            : 'border-white/10 bg-[#0a0c0e]/90 text-zinc-400 hover:border-emerald-500/20 hover:text-emerald-400'
+            ? 'border-amber-500/30 bg-amber-500/20 text-amber-400'
+            : 'border-white/10 bg-[#0a0c0e]/90 text-zinc-400 hover:border-amber-500/20 hover:text-amber-400'
         } backdrop-blur-xl`}
       >
         <RiAppsLine size={18} />
@@ -73,7 +73,7 @@ export default function WidgetToolbar() {
                   title={item.label}
                   className={`group relative rounded-xl p-2.5 transition-all ${
                     isOpen
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-amber-500/20 text-amber-400'
                       : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'
                   }`}
                 >
@@ -84,7 +84,7 @@ export default function WidgetToolbar() {
                   </span>
                   {/* Active dot */}
                   {isOpen && (
-                    <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-emerald-400" />
+                    <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />
                   )}
                 </button>
               )

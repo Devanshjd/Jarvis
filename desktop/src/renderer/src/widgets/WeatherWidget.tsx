@@ -120,10 +120,10 @@ export default function WeatherWidget({ widget }: { widget: WidgetInstance }) {
           <>
             {/* Location + refresh */}
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-[0.2em] text-emerald-500">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono tracking-[0.2em] text-amber-500">
                 <RiMapPinLine size={12} /> {weather.city}, {weather.country}
               </div>
-              <button onClick={fetchWeather} className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-emerald-400">
+              <button onClick={fetchWeather} className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-amber-400">
                 <RiRefreshLine size={14} className={loading ? 'animate-spin' : ''} />
               </button>
             </div>
@@ -137,7 +137,7 @@ export default function WeatherWidget({ widget }: { widget: WidgetInstance }) {
                   Feels like {weather.feelsLike}° • H:{weather.high}° L:{weather.low}°
                 </div>
               </div>
-              <div className="text-emerald-400/80">{getWeatherIcon(weather.code, 48)}</div>
+              <div className="text-amber-400/80">{getWeatherIcon(weather.code, 48)}</div>
             </div>
 
             {/* Detail grid */}

@@ -161,11 +161,11 @@ export default function SecurityWidget({ widget }: { widget: WidgetInstance }) {
               {results.map(r => (
                 <div key={r.id} className={`rounded-xl border p-3 ${
                   r.success
-                    ? 'border-emerald-500/10 bg-emerald-500/[0.03]'
+                    ? 'border-amber-500/10 bg-amber-500/[0.03]'
                     : 'border-red-500/10 bg-red-500/[0.03]'
                 }`}>
                   <div className="mb-1 flex items-center justify-between">
-                    <span className={`text-[9px] font-bold tracking-[0.14em] ${r.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span className={`text-[9px] font-bold tracking-[0.14em] ${r.success ? 'text-amber-400' : 'text-red-400'}`}>
                       {SCAN_DEFS.find(d => d.type === r.type)?.label} // {r.target}
                     </span>
                     <span className="text-[8px] font-mono text-zinc-600">

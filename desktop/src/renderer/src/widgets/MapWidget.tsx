@@ -76,7 +76,7 @@ export default function MapWidget({ widget }: { widget: WidgetInstance }) {
             placeholder="Search location..."
             className="flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
           />
-          {loading && <RiLoader4Line className="animate-spin text-emerald-400" size={14} />}
+          {loading && <RiLoader4Line className="animate-spin text-amber-400" size={14} />}
         </div>
 
         {/* Map iframe — dark theme via CSS filter */}
@@ -90,13 +90,13 @@ export default function MapWidget({ widget }: { widget: WidgetInstance }) {
 
           {/* Map controls */}
           <div className="absolute right-2 top-2 flex flex-col gap-1.5">
-            <button onClick={goToMyLocation} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-emerald-400">
+            <button onClick={goToMyLocation} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-amber-400">
               <RiCrosshairLine size={14} />
             </button>
-            <button onClick={() => setZoom(z => Math.min(z + 1, 18))} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-emerald-400">
+            <button onClick={() => setZoom(z => Math.min(z + 1, 18))} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-amber-400">
               <RiZoomInLine size={14} />
             </button>
-            <button onClick={() => setZoom(z => Math.max(z - 1, 3))} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-emerald-400">
+            <button onClick={() => setZoom(z => Math.max(z - 1, 3))} className="rounded-lg border border-white/10 bg-black/70 p-2 text-zinc-400 backdrop-blur-md hover:text-amber-400">
               <RiZoomOutLine size={14} />
             </button>
           </div>
@@ -104,7 +104,7 @@ export default function MapWidget({ widget }: { widget: WidgetInstance }) {
           {/* Location info */}
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
             <div className="rounded-lg border border-white/10 bg-black/70 px-3 py-1.5 backdrop-blur-md">
-              <div className="text-[9px] font-bold tracking-[0.14em] text-emerald-400 line-clamp-1">{placeName}</div>
+              <div className="text-[9px] font-bold tracking-[0.14em] text-amber-400 line-clamp-1">{placeName}</div>
               <div className="text-[8px] font-mono text-zinc-500">{lat.toFixed(4)}, {lng.toFixed(4)}</div>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function MapWidget({ widget }: { widget: WidgetInstance }) {
               <button
                 key={i}
                 onClick={() => { setLat(h.lat); setLng(h.lon); setPlaceName(h.name); }}
-                className="shrink-0 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-1 text-[9px] font-bold tracking-[0.1em] text-zinc-400 hover:border-emerald-500/20 hover:text-emerald-400"
+                className="shrink-0 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-1 text-[9px] font-bold tracking-[0.1em] text-zinc-400 hover:border-amber-500/20 hover:text-amber-400"
               >
                 {h.name}
               </button>

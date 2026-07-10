@@ -125,12 +125,12 @@ export default function CameraFeed({ source, onStreamReady }: CameraFeedProps) {
     <div className="relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-black">
       {/* Status label */}
       <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-[9px] font-bold tracking-[0.28em] text-emerald-400">{label}</span>
+        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+        <span className="text-[9px] font-bold tracking-[0.28em] text-amber-400">{label}</span>
       </div>
 
       <div className="absolute right-3 top-3 z-10">
-        <Icon size={14} className="text-emerald-500/40" />
+        <Icon size={14} className="text-amber-500/40" />
       </div>
 
       {/* Video */}
@@ -147,7 +147,7 @@ export default function CameraFeed({ source, onStreamReady }: CameraFeedProps) {
 
       {/* Scan line */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.5) 2px, rgba(16,185,129,0.5) 3px)',
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,176,32,0.5) 2px, rgba(255,176,32,0.5) 3px)',
         backgroundSize: '100% 3px'
       }} />
     </div>
@@ -155,7 +155,7 @@ export default function CameraFeed({ source, onStreamReady }: CameraFeedProps) {
 }
 
 function CornerBrackets() {
-  const bracketClass = 'absolute w-6 h-6 border-emerald-500/40'
+  const bracketClass = 'absolute w-6 h-6 border-amber-500/40'
 
   return (
     <div className="pointer-events-none absolute inset-4 z-10">

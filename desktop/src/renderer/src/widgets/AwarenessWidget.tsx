@@ -65,7 +65,7 @@ export default function AwarenessWidget({ widget }: { widget: WidgetInstance }) 
         {/* Status bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${active ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+            <span className={`h-2.5 w-2.5 rounded-full ${active ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
             <span className="text-[10px] font-mono tracking-[0.2em] text-zinc-400">
               {active ? 'WATCHING' : 'INACTIVE'}
             </span>
@@ -80,7 +80,7 @@ export default function AwarenessWidget({ widget }: { widget: WidgetInstance }) 
               className={`rounded-lg px-3 py-1.5 text-[9px] font-mono tracking-widest transition-all ${
                 active
                   ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                  : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
               }`}>
               {active ? <><RiEyeOffLine className="inline mr-1" size={11} />STOP</> : <><RiEyeLine className="inline mr-1" size={11} />START</>}
             </button>

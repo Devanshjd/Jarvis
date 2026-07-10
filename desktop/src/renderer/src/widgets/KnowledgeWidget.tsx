@@ -178,7 +178,7 @@ export default function KnowledgeWidget({ widget }: { widget: WidgetInstance }) 
                   placeholder="File path to ingest..."
                   className="flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
                 />
-                <button onClick={handleIngest} disabled={loading || !ingestPath.trim()} className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-[9px] font-bold tracking-[0.14em] text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40">
+                <button onClick={handleIngest} disabled={loading || !ingestPath.trim()} className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-[9px] font-bold tracking-[0.14em] text-amber-400 hover:bg-amber-500/30 disabled:opacity-40">
                   {loading ? <RiLoader4Line size={12} className="animate-spin" /> : 'INGEST'}
                 </button>
               </div>
@@ -215,7 +215,7 @@ export default function KnowledgeWidget({ widget }: { widget: WidgetInstance }) 
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-white/5 bg-black/20 px-3 py-2">
                 <span className="text-[9px] font-mono tracking-[0.16em] text-zinc-600">{memories.length} CORE MEMORIES</span>
-                <button onClick={loadData} className="rounded p-1 text-zinc-500 hover:text-emerald-400">
+                <button onClick={loadData} className="rounded p-1 text-zinc-500 hover:text-amber-400">
                   <RiRefreshLine size={12} />
                 </button>
               </div>

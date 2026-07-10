@@ -86,7 +86,7 @@ export default function CodeEditorWidget({ widget }: { widget: WidgetInstance })
             <input
               value={filename}
               onChange={e => setFilename(e.target.value)}
-              className="w-36 rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-emerald-500/40"
+              className="w-36 rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-amber-500/40"
               placeholder="filename.ext"
             />
             <select
@@ -102,13 +102,13 @@ export default function CodeEditorWidget({ widget }: { widget: WidgetInstance })
           <div className="flex items-center gap-1.5">
             <button
               onClick={openFile}
-              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-400 hover:border-emerald-500/30 hover:text-emerald-400"
+              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[9px] font-bold tracking-[0.14em] text-zinc-400 hover:border-amber-500/30 hover:text-amber-400"
             >
               <RiFolderOpenLine size={12} /> OPEN
             </button>
             <button
               onClick={saveFile}
-              className="flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-[9px] font-black tracking-[0.14em] text-black hover:bg-emerald-400"
+              className="flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-[9px] font-black tracking-[0.14em] text-black hover:bg-amber-400"
             >
               <RiSave3Line size={12} /> SAVE
             </button>
@@ -118,7 +118,7 @@ export default function CodeEditorWidget({ widget }: { widget: WidgetInstance })
         {/* Status bar (ephemeral) */}
         {status && (
           <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] ${
-            status.type === 'success' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'
+            status.type === 'success' ? 'bg-amber-500/10 text-amber-300' : 'bg-red-500/10 text-red-300'
           }`}>
             {status.type === 'success' ? <RiCheckLine size={12} /> : <RiAlertLine size={12} />}
             {status.message}
@@ -139,7 +139,7 @@ export default function CodeEditorWidget({ widget }: { widget: WidgetInstance })
             onChange={e => setCode(e.target.value)}
             onKeyDown={handleTab}
             spellCheck={false}
-            className="scrollbar-small flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-6 text-emerald-100 outline-none"
+            className="scrollbar-small flex-1 resize-none bg-transparent p-4 font-mono text-[13px] leading-6 text-amber-100 outline-none"
             style={{ tabSize: 2 }}
           />
         </div>

@@ -13,7 +13,7 @@ const components: Components = {
     const isInline = !className
     if (isInline) {
       return (
-        <code className="rounded-md bg-emerald-950/50 px-1.5 py-0.5 text-[11px] text-emerald-300" {...props}>
+        <code className="rounded-md bg-amber-950/50 px-1.5 py-0.5 text-[11px] text-amber-300" {...props}>
           {children}
         </code>
       )
@@ -27,7 +27,7 @@ const components: Components = {
           </div>
         )}
         <pre className="scrollbar-small overflow-x-auto p-4 text-[12px] leading-6">
-          <code className={`font-mono text-emerald-200 ${className}`} {...props}>
+          <code className={`font-mono text-amber-200 ${className}`} {...props}>
             {children}
           </code>
         </pre>
@@ -37,17 +37,17 @@ const components: Components = {
   // Links
   a({ href, children }) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline underline-offset-2 hover:text-emerald-300">
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-amber-400 underline underline-offset-2 hover:text-amber-300">
         {children}
       </a>
     )
   },
   // Lists
   ul({ children }) {
-    return <ul className="ml-4 list-disc space-y-1 text-zinc-300 marker:text-emerald-600">{children}</ul>
+    return <ul className="ml-4 list-disc space-y-1 text-zinc-300 marker:text-amber-600">{children}</ul>
   },
   ol({ children }) {
-    return <ol className="ml-4 list-decimal space-y-1 text-zinc-300 marker:text-emerald-600">{children}</ol>
+    return <ol className="ml-4 list-decimal space-y-1 text-zinc-300 marker:text-amber-600">{children}</ol>
   },
   li({ children }) {
     return <li className="text-xs leading-6">{children}</li>
@@ -72,7 +72,7 @@ const components: Components = {
   // Blockquote
   blockquote({ children }) {
     return (
-      <blockquote className="my-2 border-l-2 border-emerald-500/40 pl-3 text-zinc-400 italic">
+      <blockquote className="my-2 border-l-2 border-amber-500/40 pl-3 text-zinc-400 italic">
         {children}
       </blockquote>
     )

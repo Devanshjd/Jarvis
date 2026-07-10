@@ -16,7 +16,7 @@ type Goal = {
 }
 
 function ProgressBar({ percent, priority }: { percent: number; priority: string }) {
-  const color = priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : '#10b981'
+  const color = priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : '#FFB020'
   return (
     <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
       <div
@@ -60,7 +60,7 @@ export default function GoalsWidget({ widget }: { widget: WidgetInstance }) {
         {/* Overall progress */}
         <div className="flex items-center justify-between">
           <span className="text-[9px] font-mono tracking-[0.2em] text-zinc-500">OVERALL PROGRESS</span>
-          <span className="text-sm font-black text-emerald-400">{totalProgress}%</span>
+          <span className="text-sm font-black text-amber-400">{totalProgress}%</span>
         </div>
         <ProgressBar percent={totalProgress} priority="medium" />
 
@@ -91,9 +91,9 @@ export default function GoalsWidget({ widget }: { widget: WidgetInstance }) {
             onChange={(e) => setNewGoal(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addGoal()}
             placeholder="Add a goal..."
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-300 placeholder-zinc-600 outline-none focus:border-emerald-500/30"
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-300 placeholder-zinc-600 outline-none focus:border-amber-500/30"
           />
-          <button onClick={addGoal} className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 hover:bg-emerald-500/30 transition-all">
+          <button onClick={addGoal} className="rounded-lg bg-amber-500/20 p-2 text-amber-400 hover:bg-amber-500/30 transition-all">
             <RiAddLine size={14} />
           </button>
         </div>

@@ -41,7 +41,7 @@ export default function VaultWidget({ widget }: { widget: WidgetInstance }) {
   useEffect(() => { void loadAll() }, [])
 
   const typeColors: Record<string, string> = {
-    person: '#6366f1', language: '#10b981', tool: '#f59e0b', general: '#64748b',
+    person: '#6366f1', language: '#FFB020', tool: '#f59e0b', general: '#64748b',
     concept: '#ec4899', security: '#ef4444'
   }
 
@@ -108,7 +108,7 @@ export default function VaultWidget({ widget }: { widget: WidgetInstance }) {
                 <RiLinksFill className="text-zinc-600" size={10} />
                 <span className="text-[10px] text-zinc-500 italic">{r.relation}</span>
                 <RiLinksFill className="text-zinc-600" size={10} />
-                <span className="text-[11px] font-bold text-emerald-400">{r.to_name}</span>
+                <span className="text-[11px] font-bold text-amber-400">{r.to_name}</span>
               </div>
             ))}
           </div>

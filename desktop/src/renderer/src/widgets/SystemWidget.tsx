@@ -8,7 +8,7 @@ import { RiCpuLine, RiHardDriveLine, RiTempColdLine, RiTimerLine, RiComputerLine
 import WidgetShell from '../components/WidgetShell'
 import type { WidgetInstance, SystemStatsResult } from '../store/useStore'
 
-function GaugeRing({ percent, label, color = '#10b981' }: { percent: number; label: string; color?: string }) {
+function GaugeRing({ percent, label, color = '#FFB020' }: { percent: number; label: string; color?: string }) {
   const radius = 36
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percent / 100) * circumference

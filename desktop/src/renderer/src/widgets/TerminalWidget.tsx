@@ -120,8 +120,8 @@ export default function TerminalWidget({ widget }: { widget: WidgetInstance }) {
             <div key={entry.id} className="mb-1">
               {entry.type === 'input' ? (
                 <div className="flex gap-2">
-                  <span className="text-emerald-500 select-none">❯</span>
-                  <span className="text-emerald-100">{entry.text}</span>
+                  <span className="text-amber-500 select-none">❯</span>
+                  <span className="text-amber-100">{entry.text}</span>
                 </div>
               ) : entry.type === 'error' ? (
                 <div className="text-red-400 whitespace-pre-wrap">{entry.text}</div>
@@ -133,13 +133,13 @@ export default function TerminalWidget({ widget }: { widget: WidgetInstance }) {
             </div>
           ))}
           {running && (
-            <div className="text-emerald-500/50 animate-pulse">Processing...</div>
+            <div className="text-amber-500/50 animate-pulse">Processing...</div>
           )}
         </div>
 
         {/* Input */}
         <div className="flex items-center gap-2 border-t border-white/5 bg-black/40 px-4 py-3">
-          <span className="text-emerald-500 text-sm select-none font-bold">❯</span>
+          <span className="text-amber-500 text-sm select-none font-bold">❯</span>
           <input
             ref={inputRef}
             value={cmd}
@@ -152,7 +152,7 @@ export default function TerminalWidget({ widget }: { widget: WidgetInstance }) {
           <button
             onClick={runCommand}
             disabled={running}
-            className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-40"
+            className="rounded-lg bg-amber-500/20 p-2 text-amber-400 transition-colors hover:bg-amber-500/30 disabled:opacity-40"
           >
             <RiSendPlaneFill size={14} />
           </button>

@@ -20,34 +20,34 @@ export default function PhoneView({ backendState }: { backendState: string }) {
     <div className="flex h-full items-center justify-center bg-[#050505] p-10">
       <div className="grid w-full max-w-6xl grid-cols-12 gap-10">
         <div className="col-span-4 flex flex-col gap-6">
-          <div className="rounded-3xl border border-emerald-900/40 bg-black p-6">
+          <div className="rounded-3xl border border-amber-900/40 bg-black p-6">
             <div className="flex items-center gap-4">
-              <div className="rounded-xl border border-emerald-400/30 bg-emerald-950/40 p-3">
-                <RiAndroidLine className="text-emerald-400" size={24} />
+              <div className="rounded-xl border border-amber-400/30 bg-amber-950/40 p-3">
+                <RiAndroidLine className="text-amber-400" size={24} />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Connect Device</h2>
-                <p className="mt-1 text-[10px] font-mono tracking-[0.18em] text-emerald-400/70">WIRELESS ADB</p>
+                <p className="mt-1 text-[10px] font-mono tracking-[0.18em] text-amber-400/70">WIRELESS ADB</p>
               </div>
             </div>
           </div>
-          <div className="rounded-3xl border border-emerald-900/40 bg-zinc-950 p-6">
+          <div className="rounded-3xl border border-amber-900/40 bg-zinc-950 p-6">
             <div className="mt-2 space-y-4">
               <label className="block">
-                <div className="mb-2 text-xs font-bold tracking-[0.16em] text-emerald-300/80">IP ADDRESS</div>
-                <div className="flex items-center rounded-xl border border-emerald-900/50 bg-black px-4 py-4 text-sm font-mono text-emerald-400">
+                <div className="mb-2 text-xs font-bold tracking-[0.16em] text-amber-300/80">IP ADDRESS</div>
+                <div className="flex items-center rounded-xl border border-amber-900/50 bg-black px-4 py-4 text-sm font-mono text-amber-400">
                   <RiWifiLine className="mr-3" />
-                  <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="192.168.1.xxx" className="w-full bg-transparent outline-none placeholder:text-emerald-900" />
+                  <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="192.168.1.xxx" className="w-full bg-transparent outline-none placeholder:text-amber-900" />
                 </div>
               </label>
               <label className="block">
-                <div className="mb-2 text-xs font-bold tracking-[0.16em] text-emerald-300/80">PORT</div>
-                <div className="flex items-center rounded-xl border border-emerald-900/50 bg-black px-4 py-4 text-sm font-mono text-emerald-400">
+                <div className="mb-2 text-xs font-bold tracking-[0.16em] text-amber-300/80">PORT</div>
+                <div className="flex items-center rounded-xl border border-amber-900/50 bg-black px-4 py-4 text-sm font-mono text-amber-400">
                   <RiLinkM className="mr-3" />
-                  <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="5555" className="w-full bg-transparent outline-none placeholder:text-emerald-900" />
+                  <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="5555" className="w-full bg-transparent outline-none placeholder:text-amber-900" />
                 </div>
               </label>
-              <button onClick={() => setStatus('coming-soon')} className="w-full rounded-xl border border-emerald-400/50 bg-emerald-950 py-4 text-xs font-black tracking-[0.18em] text-emerald-300 transition-colors hover:bg-emerald-400 hover:text-black">
+              <button onClick={() => setStatus('coming-soon')} className="w-full rounded-xl border border-amber-400/50 bg-amber-950 py-4 text-xs font-black tracking-[0.18em] text-amber-300 transition-colors hover:bg-amber-400 hover:text-black">
                 CONNECT SECURELY
               </button>
             </div>
@@ -56,10 +56,10 @@ export default function PhoneView({ backendState }: { backendState: string }) {
 
         <div className="col-span-4 flex items-center justify-center">
           <div className="h-[620px] w-[310px] rounded-[3rem] border-[10px] border-zinc-800 bg-zinc-950 shadow-2xl">
-            <div className="relative flex h-full items-center justify-center overflow-hidden rounded-[2.2rem] bg-gradient-to-b from-emerald-950/20 to-black">
+            <div className="relative flex h-full items-center justify-center overflow-hidden rounded-[2.2rem] bg-gradient-to-b from-amber-950/20 to-black">
               <div className="absolute top-0 left-1/2 h-6 w-28 -translate-x-1/2 rounded-b-xl bg-zinc-800" />
-              <RiSmartphoneLine size={72} className="text-emerald-900" />
-              <div className="absolute bottom-28 text-[10px] font-mono tracking-[0.28em] text-emerald-900">
+              <RiSmartphoneLine size={72} className="text-amber-900" />
+              <div className="absolute bottom-28 text-[10px] font-mono tracking-[0.28em] text-amber-900">
                 {status === 'coming-soon' ? 'ADB LAYER NEXT' : 'AWAITING TARGET'}
               </div>
             </div>
@@ -77,11 +77,11 @@ export default function PhoneView({ backendState }: { backendState: string }) {
                 <div key={item} className="flex min-h-32 flex-col items-center justify-center rounded-2xl border border-white/5 bg-black/50 p-6 text-center">
                   <RiCommandLine className="mb-3 text-zinc-500" size={24} />
                   <span className="text-[10px] font-bold tracking-[0.18em] text-zinc-200">{item}</span>
-                  <span className="mt-3 text-[10px] font-mono tracking-[0.2em] text-emerald-400">{value}</span>
+                  <span className="mt-3 text-[10px] font-mono tracking-[0.2em] text-amber-400">{value}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-[11px] leading-6 text-emerald-100/80">
+            <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-[11px] leading-6 text-amber-100/80">
               ADB wireless connection, live screen streaming, and touch simulation will be wired behind this view.
             </div>
           </div>

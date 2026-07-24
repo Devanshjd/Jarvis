@@ -234,6 +234,7 @@ class HeadlessJarvisRuntime(JarvisRuntime):
         ("plugins.web_automation.web_automation_plugin", "WebAutomationPlugin", "Web Automation"),
         ("plugins.pentest.pentest_plugin", "PentestPlugin", "Pentest"),
         ("plugins.messaging.messaging_plugin", "MessagingPlugin", "Messaging"),
+        ("plugins.earn_loop.earn_loop_plugin", "EarnLoopPlugin", "Earn Loop"),
     ]
 
     def __init__(self):

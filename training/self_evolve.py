@@ -548,13 +548,17 @@ def diagnostics():
         )
         checks.append(("Gemini API Key", "configured" if has_key else "MISSING", has_key))
     
-    # Check learning log
-    learning_log = Path.home() / ".jarvis_sandbox" / "learning_log.jsonl"
-    if learning_log.exists():
-        lines = len(learning_log.read_text().strip().split("\n"))
-        checks.append(("Learning Data", f"{lines} examples", True))
-    else:
-        checks.append(("Learning Data", "0 examples", True))
+    # Check learning log. The real log lives in the repo's training/ dir; an
+    # older path under ~/.jarvis_sandbox is kept as a fallback.
+    candidates = [
+        JARVIS_ROOT / "training" / "learning_log.jsonl",
+        Path.home() / ".jarvis_sandbox" / "learning_log.jsonl",
+    ]
+    total = 0
+    for lp in candidates:
+        if lp.exists():
+            total += len([l for l in lp.read_text(encoding="utf-8").splitlines() if l.strip()])
+    checks.append(("Learning Data", f"{total} examples", True))
     
     # Print results
     print(f"\n{'Component':<20} {'Status':<30} {'OK'}")

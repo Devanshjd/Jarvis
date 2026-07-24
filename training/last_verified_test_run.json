@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Calculator: 23 × 7",
+    "goal": "open calculator and compute 23 times 7",
+    "verdict": "FALSE_POSITIVE",
+    "agent_reported_success": true,
+    "step_count": 5,
+    "elapsed_s": 10.3,
+    "expected_substrings": [
+      "161"
+    ],
+    "found": [],
+    "missing": [
+      "161"
+    ],
+    "screen_text_preview": "= Scien\n\nCalculator\n\n23x\n\nx\n\n{o)\n\nuild JARVIS Al assistant system ~\n\nk existing infrastructure first:\n\n%\n\nS&S DEG FE\nMc MR M+  M- — MS\nB A Trigonometry vf’ Function v\nPi Tt e cE\nae Vx xl exp\naK ( ) ni\nx” 7 8 9\n10\" 4 5 6\nlog 1 2 3\nIn % 0\nRelaunch to update >\nV1.8555.2\nD devansh - Pro v\n26°C\nSunny\n\n‘b"
+  },
+  {
+    "name": "Notepad: type 'hello jarvis'",
+    "goal": "open notepad and type hello jarvis",
+    "verdict": "TRUE_PASS",
+    "agent_reported_success": true,
+    "step_count": 3,
+    "elapsed_s": 7.5,
+    "expected_substrings": [
+      "hello jarvis"
+    ],
+    "found": [
+      "hello jarvis"
+    ],
+    "missing": [],
+    "screen_text_preview": "Calculator o x\n\n= Scientific fo)\nB shelio Jarvis ° +\n\nFile Edit View\n\ne hello Jarvis\nhello Jarvis\nhello Jarvis\n\nLn4,Col1 39 characters Plain text\n\nRelaunch to update\nV1.8555.2\n\nD devansh - Pro\n\nLn1,Col1  O characters\n\n26°C\nSunny\n\nuild JARVIS Al assistant svstem ~\n\nPlain text\n\nBIs®e®\n\nBye\n\n8\n\nam © Of"
+  },
+  {
+    "name": "Calculator: 100 / 4",
+    "goal": "open calculator and compute 100 divided by 4",
+    "verdict": "FALSE_POSITIVE",
+    "agent_reported_success": true,
+    "step_count": 5,
+    "elapsed_s": 10.9,
+    "expected_substrings": [
+      "25"
+    ],
+    "found": [],
+    "missing": [
+      "25"
+    ],
+    "screen_text_preview": "Calculator = o x\n\n= Scientific © uild JARVIS Alassistant svstem ~\n\nHiv v\nS& DEG FE\nM+  M-— MS\nA Trigonometry vf’ Function v\nan Tt e cE @\nx? Ve [x1 exp mod\naK ( ) ni\nx” 7 8 9 x\n10\" 4 5 6 _\nlog 1 2 3 aF\nLn 4,Col1 39 characters Plain text\nRelaunch to update\nV1.8555.2\nGSES tm Ln1,Col1 —O characters Plai"
+  },
+  {
+    "name": "OCR: read screen text",
+    "goal": "read all the text on my screen",
+    "verdict": "TRUE_PASS",
+    "agent_reported_success": true,
+    "step_count": 1,
+    "elapsed_s": 1.6,
+    "expected_substrings": [],
+    "found": [],
+    "missing": [],
+    "screen_text_preview": "Calculator = o x\n\n= Scientific © uild JARVIS Alassistant svstem ~\n\nHiv v\nS& DEG FE\nM+  M-— MS\nA Trigonometry vf’ Function v\nan Tt e cE @\nx? Ve [x1 exp mod\naK ( ) ni\nx” 7 8 9 x\n10\" 4 5 6 _\nlog 1 2 3 aF\nLn 4,Col1 39 characters Plain text\nRelaunch to update\nV1.8555.2\nGSES tm Ln1,Col1 —O characters Plai"
+  }
+]

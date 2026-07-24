@@ -1,6 +1,6 @@
 /**
  * WidgetToolbar — quick-access bar for opening/closing widgets.
- * IRIS-style pill buttons along the bottom-left of the UI.
+ * Stormbreaker-style pill buttons along the bottom-left of the UI.
  */
 
 import { motion, AnimatePresence } from 'framer-motion'

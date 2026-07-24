@@ -107,6 +107,7 @@ declare global {
       toolManageFile: (operation: string, sourcePath: string, destPath?: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolReadDirectory: (dirPath: string) => Promise<{ success: boolean; path?: string; items?: Array<{ name: string; type: string }>; total?: number; error?: string }>
       toolCreateFolder: (folderPath: string) => Promise<{ success: boolean; path?: string; error?: string }>
+      toolSaveRecording: (base64: string, ext?: string) => Promise<{ success: boolean; path?: string; bytes?: number; error?: string }>
       toolOpenApp: (appName: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolCloseApp: (appName: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolRunTerminal: (command: string, cwd?: string) => Promise<{ success: boolean; output?: string; exitCode?: number | null; error?: string }>
@@ -128,6 +129,8 @@ declare global {
       toolSnapWindow: (appName: string, position: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolExecuteMacro: (macroName: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolLockSystem: () => Promise<{ success: boolean; message?: string; error?: string }>
+      toolNavigateMaps: (destination: string, origin?: string) => Promise<{ success: boolean; message?: string; error?: string }>
+      toolSetReminder: (text: string, minutes: number) => Promise<{ success: boolean; message?: string; error?: string }>
 
       // ─── Macro CRUD ───
       macrosList: () => Promise<MacroItem[]>
@@ -237,6 +240,7 @@ declare global {
       // ─── Notifications ───
       jarvisNotify: (title: string, body: string, urgency?: string) => Promise<{ success: boolean; error?: string }>
       onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => void
+      onReminderFired: (callback: (text: string) => void) => void
 
       // ─── Live APIs ───
       apiWeather: (city: string) => Promise<{ success: boolean; city?: string; temp?: number; description?: string; error?: string }>

@@ -604,13 +604,12 @@ def _get_whisper_model():
         return _whisper_model if _whisper_model != "missing" else None
     try:
         from faster_whisper import WhisperModel
-        # Try GPU first, fall back to CPU
-        try:
-            _whisper_model = WhisperModel("base.en", device="cuda", compute_type="float16")
-            logging.getLogger("jarvis.stt").info("Whisper loaded on CUDA (base.en)")
-        except Exception:
-            _whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
-            logging.getLogger("jarvis.stt").info("Whisper loaded on CPU (base.en int8)")
+        # Run on CPU (int8). base.en on CPU transcribes a short clip in ~1.5s —
+        # plenty fast for turn-based voice — and it does NOT contend with the
+        # LLMs for the 8GB GPU. The CUDA path can HANG on Windows when cuDNN
+        # isn't set up (a try/except can't catch a hang), so we avoid it.
+        _whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
+        logging.getLogger("jarvis.stt").info("Whisper loaded on CPU (base.en int8)")
         return _whisper_model
     except Exception as e:
         logging.getLogger("jarvis.stt").warning("Whisper unavailable: %s", e)
@@ -680,6 +679,263 @@ def api_stt_transcribe(payload: STTRequest):
                 pass
     except Exception as e:
         return {"success": False, "error": f"STT failed: {e}"}
+
+
+class LocalVoiceRequest(BaseModel):
+    audio_base64: str
+    speak: bool = True
+    approve_desktop: bool = False
+
+
+@app.post("/api/voice/local")
+def api_voice_local(payload: LocalVoiceRequest):
+    """FULLY-LOCAL voice turn: Whisper STT -> local LLM (JARVIS runtime, with
+    tools) -> Piper TTS. Zero cloud, zero API cap. Turn-based (record -> reply).
+    Returns transcript + reply text + reply audio (base64 WAV, also played on
+    the host)."""
+    import base64, io, wave, tempfile, os, time
+    t_start = time.time()
+
+    # 1) Speech -> text (local Whisper)
+    model = _get_whisper_model()
+    if model is None:
+        return {"success": False, "error": "faster-whisper not installed."}
+    try:
+        audio_bytes = base64.b64decode(payload.audio_base64)
+        if len(audio_bytes) < 100:
+            return {"success": False, "error": "audio too short"}
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+            tf.write(audio_bytes)
+            tmp_path = tf.name
+        try:
+            segments, _info = model.transcribe(tmp_path, language="en",
+                                               beam_size=1, vad_filter=True)
+            transcript = " ".join(s.text for s in segments).strip()
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+    except Exception as e:
+        return {"success": False, "error": f"STT failed: {e}"}
+    if not transcript:
+        return {"success": False, "error": "no speech detected", "transcript": ""}
+
+    # 2) Reason locally — a FAST direct Ollama chat (snappy voice replies).
+    #    The full agent pipeline is too slow for turn-based voice; keep this
+    #    conversational. (Tool execution via voice is a separate path.)
+    #    First pull any semantically-relevant memories so JARVIS actually
+    #    recalls past context.
+    memory_context = ""
+    try:
+        from core.vector_memory import get_vector_memory
+        memory_context = get_vector_memory().recall_context(transcript, k=3)
+    except Exception:
+        pass
+
+    reply = ""
+    try:
+        import requests as _rq
+        model = "gemma3:4b"
+        try:
+            _cfg = json.loads((Path.home() / ".jarvis_config.json").read_text(encoding="utf-8"))
+            model = (_cfg.get("ollama") or {}).get("model") or model
+        except Exception:
+            pass
+        system = ("You are JARVIS, a concise, helpful local voice assistant. "
+                  "Answer in 1-3 spoken sentences — no markdown, no lists, no code "
+                  "blocks. Be direct and natural, as if speaking aloud.")
+        if memory_context:
+            system += "\n\n" + memory_context + "\nUse these memories if relevant."
+        _r = _rq.post(
+            "http://127.0.0.1:11434/api/chat",
+            json={"model": model, "stream": False, "keep_alive": "5m",
+                  "options": {"temperature": 0.6, "num_predict": 200},
+                  "messages": [
+                      {"role": "system", "content": system},
+                      {"role": "user", "content": transcript}]},
+            timeout=60)
+        if _r.status_code == 200:
+            reply = (_r.json().get("message", {}).get("content") or "").strip()
+    except Exception as e:
+        reply = f"I hit a local reasoning error: {e}"
+    if not reply:
+        reply = "I could not generate a reply locally. Is Ollama running?"
+
+    # Remember this turn so future questions can recall it.
+    try:
+        from core.vector_memory import get_vector_memory
+        get_vector_memory().remember_turn(transcript, reply)
+    except Exception:
+        pass
+
+    # 3) Text -> speech (local Piper), play on host + return audio
+    audio_b64 = ""
+    if payload.speak and reply:
+        voice = _get_piper_voice()
+        if voice is not None:
+            try:
+                buf = io.BytesIO()
+                with wave.open(buf, "wb") as wf:
+                    voice.synthesize_wav(reply[:1500], wf)
+                wav = buf.getvalue()
+                audio_b64 = base64.b64encode(wav).decode()
+
+                def _play():
+                    try:
+                        import winsound
+                        winsound.PlaySound(wav, winsound.SND_MEMORY)
+                    except Exception:
+                        pass
+                threading.Thread(target=_play, daemon=True).start()
+            except Exception:
+                pass
+
+    return {
+        "success": True, "transcript": transcript, "reply": reply,
+        "reply_audio_base64": audio_b64, "local": True,
+        "latency_ms": int((time.time() - t_start) * 1000),
+    }
+
+
+class VectorAddRequest(BaseModel):
+    text: str
+    metadata: dict | None = None
+
+
+@app.post("/api/memory/vector/add")
+def api_vector_add(payload: VectorAddRequest):
+    """Store a memory in the local semantic (vector) store."""
+    try:
+        from core.vector_memory import get_vector_memory
+        ok = get_vector_memory().add(payload.text, payload.metadata)
+        return {"success": ok}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/memory/vector/search")
+def api_vector_search(q: str, k: int = 4):
+    """Semantically search memory. Recalls by meaning, not keywords."""
+    try:
+        from core.vector_memory import get_vector_memory
+        return {"success": True, "results": get_vector_memory().search(q, k=k)}
+    except Exception as e:
+        return {"success": False, "error": str(e), "results": []}
+
+
+@app.get("/api/memory/vector/status")
+def api_vector_status():
+    """How many semantic memories are stored + whether the embedder is up."""
+    try:
+        from core.vector_memory import get_vector_memory
+        vm = get_vector_memory()
+        return {"count": vm.count(), "embedder_ok": vm.embed("test") is not None}
+    except Exception as e:
+        return {"count": 0, "embedder_ok": False, "error": str(e)}
+
+
+class OracleIndexRequest(BaseModel):
+    repo_path: str
+
+
+class OracleAskRequest(BaseModel):
+    repo_path: str
+    question: str
+    k: int = 6
+
+
+@app.post("/api/oracle/index")
+def api_oracle_index(payload: OracleIndexRequest):
+    """Index a repository into the local Codebase Oracle (RAG). One-time per
+    repo; re-run to refresh. Fully local."""
+    try:
+        from core.code_oracle import get_oracle
+        return get_oracle(get_runtime()).index_repo(payload.repo_path)
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/oracle/ask")
+def api_oracle_ask(payload: OracleAskRequest):
+    """Ask a question about an indexed repo — answered from the actual code,
+    with file:line citations."""
+    try:
+        from core.code_oracle import get_oracle
+        return get_oracle(get_runtime()).ask(payload.repo_path, payload.question, payload.k)
+    except Exception as e:
+        return {"success": False, "error": str(e), "answer": ""}
+
+
+_last_gesture = {"gesture": None, "action": None, "ts": 0.0}
+
+
+class GestureActionRequest(BaseModel):
+    gesture: str
+    action: str = ""
+
+
+@app.post("/api/gesture/action")
+def api_gesture_action(payload: GestureActionRequest):
+    """Receive a detected hand gesture (from the Python 3.11 gesture service)
+    and ACT on it — audible feedback via local TTS + a real control action.
+    This closes the loop from 'recognizes' to 'controls'."""
+    import time as _t
+    g = (payload.gesture or "").strip()
+    _last_gesture.update({"gesture": g, "action": payload.action, "ts": _t.time()})
+
+    # Map each gesture to a spoken reaction + (where useful) a real action.
+    spoken = ""
+    did = ""
+    try:
+        if g == "open_palm":
+            spoken = "At your service."
+        elif g == "thumbs_up":
+            # Approve a pending self-modify proposal if one is waiting.
+            try:
+                from core.self_improve_proposer import get_proposer
+                prop = get_proposer(get_runtime())
+                if getattr(prop, "_pending", None):
+                    r = prop.apply()
+                    spoken = "Confirmed. Change applied." if r.get("success") else "Confirmed."
+                    did = "applied_pending_proposal"
+                else:
+                    spoken = "Confirmed."
+            except Exception:
+                spoken = "Confirmed."
+        elif g == "fist":
+            spoken = "Selected."
+        elif g == "pinch":
+            spoken = "Click."
+        elif g == "peace":
+            spoken = "Switching view."
+        elif g == "point":
+            spoken = "Pointing."
+        else:
+            spoken = ""
+    except Exception:
+        spoken = ""
+
+    if spoken:
+        try:
+            _speak_async(spoken)
+        except Exception:
+            pass
+        # Also surface it in the transcript so it's visible in the UI.
+        try:
+            rt = get_runtime()
+            if hasattr(rt, "chat"):
+                rt.chat.add_message("system", f"🖐 Gesture: {g} → {spoken}")
+        except Exception:
+            pass
+
+    return {"success": True, "gesture": g, "spoken": spoken, "did": did}
+
+
+@app.get("/api/gesture/last")
+def api_gesture_last():
+    """The most recent gesture the service reported (for the UI / debugging)."""
+    return _last_gesture
 
 
 @app.get("/api/clipboard/text")
@@ -828,6 +1084,156 @@ def api_faceid_recognize():
         return {"recognized": name is not None, "name": name, "confidence": conf}
     except Exception as e:
         return {"recognized": False, "error": str(e)}
+
+
+class FaceFrameRequest(BaseModel):
+    image_base64: str            # base64 JPEG/PNG frame captured by the frontend
+    owner: str = "Dev"
+    speak: bool = True
+
+
+@app.post("/api/faceid/greet_frame")
+def api_faceid_greet_frame(payload: FaceFrameRequest):
+    """Greet the owner from a frame SENT by the frontend (no camera grab).
+
+    This is the single-owner path: the frontend owns the webcam, captures a
+    frame, and posts it here — so the backend never fights the frontend for
+    the camera device.
+    """
+    try:
+        import base64
+        from core.owner_greeting import get_greeter
+        img = base64.b64decode(payload.image_base64.split(",")[-1])
+        greeting = get_greeter().greet_from_frame(img)
+        if not greeting:
+            return {"greeted": False}
+        if payload.speak:
+            _speak_async(greeting["text"])
+        return {"greeted": True, **greeting}
+    except Exception as e:
+        return {"greeted": False, "error": str(e)}
+
+
+@app.post("/api/faceid/verify_frame")
+def api_faceid_verify_frame(payload: FaceFrameRequest):
+    """Face gate from a frontend-supplied frame (no camera grab)."""
+    try:
+        import base64
+        from core.owner_greeting import get_greeter
+        img = base64.b64decode(payload.image_base64.split(",")[-1])
+        ok, name, conf = get_greeter().verify_owner_frame(img, owner=payload.owner)
+        return {"authorized": ok, "name": name, "confidence": conf}
+    except Exception as e:
+        return {"authorized": False, "error": str(e)}
+
+
+@app.get("/api/faceid/greet")
+def api_faceid_greet(speak: bool = True):
+    """Grab one webcam frame; if the owner is recognised (and not greeted
+    recently), return a personalised greeting and optionally speak it aloud.
+
+    Frontend calls this when the camera turns on. Cooldown-guarded so it
+    won't repeat the greeting every frame.
+    """
+    try:
+        from core.owner_greeting import get_greeter
+        greeting = get_greeter().greet_from_webcam()
+        if not greeting:
+            return {"greeted": False}
+        if speak:
+            _speak_async(greeting["text"])
+        return {"greeted": True, **greeting}
+    except Exception as e:
+        return {"greeted": False, "error": str(e)}
+
+
+@app.get("/api/faceid/verify")
+def api_faceid_verify(owner: str = "Dev"):
+    """Face gate for sensitive actions: is the person at the camera RIGHT NOW
+    the authorised owner? Higher confidence bar than a greeting.
+
+    Returns {"authorized": bool, "name": str|None, "confidence": float}.
+    """
+    try:
+        from core.owner_greeting import get_greeter
+        ok, name, conf = get_greeter().verify_owner_webcam(owner=owner)
+        return {"authorized": ok, "name": name, "confidence": conf}
+    except Exception as e:
+        return {"authorized": False, "error": str(e)}
+
+
+def _speak_async(text: str) -> None:
+    """Fire-and-forget local TTS via Piper (no-op if TTS unavailable)."""
+    try:
+        voice = _get_piper_voice()
+        if voice is None:
+            return
+
+        def _run():
+            try:
+                import io, wave, winsound
+                buf = io.BytesIO()
+                with wave.open(buf, "wb") as wf:
+                    voice.synthesize_wav(text, wf)
+                winsound.PlaySound(buf.getvalue(), winsound.SND_MEMORY)
+            except Exception:
+                pass
+
+        threading.Thread(target=_run, daemon=True).start()
+    except Exception:
+        pass
+
+
+class ProposeRequest(BaseModel):
+    filepath: str
+    instruction: str
+    simulations: int = 3
+
+
+@app.post("/api/self_modify/propose")
+def api_self_modify_propose(payload: ProposeRequest):
+    """JARVIS drafts a code change to one of its own files, tests it in the
+    sandbox with multiple simulations, and returns an honest report — success
+    (with a diff, awaiting approval) or failure (with the exact error + why).
+    Does NOT apply anything."""
+    try:
+        from core.self_improve_proposer import get_proposer
+        return get_proposer(get_runtime()).propose_and_test(
+            payload.filepath, payload.instruction, payload.simulations)
+    except Exception as e:
+        return {"status": "failed", "error": str(e), "why": "proposer crashed"}
+
+
+@app.post("/api/self_modify/apply")
+def api_self_modify_apply():
+    """Apply the pending proposal — call ONLY after the human approves.
+    Backs up the original first."""
+    try:
+        from core.self_improve_proposer import get_proposer
+        return get_proposer(get_runtime()).apply()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.post("/api/self_modify/discard")
+def api_self_modify_discard():
+    """Discard the pending proposal without applying it."""
+    try:
+        from core.self_improve_proposer import get_proposer
+        return get_proposer(get_runtime()).discard()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.get("/api/self_modify/weaknesses")
+def api_self_modify_weaknesses(top: int = 5):
+    """Surface JARVIS's recurring live-session failures (turns the user
+    corrected) so it can suggest what to improve — human confirms the target."""
+    try:
+        from core.self_improve_proposer import get_proposer
+        return get_proposer(get_runtime()).analyze_weaknesses(top)
+    except Exception as e:
+        return {"weaknesses": [], "error": str(e)}
 
 
 @app.post("/api/self_improve/run")

@@ -11,7 +11,7 @@ import type { NoteItem } from '../lib/types'
 import { shortTime } from '../lib/types'
 
 /* ═══════════════════════════════════════════
-   Notes View — IRIS-style markdown CRUD
+   Notes View — Stormbreaker-style markdown CRUD
    ═══════════════════════════════════════════ */
 
 export default function NotesView() {

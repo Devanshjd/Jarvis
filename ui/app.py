@@ -655,6 +655,12 @@ class JarvisApp:
         except Exception as e:
             print(f"Messaging plugin: {e}")
 
+        try:
+            from plugins.earn_loop.earn_loop_plugin import EarnLoopPlugin
+            self.plugin_manager.load_plugin(EarnLoopPlugin)
+        except Exception as e:
+            print(f"Earn Loop plugin: {e}")
+
     # ══════════════════════════════════════════════════════════════
     # MESSAGING
     # ══════════════════════════════════════════════════════════════

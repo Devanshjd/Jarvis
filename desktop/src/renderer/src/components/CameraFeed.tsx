@@ -7,7 +7,7 @@ type CameraFeedProps = {
 }
 
 /**
- * Live camera/screen feed with IRIS-style corner bracket overlays.
+ * Live camera/screen feed with Stormbreaker-style corner bracket overlays.
  */
 export default function CameraFeed({ source, onStreamReady }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -142,7 +142,7 @@ export default function CameraFeed({ source, onStreamReady }: CameraFeedProps) {
         style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
       />
 
-      {/* Corner brackets overlay — IRIS signature */}
+      {/* Corner brackets overlay — Stormbreaker signature */}
       <CornerBrackets />
 
       {/* Scan line */}

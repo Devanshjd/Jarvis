@@ -8,7 +8,7 @@ import {
 } from 'react-icons/ri'
 
 /* ═══════════════════════════════════════════
-   Phone View — IRIS-style ADB device control
+   Phone View — Stormbreaker-style ADB device control
    ═══════════════════════════════════════════ */
 
 export default function PhoneView({ backendState }: { backendState: string }) {

@@ -167,6 +167,15 @@ class Agent:
         stm_context = self.short_term.get_context_string()
         notes = self.jarvis.config.get("notes", "")
 
+        # Semantic (vector) recall — pull past context by MEANING, so JARVIS
+        # remembers relevant earlier turns even with no keyword overlap.
+        vector_context = ""
+        try:
+            from core.vector_memory import get_vector_memory
+            vector_context = get_vector_memory().recall_context(user_message, k=3)
+        except Exception:
+            vector_context = ""
+
         # User behavior context (learned patterns)
         learner_context = ""
         if hasattr(self.jarvis, "learner"):
@@ -177,6 +186,8 @@ class Agent:
         identity = MODES.get(self.brain.mode, MODES["General"])
 
         full_system = identity + "\n\n" + PLANNER_PROMPT
+        if vector_context:
+            full_system += f"\n\n{vector_context}"
         if mem_context:
             full_system += f"\n\n{mem_context}"
         if stm_context:

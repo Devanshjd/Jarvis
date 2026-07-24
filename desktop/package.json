@@ -1,7 +1,7 @@
 {
   "name": "jarvis-desktop-shell",
   "version": "0.1.0",
-  "description": "IRIS-style Electron shell for JARVIS",
+  "description": "Stormbreaker tactical AI shell — JARVIS core",
   "main": "./out/main/index.js",
   "author": "Devansh",
   "scripts": {

@@ -116,6 +116,47 @@ function resolveUserPath(input: string): string {
   return input
 }
 
+/**
+ * Resolve a target path for CREATING a new folder — predictable and visible.
+ *
+ * The old resolveUserPath() had two traps for creation:
+ *   1. A bare name matching a library keyword ("Videos") got redirected to
+ *      the existing system library (C:\Users\X\Videos) — so nothing NEW
+ *      appeared but success was reported.
+ *   2. A bare relative name got created relative to the process CWD — a
+ *      location the user would never find.
+ *
+ * For creation we want: absolute paths honoured as-is; everything else placed
+ * somewhere the user will actually see it (the Desktop).
+ */
+function resolveNewFolderTarget(input: string): string {
+  const raw = (input || '').trim().replace(/["']/g, '')
+  if (!raw) return join(app.getPath('desktop'), 'New Folder')
+
+  // Absolute path (C:\..., \\server\..., or POSIX /...) — honour it.
+  if (/^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('/')) {
+    return raw
+  }
+
+  // A path that names a known base first ("Documents/Videos", "desktop/x").
+  const parts = raw.split(/[\\/]+/)
+  const baseKey = parts[0].toLowerCase()
+  const baseMap: Record<string, string> = {
+    desktop: 'desktop', documents: 'documents', downloads: 'downloads',
+    pictures: 'pictures', music: 'music', videos: 'videos', home: 'home'
+  }
+  if (parts.length > 1 && baseMap[baseKey]) {
+    try {
+      return join(app.getPath(baseMap[baseKey] as Parameters<typeof app.getPath>[0]), ...parts.slice(1))
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // Bare name (or relative path) → put it on the Desktop so it's visible.
+  return join(app.getPath('desktop'), ...parts)
+}
+
 async function listImageArtifacts() {
   const roots = [
     join(app.getPath('pictures'), 'Screenshots'),
@@ -807,9 +848,37 @@ function createWindow() {
 
   ipcMain.handle('tool-create-folder', async (_event, folderPath: string) => {
     try {
-      const resolved = resolveUserPath(folderPath)
+      const resolved = resolveNewFolderTarget(folderPath)
       await fs.mkdir(resolved, { recursive: true })
+      // Verify it actually exists before claiming success — never report a
+      // folder as created that isn't really on disk (honesty over optimism).
+      if (!existsSync(resolved)) {
+        return { success: false, error: `mkdir reported no error but ${resolved} does not exist` }
+      }
       return { success: true, path: resolved }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // Save a recorded video (base64 webm from the renderer's MediaRecorder) to
+  // a real file on disk. Returns the true absolute path so JARVIS reports
+  // where it ACTUALLY landed — no temp-blob hand-waving.
+  ipcMain.handle('tool-save-recording', async (_event, base64: string, ext: string = 'webm') => {
+    try {
+      const dir = join(app.getPath('videos'), 'JARVIS')
+      await fs.mkdir(dir, { recursive: true })
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      const target = join(dir, `recording-${stamp}.${ext}`)
+      const data = Buffer.from(base64.split(',').pop() || '', 'base64')
+      if (data.length === 0) {
+        return { success: false, error: 'Empty recording — nothing was captured.' }
+      }
+      await fs.writeFile(target, data)
+      if (!existsSync(target)) {
+        return { success: false, error: `write reported no error but ${target} does not exist` }
+      }
+      return { success: true, path: target, bytes: data.length }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }
@@ -1232,10 +1301,27 @@ function createWindow() {
       for (const step of macro.steps) {
         try {
           switch (step.type) {
-            case 'open_app':
-              spawn(step.params.cmd || 'start', (step.params.args || step.params.app || '').split(' ').filter(Boolean), { shell: true, detached: true, stdio: 'ignore' })
-              results.push(`✅ Opened ${step.params.app || step.params.cmd}`)
+            case 'open_app': {
+              // Route through the same reliable app map the voice tool uses,
+              // so "calculator", "discord", "spotify" etc. actually launch
+              // instead of a bare `start <name>` that fails for many apps.
+              const appName = (step.params.app || step.params.cmd || '').toLowerCase().trim()
+              const macroAppMap: Record<string, string> = {
+                chrome: 'start chrome', browser: 'start chrome', brave: 'start brave',
+                firefox: 'start firefox', edge: 'start msedge',
+                notepad: 'notepad', calculator: 'calc', calc: 'calc',
+                settings: 'start ms-settings:', whatsapp: 'start whatsapp:',
+                spotify: 'start spotify:', discord: 'start discord:', steam: 'start steam:',
+                explorer: 'explorer', 'file explorer': 'explorer', paint: 'mspaint',
+                terminal: 'wt', powershell: 'powershell', cmd: 'cmd',
+                vscode: 'code', 'vs code': 'code', word: 'start winword',
+                excel: 'start excel', outlook: 'start outlook', teams: 'start msteams:'
+              }
+              const launchCmd = macroAppMap[appName] || `start ${appName}`
+              spawn(launchCmd, [], { shell: true, detached: true, stdio: 'ignore' })
+              results.push(`✅ Opened ${appName}`)
               break
+            }
             case 'run_terminal': {
               const r = spawnSync(step.params.command || '', { shell: true, encoding: 'utf8', timeout: 10000, cwd: step.params.path || undefined })
               results.push(`✅ Ran: ${step.params.command} (exit ${r.status})`)
@@ -1286,6 +1372,45 @@ function createWindow() {
     try {
       spawnSync('rundll32.exe', ['user32.dll,LockWorkStation'], { shell: false, timeout: 3000 })
       return { success: true, message: 'System locked.' }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ─── Maps navigation — open directions to a physical place ───
+  ipcMain.handle('tool-navigate-maps', async (_event, destination: string, origin?: string) => {
+    try {
+      const dest = (destination || '').trim()
+      if (!dest) return { success: false, error: 'No destination given.' }
+      let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`
+      if (origin && origin.trim()) url += `&origin=${encodeURIComponent(origin.trim())}`
+      await shell.openExternal(url)
+      return { success: true, message: `Opening directions to ${dest}${origin ? ` from ${origin}` : ''}.` }
+    } catch (err: unknown) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  // ─── Reminders — fire a notification (and speak) after N minutes ───
+  ipcMain.handle('tool-set-reminder', async (_event, text: string, minutes: number) => {
+    try {
+      const mins = Math.max(0, Number(minutes) || 0)
+      const what = (text || 'your reminder').trim()
+      if (mins <= 0) return { success: false, error: 'Give a positive number of minutes.' }
+      // Cap at 24h so a bad value can't hang a timer forever.
+      const ms = Math.min(mins * 60_000, 24 * 60 * 60_000)
+      setTimeout(() => {
+        try {
+          if (Notification.isSupported()) {
+            new Notification({ title: 'JARVIS Reminder', body: what, urgency: 'critical' }).show()
+          }
+        } catch { /* notification best-effort */ }
+        // Ask the renderer to speak it via local TTS.
+        try {
+          BrowserWindow.getAllWindows()[0]?.webContents.send('jarvis-reminder-fired', what)
+        } catch { /* */ }
+      }, ms)
+      return { success: true, message: `Reminder set — I'll remind you to "${what}" in ${mins} minute${mins === 1 ? '' : 's'}.` }
     } catch (err: unknown) {
       return { success: false, error: (err as Error).message }
     }

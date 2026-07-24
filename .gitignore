@@ -45,3 +45,9 @@ desktop/dist/
 .jarvis_backups/
 .jarvis_modifications.log
 .claude/
+
+# Large downloadable models (re-download; don't bloat the repo)
+models/
+
+# Accidental nested folder
+desktop/Desktop/

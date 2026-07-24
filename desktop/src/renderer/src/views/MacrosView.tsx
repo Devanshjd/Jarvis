@@ -204,7 +204,7 @@ export default function MacrosView() {
 
       {/* ─── Main editor area ─── */}
       <div className="relative flex-1 overflow-hidden">
-        <div className="absolute inset-0 iris-grid-bg" />
+        <div className="absolute inset-0 stormbreaker-grid-bg" />
         <div className="relative flex h-full flex-col">
           {/* Top toolbar */}
           <div className="z-10 flex items-center gap-3 border-b border-white/5 bg-black/60 px-4 py-3 backdrop-blur-lg">

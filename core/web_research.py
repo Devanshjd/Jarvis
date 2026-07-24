@@ -674,7 +674,16 @@ class WebResearcher:
         """
         results = []
 
-        # 1) DuckDuckGo
+        # 0) DuckDuckGo HTML — REAL web results (this is the primary backend).
+        #    The Instant-Answer API below only returns knowledge-box answers and
+        #    is empty for most questions, so this must run first.
+        try:
+            html = self._search_duckduckgo_html(query, num_results)
+            results.extend(html)
+        except Exception as exc:
+            logger.debug("DuckDuckGo HTML search failed: %s", exc)
+
+        # 1) DuckDuckGo Instant Answer (knowledge box — often empty)
         try:
             ddg = self._search_duckduckgo(query)
             results.extend(ddg)
@@ -706,6 +715,60 @@ class WebResearcher:
 
         return unique[:num_results]
 
+    def _search_duckduckgo_html(self, query: str, num_results: int = 5) -> list[dict]:
+        """Real web search via DuckDuckGo's HTML endpoint (no key, returns
+        actual result links + snippets). This is the workhorse backend."""
+        import html as _htmlmod
+        import re
+        if not _HAS_REQUESTS:
+            return []
+        resp = _requests.post(
+            "https://html.duckduckgo.com/html/",
+            data={"q": query},
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        page = resp.text
+
+        def _clean(s: str) -> str:
+            s = re.sub(r"<[^>]+>", "", s)          # strip tags
+            return _htmlmod.unescape(s).strip()
+
+        # Match each result's link + its OWN snippet. The negative lookahead
+        # (?!result__a) keeps us from crossing into the next result, so each
+        # title binds to the correct snippet. Results without a snippet (ads)
+        # simply don't match — a useful natural filter.
+        blocks = re.findall(
+            r'result__a[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
+            r'(?:(?!result__a).)*?'
+            r'result__snippet[^>]*>(.*?)</a>',
+            page, re.DOTALL,
+        )
+        out = []
+        seen = set()
+        for url, title, snippet in blocks:
+            # DDG wraps external links via a redirect (uddg=...) — unwrap it.
+            m = re.search(r"uddg=([^&]+)", url)
+            if m:
+                from urllib.parse import unquote
+                url = unquote(m.group(1))
+            if not url.startswith("http") or url in seen:
+                continue
+            # Skip DuckDuckGo ad/redirect junk — not real organic results.
+            if "duckduckgo.com/y.js" in url or "ad_domain=" in url or "ad_provider=" in url:
+                continue
+            seen.add(url)
+            out.append({
+                "title": _clean(title) or url,
+                "url": url,
+                "snippet": _clean(snippet),
+                "source": "duckduckgo_html",
+            })
+            if len(out) >= num_results:
+                break
+        return out
+
     def _search_duckduckgo(self, query: str) -> list[dict]:
         """Search DuckDuckGo Instant Answer API (free, no key)."""
         url = "https://api.duckduckgo.com/?" + urlencode({
@@ -736,14 +799,32 @@ class WebResearcher:
         return results
 
     def _search_wikipedia(self, query: str) -> Optional[dict]:
-        """Search Wikipedia REST API for a topic summary."""
-        topic = quote(query.replace(" ", "_"), safe="")
-        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic}"
+        """Resolve the best-matching Wikipedia article for a query, then pull
+        its summary. Uses the OpenSearch API to find the right title first —
+        feeding a raw question straight to the summary endpoint 404s."""
+        # 1) Find the best-matching article title.
         try:
+            search_url = "https://en.wikipedia.org/w/api.php?" + urlencode({
+                "action": "opensearch", "search": query, "limit": "1",
+                "namespace": "0", "format": "json",
+            })
+            data = self._http_get_json(search_url)
+            # opensearch returns [query, [titles], [descriptions], [urls]]
+            titles = data[1] if isinstance(data, list) and len(data) > 1 else []
+            if not titles:
+                return None
+            title = titles[0]
+        except Exception:
+            return None
+
+        # 2) Fetch that article's summary.
+        try:
+            topic = quote(title.replace(" ", "_"), safe="")
+            url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic}"
             data = self._http_get_json(url)
             if data.get("extract"):
                 return {
-                    "title": data.get("title", query),
+                    "title": data.get("title", title),
                     "url": data.get("content_urls", {}).get("desktop", {}).get("page", ""),
                     "snippet": data["extract"][:500],
                     "source": "wikipedia",

@@ -1,5 +1,5 @@
 /**
- * WidgetShell — reusable floating container for IRIS-style widgets.
+ * WidgetShell — reusable floating container for Stormbreaker-style widgets.
  * Draggable, closable, minimizable with glassmorphism styling.
  */
 

@@ -1,6 +1,6 @@
 /**
  * Loading skeleton shown while lazy-loaded views are being imported.
- * Matches IRIS's shimmer + spinner pattern.
+ * Matches Stormbreaker's shimmer + spinner pattern.
  */
 
 import { RiLoader4Line } from 'react-icons/ri'

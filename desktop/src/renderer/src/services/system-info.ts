@@ -1,5 +1,5 @@
 /**
- * System info polling — mirrors IRIS's system-info.ts
+ * System info polling — mirrors Stormbreaker's system-info.ts
  * Fetches real CPU, RAM, battery, OS data via Electron IPC or backend API.
  */
 

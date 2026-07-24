@@ -8,7 +8,7 @@ import {
 import type { JarvisShellSnapshot } from '../lib/types'
 
 /* ═══════════════════════════════════════════
-   Gallery View — IRIS-style image grid
+   Gallery View — Stormbreaker-style image grid
    ═══════════════════════════════════════════ */
 
 export default function GalleryView({ images }: { images: JarvisShellSnapshot['gallery'] }) {

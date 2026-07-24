@@ -96,7 +96,7 @@ function StruggleBar({ score }: { score: number }) {
     : '#FFB020'
   return (
     <div className="flex items-center gap-2">
-      <span className="iris-label text-[9px] w-16 shrink-0">STRUGGLE</span>
+      <span className="sb-label text-[9px] w-16 shrink-0">STRUGGLE</span>
       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
@@ -213,7 +213,7 @@ export default function WorkflowWidget({ widget }: { widget: WidgetInstance }) {
               loop.status === 'failed' ? 'bg-red-400' :
               'bg-zinc-600'
             }`} />
-            <span className="iris-label text-[10px]">
+            <span className="sb-label text-[10px]">
               {isActive ? 'EXECUTING' :
                loop.status === 'completed' ? 'COMPLETE' :
                loop.status === 'stuck' ? 'STUCK' :

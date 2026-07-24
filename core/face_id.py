@@ -210,19 +210,43 @@ class FaceID:
             logger.warning("recognize_frame failed: %s", e)
             return None, 0.0
 
-    def recognize_webcam(self, camera_id: int = 0) -> tuple[Optional[str], float]:
-        """Grab one frame from the webcam and recognize."""
+    def recognize_webcam(self, camera_id: int = 0,
+                         samples: int = 5) -> tuple[Optional[str], float]:
+        """Grab several frames from the webcam and return the best recognition.
+
+        Single-frame face recognition is noisy — the same person can score
+        0.51 on one frame and 0.72 on the next depending on blink/motion/
+        lighting. We open the camera ONCE, grab `samples` frames, and return
+        the highest-confidence recognized identity across them. This makes
+        both greeting and the security gate far more stable.
+        """
         try:
             import cv2
-            cap = cv2.VideoCapture(camera_id)
+            # DSHOW is far more reliable than the default MSMF backend on
+            # Windows (MSMF often returns "can't grab frame" errors).
+            cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(camera_id)   # fallback to default
             if not cap.isOpened():
                 return None, 0.0
-            ok, frame = cap.read()
+            # Warm-up: the first few frames off a freshly-opened webcam are
+            # often black/garbage while the sensor exposes — discard them.
+            for _ in range(3):
+                cap.read()
+                time.sleep(0.05)
+            best_name: Optional[str] = None
+            best_conf = 0.0
+            for _ in range(max(1, samples)):
+                ok, frame = cap.read()
+                if not ok:
+                    continue
+                _, buf = cv2.imencode(".jpg", frame)
+                name, conf = self.recognize_frame(buf.tobytes())
+                if name and conf > best_conf:
+                    best_name, best_conf = name, conf
+                time.sleep(0.03)
             cap.release()
-            if not ok:
-                return None, 0.0
-            _, buf = cv2.imencode(".jpg", frame)
-            return self.recognize_frame(buf.tobytes())
+            return best_name, best_conf
         except Exception:
             return None, 0.0
 

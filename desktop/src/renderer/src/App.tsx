@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   RiCameraLine,
   RiCheckboxCircleFill,
+  RiCodeSSlashLine,
   RiCommandLine,
   RiComputerLine,
   RiFolderImageLine,
@@ -39,12 +40,14 @@ import {
   formatProvider,
   mergeBackendWithShellMessages
 } from './lib/types'
+import { blobToWavBase64 } from './services/audioUtils'
 
 // ─── Views (Dashboard loads eagerly, others lazy for faster boot) ───
 import DashboardView from './views/DashboardView'
 const MacrosView = lazy(() => import('./views/MacrosView'))
 const NotesView = lazy(() => import('./views/NotesView'))
 const GalleryView = lazy(() => import('./views/GalleryView'))
+const OracleView = lazy(() => import('./views/OracleView'))
 const PhoneView = lazy(() => import('./views/PhoneView'))
 const SettingsView = lazy(() => import('./views/SettingsView'))
 
@@ -62,6 +65,9 @@ export default function App() {
   const [prompt, setPrompt] = useState('')
   const [approveDesktop, setApproveDesktop] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [localVoiceState, setLocalVoiceState] = useState<'idle' | 'recording' | 'thinking'>('idle')
+  const localRecorderRef = useRef<MediaRecorder | null>(null)
+  const localChunksRef = useRef<Blob[]>([])
   const [backendState, setBackendState] = useState('OFFLINE')
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
@@ -79,6 +85,10 @@ export default function App() {
   const statusRef = useRef<RuntimeStatus | null>(null)
   const backendStateRef = useRef('OFFLINE')
   const audioAnimRef = useRef<number>(0)
+  // Refs so the gesture poller reads current state without stale closures.
+  const activeTabRef = useRef<ShellTab>('dashboard')
+  const voiceActiveRef = useRef(false)
+  const gestureTsRef = useRef<number>(-1)
 
   // ─── Mirror typed-turn replies from live session into transcript ──────────
   // When the user sends typed text via sendUserText() while voice is active,
@@ -257,10 +267,173 @@ export default function App() {
     return () => cancelAnimationFrame(audioAnimRef.current)
   }, [])
 
+  // When a reminder fires, log it and speak it aloud via local TTS.
+  useEffect(() => {
+    window.desktopApi.onReminderFired?.((text: string) => {
+      setMessages((c) => [...c, { id: Date.now(), role: 'system', text: `⏰ Reminder: ${text}`, ts: new Date().toISOString(), source: 'shell' }])
+      void fetch(`${API_BASE}/api/tts/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `Reminder: ${text}`, play: true })
+      }).catch(() => {})
+    })
+  }, [])
+
+  // Fully-local voice: click to record, click to stop → Whisper→Ollama→Piper
+  // on the backend, all offline. Turn-based; no Gemini, no cloud, no API cap.
+  async function handleLocalVoice() {
+    // If recording, stop → process.
+    if (localVoiceState === 'recording') {
+      localRecorderRef.current?.stop()
+      return
+    }
+    if (localVoiceState === 'thinking') return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const rec = new MediaRecorder(stream)
+      localChunksRef.current = []
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) localChunksRef.current.push(e.data)
+      }
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        setLocalVoiceState('thinking')
+        try {
+          const blob = new Blob(localChunksRef.current, { type: 'audio/webm' })
+          const wavB64 = await blobToWavBase64(blob)
+          const r = await fetchJson<{
+            success: boolean; transcript?: string; reply?: string
+            reply_audio_base64?: string; error?: string
+          }>(`${API_BASE}/api/voice/local`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_base64: wavB64, speak: true })
+          })
+          if (r?.transcript) {
+            setMessages((c) => [...c, { id: Date.now(), role: 'user', text: r.transcript!, ts: new Date().toISOString(), source: 'shell' }])
+          }
+          if (r?.reply) {
+            setMessages((c) => [...c, { id: Date.now() + 1, role: 'assistant', text: r.reply!, ts: new Date().toISOString(), source: 'shell' }])
+          }
+          if (!r?.success && r?.error) appendShellSystemMessage(`Local voice: ${r.error}`)
+          // Reply audio is already played host-side by the backend (winsound).
+        } catch (err) {
+          appendShellSystemMessage(`Local voice failed: ${err instanceof Error ? err.message : String(err)}`)
+        } finally {
+          setLocalVoiceState('idle')
+        }
+      }
+      localRecorderRef.current = rec
+      rec.start()
+      setLocalVoiceState('recording')
+    } catch (err) {
+      appendShellSystemMessage(`Mic error: ${err instanceof Error ? err.message : String(err)}`)
+      setLocalVoiceState('idle')
+    }
+  }
+
+  // Keep refs current for the gesture poller.
+  useEffect(() => { activeTabRef.current = activeTab }, [activeTab])
+  useEffect(() => { voiceActiveRef.current = Boolean(voiceStatus?.active || voiceStatus?.connecting) }, [voiceStatus])
+
+  // Poll the backend for the latest hand gesture and drive real UI actions:
+  //   open palm → start the voice core
+  //   peace     → switch to the next view
+  // (Backend already speaks a confirmation; this adds the actual control.)
+  useEffect(() => {
+    const TAB_ORDER: ShellTab[] = ['dashboard', 'macros', 'notes', 'gallery', 'oracle', 'phone', 'settings']
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetchJson<{ gesture: string | null; ts: number }>(`${API_BASE}/api/gesture/last`)
+        if (!r?.gesture || !r.ts) return
+        if (gestureTsRef.current < 0) { gestureTsRef.current = r.ts; return }  // baseline on load
+        if (r.ts <= gestureTsRef.current) return
+        gestureTsRef.current = r.ts
+        if (Date.now() / 1000 - r.ts > 4) return                               // ignore stale
+        if (r.gesture === 'open_palm') {
+          if (!voiceActiveRef.current) void startGeminiVoice()
+        } else if (r.gesture === 'peace') {
+          const idx = TAB_ORDER.indexOf(activeTabRef.current)
+          setActiveTab(TAB_ORDER[(idx + 1) % TAB_ORDER.length])
+        }
+      } catch {
+        /* backend may be momentarily unavailable */
+      }
+    }, 500)
+    return () => clearInterval(iv)
+  }, [])
+
   // ─── Actions ───
 
   function appendShellSystemMessage(text: string) {
     setMessages((c) => [...c, { id: Date.now(), role: 'system', text, ts: new Date().toISOString(), source: 'shell' }])
+  }
+
+  // When the dashboard camera turns on, ask the backend to run Face ID and
+  // greet the owner if recognised (cooldown-guarded server-side). Speaks
+  // aloud via local Piper TTS and logs the greeting to the transcript.
+  function handleSetDashboardVision(next: 'none' | 'camera' | 'screen') {
+    setDashboardVisionSource(next)
+    if (next === 'none' && visionSource === 'camera') {
+      // Camera turned off from the dashboard → also blind the voice (it was
+      // borrowing the dashboard stream, which is about to stop).
+      voiceBridgeRef.current?.stopVision()
+      setVisionSource('none')
+    }
+  }
+
+  // Fires when the dashboard optical feed's camera stream is ready. The
+  // dashboard is the SINGLE owner of the webcam — everything else borrows
+  // this one stream instead of opening its own (which caused the Windows
+  // "camera in use" black-screen conflict).
+  function handleCameraStreamReady(stream: MediaStream | null) {
+    if (!stream) return
+
+    // 1) Face ID greeting — grab ONE frame from the shared stream and send it
+    //    to the backend (backend never touches the camera).
+    try {
+      const track = stream.getVideoTracks()[0]
+      const video = document.createElement('video')
+      video.muted = true
+      video.playsInline = true
+      video.srcObject = stream
+      void video.play().then(() => {
+        setTimeout(() => {
+          try {
+            const canvas = document.createElement('canvas')
+            canvas.width = 640
+            canvas.height = 480
+            const ctx = canvas.getContext('2d')
+            if (!ctx || !track) return
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const b64 = canvas.toDataURL('image/jpeg', 0.7)
+            void fetchJson<{ greeted: boolean; text?: string }>(
+              `${API_BASE}/api/faceid/greet_frame`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_base64: b64, speak: true })
+              }
+            )
+              .then((r) => {
+                if (r?.greeted && r.text) appendShellSystemMessage(r.text)
+              })
+              .catch(() => {})
+          } catch {
+            /* greeting is best-effort */
+          }
+        }, 600) // let the sensor expose a real (non-black) frame first
+      })
+    } catch {
+      /* ignore */
+    }
+
+    // 2) Give the LIVE VOICE eyes by REUSING this same stream — no second
+    //    getUserMedia, so no camera conflict.
+    if (voiceStatus?.active || voiceStatus?.connecting) {
+      voiceBridgeRef.current?.attachVisionStream(stream)
+      setVisionSource('camera')
+    }
   }
 
   async function sendPrompt(nextPrompt?: string) {
@@ -419,6 +592,7 @@ export default function App() {
     { id: 'macros', label: 'MACROS', icon: RiCommandLine },
     { id: 'notes', label: 'NOTES', icon: RiStickyNoteLine },
     { id: 'gallery', label: 'GALLERY', icon: RiFolderImageLine },
+    { id: 'oracle', label: 'ORACLE', icon: RiCodeSSlashLine },
     { id: 'phone', label: 'PHONE', icon: RiPhoneLine },
     { id: 'settings', label: 'SETTINGS', icon: RiSettings4Line }
   ] as const satisfies Array<{ id: ShellTab; label: string; icon: typeof RiLayoutGridLine }>
@@ -462,51 +636,46 @@ export default function App() {
     <div className="h-screen w-screen overflow-hidden bg-black text-zinc-100">
       <Titlebar maximized={maximized} onToggleMax={() => setMaximized((v) => !v)} title="STORMBREAKER // TACTICAL AI" />
 
-      <div className="flex h-[calc(100vh-32px)] flex-col overflow-hidden">
-        {/* Header nav */}
-        <div className="flex h-14 items-center justify-between border-b border-white/5 bg-zinc-950/80 px-6 backdrop-blur-md">
-          <div className="hidden items-center gap-3 lg:flex">
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-2">
-              <RiShieldKeyholeLine className="text-amber-400" size={20} />
-            </div>
+      <div className="flex h-[calc(100vh-32px)] overflow-hidden">
+        {/* ─── LEFT COMMAND RAIL — vertical nav ─── */}
+        <nav className="flex w-[78px] flex-col items-center gap-1 border-r border-white/5 bg-zinc-950/80 py-4 backdrop-blur-md">
+          <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-2 shadow-[0_0_18px_rgba(255,176,32,0.12)]">
+            <RiShieldKeyholeLine className="text-amber-400" size={22} />
+          </div>
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = activeTab === item.id
+            return (
+              <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label}
+                className={`group relative flex w-full flex-col items-center gap-1 py-2.5 transition-all ${
+                  active ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-200'
+                }`}
+              >
+                <span className={`absolute left-0 top-1/2 h-9 w-[3px] -translate-y-1/2 rounded-r-full transition-all ${active ? 'bg-amber-400 shadow-[0_0_12px_rgba(255,176,32,0.6)]' : 'bg-transparent'}`} />
+                <span className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all ${active ? 'border border-amber-500/25 bg-amber-500/15 shadow-[0_0_15px_rgba(255,176,32,0.1)]' : 'group-hover:bg-white/5'}`}>
+                  <Icon size={19} />
+                </span>
+                <span className="text-[8px] font-bold tracking-[0.1em]">{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* ─── MIDDLE COLUMN — brand bar + content ─── */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex h-14 items-center justify-between border-b border-white/5 bg-zinc-950/50 px-6 backdrop-blur-md">
             <div className="leading-none">
-              <div className="text-sm font-black tracking-[0.22em] text-zinc-100">STORMBREAKER</div>
-              <div className="mt-1 text-[10px] font-mono tracking-[0.22em] text-amber-500/70">JARVIS TACTICAL CORE</div>
+              <div className="text-sm font-black tracking-[0.3em] text-zinc-100">STORMBREAKER</div>
+              <div className="mt-1 text-[10px] font-mono tracking-[0.24em] text-amber-500/70">JARVIS TACTICAL CORE</div>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] font-mono tracking-[0.22em] text-zinc-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500/60" />
+              {activeTab.toUpperCase()}
             </div>
           </div>
 
-          <div className="flex gap-2 rounded-xl border border-white/5 bg-black/40 p-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <button key={item.id} onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 rounded-lg px-5 py-2 text-[10px] font-bold tracking-[0.18em] transition-all ${
-                    activeTab === item.id
-                      ? 'border border-amber-500/20 bg-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(255,176,32,0.08)]'
-                      : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
-                  }`}
-                >
-                  <Icon size={14} /> {item.label}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="flex items-center gap-6 text-[10px] font-mono font-bold">
-            <div className="flex items-center gap-2 text-amber-500">
-              <RiWifiLine />
-              <span>{backendState === 'OFFLINE' ? 'DISCONNECTED' : 'LINKED'}</span>
-            </div>
-            <div className="hidden items-center gap-2 text-zinc-400 md:flex">
-              <RiCheckboxCircleFill />
-              <span>{status?.provider?.local ? 'LOCAL' : 'REMOTE'}</span>
-            </div>
-            <div className="rounded-md bg-zinc-800 px-3 py-2 text-zinc-300">{clock.toLocaleTimeString()}</div>
-          </div>
-        </div>
-
-        {/* Content — IRIS-style radial gradient bg */}
-        <div className="flex-1 overflow-hidden bg-[radial-gradient(circle_at_center,rgba(13,92,74,0.06),transparent_60%)]">
+        {/* Content — Stormbreaker-style radial gradient bg */}
+        <div className="flex-1 overflow-hidden bg-[radial-gradient(circle_at_center,rgba(255,176,32,0.05),transparent_60%)]">
           <AnimatePresence mode="wait">
             {activeTab === 'dashboard' ? (
               <motion.div key="dashboard" initial={dashInitial} animate={dashAnimate} exit={dashExit} transition={viewTransition} className="h-full">
@@ -521,7 +690,10 @@ export default function App() {
                   onToggleVision={() => void toggleVision()}
                   onToggleVoice={() => void toggleVoice()}
                   onToggleMic={() => toggleMic()}
-                  onSetDashboardVision={setDashboardVisionSource}
+                  onSetDashboardVision={handleSetDashboardVision}
+                  onCameraStreamReady={handleCameraStreamReady}
+                  onLocalVoice={() => void handleLocalVoice()}
+                  localVoiceState={localVoiceState}
                 />
               </motion.div>
             ) : null}
@@ -535,6 +707,9 @@ export default function App() {
               {activeTab === 'gallery' ? (
                 <motion.div key="gallery" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><GalleryView images={snapshot?.gallery ?? []} /></motion.div>
               ) : null}
+              {activeTab === 'oracle' ? (
+                <motion.div key="oracle" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><OracleView /></motion.div>
+              ) : null}
               {activeTab === 'phone' ? (
                 <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} /></motion.div>
               ) : null}
@@ -545,17 +720,36 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Bottom status bar */}
-        {activeTab !== 'dashboard' ? (
-          <div className="border-t border-white/5 bg-zinc-950/80 px-6 py-3 text-[11px] font-mono tracking-[0.18em] text-zinc-500">
-            PROVIDER: {formatProvider(status?.provider)} // CURRENT TASK: {currentTask}
+          {/* Bottom status bar */}
+          {activeTab !== 'dashboard' ? (
+            <div className="border-t border-white/5 bg-zinc-950/80 px-6 py-3 text-[11px] font-mono tracking-[0.18em] text-zinc-500">
+              PROVIDER: {formatProvider(status?.provider)} // CURRENT TASK: {currentTask}
+            </div>
+          ) : null}
+        </div>
+        {/* ─── close MIDDLE COLUMN ─── */}
+
+        {/* ─── RIGHT UTILITY RAIL — live status ─── */}
+        <aside className="flex w-[74px] flex-col items-center gap-5 border-l border-white/5 bg-zinc-950/80 py-5 backdrop-blur-md">
+          <div className={`flex flex-col items-center gap-1.5 ${backendState === 'OFFLINE' ? 'text-red-400' : 'text-amber-400'}`}>
+            <RiWifiLine size={18} />
+            <span className="text-[8px] font-bold tracking-[0.1em]">{backendState === 'OFFLINE' ? 'OFFLINE' : 'LINKED'}</span>
           </div>
-        ) : null}
+          <div className="flex flex-col items-center gap-1.5 text-zinc-400">
+            <RiCheckboxCircleFill size={16} />
+            <span className="text-[8px] font-bold tracking-[0.1em]">{status?.provider?.local ? 'LOCAL' : 'REMOTE'}</span>
+          </div>
+          <div className="h-px w-8 bg-white/10" />
+          <div className="mt-auto flex flex-col items-center gap-0.5 text-zinc-300">
+            <span className="text-[11px] font-mono tabular-nums">{clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="text-[8px] font-mono tracking-[0.1em] text-zinc-600">LOCAL TIME</span>
+          </div>
+        </aside>
 
         {/* Vision source modal */}
         {showVisionSourceModal && activeTab === 'dashboard' ? (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="iris-panel w-full max-w-md p-2 shadow-[0_24px_120px_rgba(0,0,0,0.65)]">
+            <div className="sb-panel w-full max-w-md p-2 shadow-[0_24px_120px_rgba(0,0,0,0.65)]">
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <span className="text-xs font-black tracking-[0.22em] text-amber-400">ESTABLISH LINK</span>
                 <button type="button" onClick={() => setShowVisionSourceModal(false)} className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-white">×</button>
@@ -583,7 +777,7 @@ export default function App() {
         ) : null}
       </div>
 
-      {/* IRIS-style floating widgets */}
+      {/* Stormbreaker-style floating widgets */}
       <WidgetLayer />
       <WidgetToolbar />
     </div>

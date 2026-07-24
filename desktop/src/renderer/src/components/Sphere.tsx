@@ -55,7 +55,7 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
     return positions
   }, [])
 
-  // Orbital ring particles — IRIS-style equatorial ring
+  // Orbital ring particles — Stormbreaker-style equatorial ring
   const ring = useMemo(() => {
     const positions = new Float32Array(ringCount * 3)
     for (let i = 0; i < ringCount; i += 1) {
@@ -77,25 +77,27 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
     const ringCloud = ringRef.current
     if (!pointCloud || !shellCloud || !ringCloud) return
 
-    // Audio-reactive energy boost — key IRIS feature
+    // Audio-reactive energy boost — key Stormbreaker feature
     const audioBoost = audioLevel * 0.6
 
+    // Stormbreaker energy core — amber/gold (arc-reactor tactical feel),
+    // distinct from Stormbreaker's teal-green. State changes shift the amber tone.
     let energy = 0.08 + audioBoost
     let rotationBoost = 0.06
-    let hue = '#2ee6c9'
+    let hue = '#FFB020'                       // idle — tactical amber
 
     if (state === 'listening') {
       energy = 0.2 + audioBoost * 1.5
       rotationBoost = 0.11
-      hue = '#5cf0ff'
+      hue = '#FFD24A'                         // listening — bright gold
     } else if (state === 'thinking') {
       energy = 0.32 + audioBoost
       rotationBoost = 0.22
-      hue = '#7bffd2'
+      hue = '#FF8C2A'                         // thinking — hot orange
     } else if (state === 'waiting') {
       energy = 0.14 + audioBoost
       rotationBoost = 0.09
-      hue = '#79ffc7'
+      hue = '#FFC862'                         // waiting — soft amber
     }
 
     pointCloud.rotation.y += rotationBoost * 0.01
@@ -178,7 +180,7 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
           />
         </bufferGeometry>
         <pointsMaterial
-          color="#1d7d70"
+          color="#8A4A0F"
           size={0.012}
           transparent
           opacity={0.18}
@@ -198,7 +200,7 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
           />
         </bufferGeometry>
         <pointsMaterial
-          color="#2ee6c9"
+          color="#FFB020"
           size={0.016}
           transparent
           opacity={0.96}
@@ -220,7 +222,7 @@ export default function Sphere({
   return (
     <Canvas camera={{ position: [0, 0, 5.1], fov: 50 }}>
       <ambientLight intensity={0.18} />
-      <pointLight position={[0, 0, 5]} intensity={4} color="#5cf0ff" />
+      <pointLight position={[0, 0, 5]} intensity={4} color="#FFB020" />
       <ParticleCore state={state} audioLevel={audioLevel} />
     </Canvas>
   )

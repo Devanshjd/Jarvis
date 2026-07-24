@@ -25,7 +25,7 @@ import { formatRole, shortTime } from '../lib/types'
 import type { VisionSource } from '../services/JarvisGeminiLive'
 
 /* ═══════════════════════════════════════════
-   Dashboard View — IRIS-style 3-column layout
+   Dashboard View — Stormbreaker-style 3-column layout
    ═══════════════════════════════════════════ */
 
 export interface DashboardViewProps {
@@ -48,6 +48,9 @@ export interface DashboardViewProps {
   onToggleVoice: () => void
   onToggleMic: () => void
   onSetDashboardVision: (s: 'none' | 'camera' | 'screen') => void
+  onCameraStreamReady?: (stream: MediaStream | null) => void
+  onLocalVoice?: () => void
+  localVoiceState?: 'idle' | 'recording' | 'thinking'
 }
 
 export default function DashboardView(props: DashboardViewProps) {
@@ -56,7 +59,7 @@ export default function DashboardView(props: DashboardViewProps) {
     approveDesktop, setApproveDesktop, busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     onSend, onToggleVision, onToggleVoice, onToggleMic,
-    onSetDashboardVision
+    onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -77,9 +80,9 @@ export default function DashboardView(props: DashboardViewProps) {
     <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden px-4 py-4">
       {/* ─── LEFT PANEL ─── */}
       <div className="col-span-3 hidden h-full min-h-0 flex-col gap-4 lg:flex">
-        {/* Camera / Screen Feed — IRIS optical feed */}
-        <div className="iris-panel relative h-72 overflow-hidden p-2">
-          <CameraFeed source={dashboardVisionSource} />
+        {/* Camera / Screen Feed — Stormbreaker optical feed */}
+        <div className="sb-panel relative h-72 overflow-hidden p-2">
+          <CameraFeed source={dashboardVisionSource} onStreamReady={onCameraStreamReady} />
           {/* Feed source selector */}
           {dashboardVisionSource === 'none' && (
             <div className="absolute bottom-3 inset-x-3 flex gap-2">
@@ -99,9 +102,9 @@ export default function DashboardView(props: DashboardViewProps) {
         </div>
 
         {/* Neural Uplink */}
-        <div className="iris-panel p-4">
+        <div className="sb-panel p-4">
           <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
-            <span className="iris-label">NEURAL UPLINK</span>
+            <span className="sb-label">NEURAL UPLINK</span>
             <span className={`text-[10px] font-mono tracking-[0.2em] ${backendOnline ? 'text-amber-400' : 'text-zinc-600'}`}>
               {backendOnline ? 'LINKED' : 'STANDBY'}
             </span>
@@ -123,13 +126,13 @@ export default function DashboardView(props: DashboardViewProps) {
           </div>
         </div>
 
-        {/* Core Metrics — IRIS-style real system stats */}
-        <div className="iris-panel flex-1 p-4">
+        {/* Core Metrics — Stormbreaker-style real system stats */}
+        <div className="sb-panel flex-1 p-4">
           <div className="mb-4 border-b border-white/10 pb-3">
-            <span className="iris-label">CORE METRICS</span>
+            <span className="sb-label">CORE METRICS</span>
           </div>
           <div className="grid h-[calc(100%-2rem)] grid-cols-2 gap-3">
-            <div className="iris-metric-card flex flex-col justify-between">
+            <div className="sb-metric-card flex flex-col justify-between">
               <div className="flex items-center justify-between text-zinc-500">
                 <RiCpuLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">CPU LOAD</span>
@@ -138,7 +141,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 {systemStats ? `${systemStats.cpuLoad}%` : '--'}
               </div>
             </div>
-            <div className="iris-metric-card flex flex-col justify-between">
+            <div className="sb-metric-card flex flex-col justify-between">
               <div className="flex items-center justify-between text-zinc-500">
                 <RiHardDriveLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">RAM</span>
@@ -147,7 +150,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 {systemStats ? `${systemStats.ramPercent}%` : '--'}
               </div>
             </div>
-            <div className="iris-metric-card flex flex-col justify-between">
+            <div className="sb-metric-card flex flex-col justify-between">
               <div className="flex items-center justify-between text-zinc-500">
                 <RiTempColdLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">TEMP</span>
@@ -156,7 +159,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 {systemStats?.temperature != null ? `${systemStats.temperature}°` : '--'}
               </div>
             </div>
-            <div className="iris-metric-card flex flex-col justify-between">
+            <div className="sb-metric-card flex flex-col justify-between">
               <div className="flex items-center justify-between text-zinc-500">
                 <RiTimerLine size={16} />
                 <span className="text-[8px] font-mono tracking-[0.2em]">UPTIME</span>
@@ -203,9 +206,9 @@ export default function DashboardView(props: DashboardViewProps) {
           {visionSource === 'screen' ? 'VISION // SCREEN' : visionSource === 'camera' ? 'VISION // CAMERA' : 'VISION // OFF'}
         </div>
 
-        {/* Bottom control cluster — IRIS pill bar */}
+        {/* Bottom control cluster — Stormbreaker pill bar */}
         <div className="absolute bottom-4">
-          <div className="iris-panel flex items-center gap-6 rounded-full px-6 py-3 shadow-[0_0_50px_rgba(0,0,0,0.45)]">
+          <div className="sb-panel flex items-center gap-6 rounded-full px-6 py-3 shadow-[0_0_50px_rgba(0,0,0,0.45)]">
             <button
               data-testid="dashboard-vision-button"
               onClick={onToggleVision}
@@ -237,15 +240,31 @@ export default function DashboardView(props: DashboardViewProps) {
             >
               {voiceLive && !voiceMuted ? <RiMicLine size={20} /> : <RiMicOffLine size={20} />}
             </button>
+            {/* Local (offline) voice — click to record, click to stop */}
+            <button
+              data-testid="dashboard-localvoice-button"
+              onClick={onLocalVoice}
+              title="Local voice (offline) — click to talk, click to stop"
+              className={`flex items-center gap-2 rounded-full px-3 py-2 text-[9px] font-bold tracking-[0.14em] transition-colors ${
+                localVoiceState === 'recording'
+                  ? 'bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.5)] animate-pulse'
+                  : localVoiceState === 'thinking'
+                    ? 'bg-amber-500/20 text-amber-300'
+                    : 'text-zinc-500 hover:bg-white/10 hover:text-amber-300'
+              }`}
+            >
+              <RiMicLine size={16} />
+              {localVoiceState === 'recording' ? 'STOP' : localVoiceState === 'thinking' ? '…' : 'LOCAL'}
+            </button>
           </div>
         </div>
       </div>
 
       {/* ─── RIGHT PANEL — Transcript + Chat ─── */}
       <div className="col-span-12 flex h-full min-h-0 flex-col overflow-hidden lg:col-span-3">
-        <div className="iris-panel flex h-full min-h-0 flex-col p-4">
+        <div className="sb-panel flex h-full min-h-0 flex-col p-4">
           <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
-            <span className="iris-label flex items-center gap-2">
+            <span className="sb-label flex items-center gap-2">
               <RiTerminalBoxLine />
               TRANSCRIPT
             </span>

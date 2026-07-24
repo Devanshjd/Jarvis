@@ -32,6 +32,20 @@ logger = logging.getLogger("jarvis.self_evolve")
 
 EVOLUTION_FILE = os.path.join(os.path.expanduser("~"), ".jarvis_evolution.json")
 
+# The live learning corpus — the SAME file the playbook/diagnostics read, so
+# autonomously-captured lessons accumulate alongside the seeded ones.
+LEARNING_LOG = Path(__file__).resolve().parent.parent / "training" / "learning_log.jsonl"
+
+# Phrases that signal the user is correcting/rejecting JARVIS's PREVIOUS reply.
+# When the next user message matches, we mark the prior turn a FAILURE lesson.
+_CORRECTION_SIGNALS = (
+    "no,", "no ", "nope", "wrong", "that's not", "thats not", "not what",
+    "not right", "incorrect", "that is wrong", "you didn't", "you did not",
+    "actually", "i said", "i meant", "not that", "try again", "that's wrong",
+    "isn't working", "not working", "doesn't work", "didn't work", "still",
+    "fix it", "that failed", "it failed", "error",
+)
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Data Classes
 # ══════════════════════════════════════════════════════════════════════════════
@@ -685,6 +699,9 @@ class SelfEvolver:
         self._tracker = PerformanceTracker(self._store)
         self._interaction_count = 0
         self._lock = threading.Lock()
+        # Holds the previous live turn so the NEXT user message can be read as
+        # implicit feedback on it (correction => failure, otherwise success).
+        self._last_interaction: Optional[dict] = None
 
         logger.info(
             "Self-Evolution Engine initialized -- %d rules, %d techniques, %d evolutions",
@@ -800,6 +817,66 @@ class SelfEvolver:
     # INTERACTION LEARNING
     # ══════════════════════════════════════════════════════════════
 
+    def _is_correction(self, msg: str) -> bool:
+        """True if `msg` looks like the user correcting the previous reply."""
+        m = (msg or "").lower().strip()
+        if not m:
+            return False
+        return any(m.startswith(s) or f" {s}" in m for s in _CORRECTION_SIGNALS)
+
+    def _capture_live_lesson(self, current_msg: str,
+                             explicit_feedback: Optional[str] = None) -> None:
+        """Grade the PREVIOUS turn using the current message (or explicit
+        feedback) and append it to the learning corpus. This is what makes
+        the evolution genuinely learn from live usage, not just seeded data."""
+        prev = self._last_interaction
+        if not prev:
+            return
+
+        # Decide outcome: explicit feedback wins; else infer from correction.
+        outcome = "neutral"
+        signal = "no_correction"
+        if explicit_feedback:
+            fb = explicit_feedback.lower()
+            if any(s in fb for s in ("good", "great", "perfect", "thanks", "correct", "yes")):
+                outcome, signal = "success", "explicit_positive"
+            elif any(s in fb for s in ("bad", "wrong", "no", "fix", "fail", "error")):
+                outcome, signal = "failure", "explicit_negative"
+        elif self._is_correction(current_msg):
+            outcome, signal = "failure", "user_corrected"
+        elif any(p in (current_msg or "").lower() for p in
+                 ("thanks", "thank you", "perfect", "great", "nice", "awesome", "well done")):
+            # User praised right after — strong positive for the prior turn.
+            outcome, signal = "success", "user_praised"
+        else:
+            # Survived to the next turn without a correction — a weak positive.
+            outcome, signal = "success", "uncorrected"
+
+        entry = {
+            "timestamp": datetime.utcnow().isoformat() + "+00:00",
+            "user_input": prev["user_input"],
+            "tool_used": prev["approach"],
+            "tool_params": "{}",
+            "outcome": outcome,
+            "signal": signal,
+            "source": "live_session",
+        }
+        try:
+            LEARNING_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with open(LEARNING_LOG, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            logger.debug("live lesson write failed: %s", exc)
+
+        # Feed the graded outcome into the performance tracker too.
+        try:
+            if outcome == "success":
+                self._tracker.record_success(prev["user_input"], prev["approach"])
+            elif outcome == "failure":
+                self._tracker.record_failure(prev["user_input"], prev["approach"], signal)
+        except Exception:
+            pass
+
     def learn_from_interaction(
         self,
         user_msg: str,
@@ -816,6 +893,20 @@ class SelfEvolver:
         """
         with self._lock:
             self._interaction_count += 1
+
+        # ── Autonomous live capture ──────────────────────────────────────
+        # Read the CURRENT user message as implicit feedback on the PREVIOUS
+        # turn, then log that previous turn as a real lesson with an outcome.
+        try:
+            self._capture_live_lesson(user_msg, explicit_feedback=feedback)
+            # Remember this turn so the next message can grade it.
+            self._last_interaction = {
+                "user_input": (user_msg or "")[:400],
+                "reply": (jarvis_reply or "")[:400],
+                "approach": self._classify_approach(jarvis_reply or ""),
+            }
+        except Exception:
+            pass
 
         # Classify feedback
         positive_signals = {"good", "great", "perfect", "thanks", "correct", "yes", "awesome", "nice"}

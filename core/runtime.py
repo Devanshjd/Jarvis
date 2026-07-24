@@ -638,6 +638,14 @@ class JarvisRuntime:
         except Exception:
             pass
 
+        # Store the turn in semantic (vector) memory so future questions can
+        # recall it by meaning — makes memory help across ALL of JARVIS.
+        try:
+            from core.vector_memory import get_vector_memory
+            get_vector_memory().remember_turn(user_msg, reply)
+        except Exception:
+            pass
+
         try:
             if hasattr(self, "knowledge_graph"):
                 self.knowledge_graph.extract_from_text(reply, source="jarvis_reply")

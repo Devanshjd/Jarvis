@@ -43,8 +43,8 @@ textarea {
   -webkit-app-region: no-drag;
 }
 
-/* ─── IRIS glassmorphism panels ─── */
-.iris-panel {
+/* ─── Stormbreaker glassmorphism panels ─── */
+.sb-panel {
   background: rgba(10, 12, 14, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 1.5rem;
@@ -54,14 +54,14 @@ textarea {
   backdrop-filter: blur(18px);
 }
 
-.iris-panel-tight {
+.sb-panel-tight {
   background: rgba(10, 12, 14, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 1rem;
   backdrop-filter: blur(18px);
 }
 
-.iris-label {
+.sb-label {
   color: rgba(161, 161, 170, 0.9);
   font-size: 10px;
   font-weight: 700;
@@ -69,7 +69,7 @@ textarea {
   text-transform: uppercase;
 }
 
-.iris-setting-card {
+.stormbreaker-setting-card {
   background: rgba(10, 10, 12, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1.75rem;
@@ -79,7 +79,7 @@ textarea {
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
-.iris-setting-title {
+.stormbreaker-setting-title {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -88,13 +88,13 @@ textarea {
   font-weight: 700;
 }
 
-.iris-input-wrap {
+.stormbreaker-input-wrap {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
 
-.iris-input-label {
+.stormbreaker-input-label {
   color: rgb(161 161 170);
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
@@ -102,7 +102,7 @@ textarea {
   text-transform: uppercase;
 }
 
-.iris-input {
+.stormbreaker-input {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.9rem;
@@ -115,7 +115,7 @@ textarea {
     background-color 160ms ease;
 }
 
-.iris-input:focus {
+.stormbreaker-input:focus {
   border-color: rgba(52, 211, 153, 0.4);
   background: #070808;
 }
@@ -140,17 +140,17 @@ textarea {
   border-radius: 999px;
 }
 
-/* ─── IRIS glow effects ─── */
-.iris-glow-emerald {
+/* ─── Stormbreaker glow effects ─── */
+.sb-glow-emerald {
   box-shadow: 0 0 30px rgba(255, 176, 32, 0.15);
 }
 
-.iris-glow-amber-strong {
+.sb-glow-amber-strong {
   box-shadow: 0 0 50px rgba(255, 176, 32, 0.25), 0 0 100px rgba(255, 176, 32, 0.08);
 }
 
 /* ─── Metric card ─── */
-.iris-metric-card {
+.sb-metric-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 0.75rem;
@@ -158,12 +158,12 @@ textarea {
   transition: border-color 200ms ease;
 }
 
-.iris-metric-card:hover {
+.sb-metric-card:hover {
   border-color: rgba(255, 176, 32, 0.2);
 }
 
 /* ─── Scan line overlay (CRT effect) ─── */
-.iris-scanlines {
+.stormbreaker-scanlines {
   pointer-events: none;
   position: absolute;
   inset: 0;
@@ -179,7 +179,7 @@ textarea {
 }
 
 /* ─── Macro/workflow grid background ─── */
-.iris-grid-bg {
+.stormbreaker-grid-bg {
   background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 20px 20px;
 }
@@ -190,22 +190,22 @@ textarea {
   50% { opacity: 0.4; }
 }
 
-.iris-status-dot {
+.stormbreaker-status-dot {
   animation: status-pulse 2s ease-in-out infinite;
 }
 
 /* ─── Corner bracket styles ─── */
-.iris-bracket {
+.stormbreaker-bracket {
   position: absolute;
   width: 24px;
   height: 24px;
   border-color: rgba(255, 176, 32, 0.4);
 }
 
-.iris-bracket-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
-.iris-bracket-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
-.iris-bracket-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
-.iris-bracket-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+.stormbreaker-bracket-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+.stormbreaker-bracket-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+.stormbreaker-bracket-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+.stormbreaker-bracket-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
 
 /* ─── Widget styles ─── */
 .widget-shell-glow {
@@ -236,7 +236,7 @@ textarea {
   }
 }
 
-.iris-glow-animate {
+.sb-glow-animate {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
@@ -246,7 +246,7 @@ textarea {
   100% { background-position: 200% center; }
 }
 
-.iris-text-shimmer {
+.stormbreaker-text-shimmer {
   background: linear-gradient(90deg, #FFB020, #FFC862, #FFD98A, #FFC862, #FFB020);
   background-size: 200% 100%;
   -webkit-background-clip: text;
@@ -279,12 +279,12 @@ textarea {
 }
 
 /* ─── Loading spinner ─── */
-@keyframes iris-spin {
+@keyframes stormbreaker-spin {
   to { transform: rotate(360deg); }
 }
 
-.iris-spinner {
-  animation: iris-spin 1s linear infinite;
+.stormbreaker-spinner {
+  animation: stormbreaker-spin 1s linear infinite;
   border: 2px solid rgba(255, 176, 32, 0.15);
   border-top-color: #FFB020;
   border-radius: 50%;
@@ -298,7 +298,7 @@ textarea {
   50% { transform: scale(1.15); }
 }
 
-.iris-badge-pulse {
+.stormbreaker-badge-pulse {
   animation: badge-pulse 2s ease-in-out infinite;
 }
 

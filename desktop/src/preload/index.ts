@@ -38,6 +38,8 @@ const desktopApi = {
     ipcRenderer.invoke('tool-manage-file', operation, sourcePath, destPath),
   toolReadDirectory: (dirPath: string) => ipcRenderer.invoke('tool-read-directory', dirPath),
   toolCreateFolder: (folderPath: string) => ipcRenderer.invoke('tool-create-folder', folderPath),
+  toolSaveRecording: (base64: string, ext?: string) =>
+    ipcRenderer.invoke('tool-save-recording', base64, ext),
   toolOpenApp: (appName: string) => ipcRenderer.invoke('tool-open-app', appName),
   toolCloseApp: (appName: string) => ipcRenderer.invoke('tool-close-app', appName),
   toolRunTerminal: (command: string, cwd?: string) =>
@@ -63,6 +65,10 @@ const desktopApi = {
   toolExecuteMacro: (macroName: string) =>
     ipcRenderer.invoke('tool-execute-macro', macroName),
   toolLockSystem: () => ipcRenderer.invoke('tool-lock-system'),
+  toolNavigateMaps: (destination: string, origin?: string) =>
+    ipcRenderer.invoke('tool-navigate-maps', destination, origin),
+  toolSetReminder: (text: string, minutes: number) =>
+    ipcRenderer.invoke('tool-set-reminder', text, minutes),
 
   // ─── Macro CRUD ───
   macrosList: () => ipcRenderer.invoke('macros-list'),
@@ -245,6 +251,9 @@ const desktopApi = {
     ipcRenderer.invoke('jarvis-notify', title, body, urgency),
   onNotification: (callback: (data: { title: string; body: string; urgency?: string }) => void) => {
     ipcRenderer.on('jarvis-notification', (_event, data) => callback(data))
+  },
+  onReminderFired: (callback: (text: string) => void) => {
+    ipcRenderer.on('jarvis-reminder-fired', (_event, text: string) => callback(text))
   },
 
   // ─── Live APIs ───

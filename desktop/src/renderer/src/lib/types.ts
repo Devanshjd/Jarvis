@@ -55,7 +55,7 @@ export type ChatResponse = {
   status?: RuntimeStatus
 }
 
-export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings'
+export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle'
 export type SettingsTab = 'general' | 'keys' | 'security'
 
 export type SystemStatsResult = {

@@ -81,7 +81,13 @@ export class JarvisGeminiLive {
   private appWatcherTimer: number | null = null
   private lastContextSignature = ''
   private visionStream: MediaStream | null = null
+  private ownsVisionStream = true      // false when reusing the dashboard feed
   private visionVideo: HTMLVideoElement | null = null
+  private videoRecorder: MediaRecorder | null = null
+  private videoChunks: Blob[] = []
+  private screenRecorder: MediaRecorder | null = null
+  private screenChunks: Blob[] = []
+  private screenStream: MediaStream | null = null
   private visionTimer: number | null = null
   private visionSource: VisionSource = 'none'
   private lastOptions: StartOptions | null = null
@@ -474,6 +480,71 @@ export class JarvisGeminiLive {
                           folder_path: { type: 'STRING', description: 'The folder path to create.' }
                         },
                         required: ['folder_path']
+                      }
+                    },
+                    {
+                      name: 'start_video_recording',
+                      description: 'Start recording a REAL video from the live camera. The camera must be on first. Use when the user says "record a video", "start recording the camera", "record what you see".',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'stop_video_recording',
+                      description: 'Stop the camera video recording and save it to a real file on disk. Returns the exact saved path. Use when the user says "stop recording", "save the video", "stop the video".',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'start_screen_recording',
+                      description: 'Start recording the SCREEN (desktop) to a real video file. Use when the user says "record my screen", "start screen recording", "capture the screen as video". Does NOT need the camera.',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'stop_screen_recording',
+                      description: 'Stop the screen recording and save it to a real file on disk. Returns the exact saved path. Use when the user says "stop screen recording", "stop recording my screen", "save the screen recording".',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'navigate_to',
+                      description: 'Open map directions to a physical place. Use when the user says "navigate to", "directions to", "how do I get to <place>", "take me to <place>".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          destination: { type: 'STRING', description: 'The destination place or address.' },
+                          origin: { type: 'STRING', description: 'Optional starting point. Omit to use current location.' }
+                        },
+                        required: ['destination']
+                      }
+                    },
+                    {
+                      name: 'set_reminder',
+                      description: 'Set a reminder that notifies and speaks after N minutes. Use when the user says "remind me in X minutes to ...", "set a reminder", "in 10 minutes tell me to ...".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          text: { type: 'STRING', description: 'What to remind about.' },
+                          minutes: { type: 'NUMBER', description: 'How many minutes from now.' }
+                        },
+                        required: ['text', 'minutes']
+                      }
+                    },
+                    {
+                      name: 'read_screen_aloud',
+                      description: 'Read the text currently on screen out loud using local OCR + text-to-speech. Use when the user says "read my screen", "read this to me", "read this out loud".',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'explain_clipboard',
+                      description: 'Read whatever text the user copied to the clipboard so you can explain it. Use when the user says "explain what I copied", "I copied an error, what is wrong", "what does this mean" after copying text.',
+                      parameters: { type: 'OBJECT', properties: {} }
+                    },
+                    {
+                      name: 'guide_me_to',
+                      description: 'Look at the current screen and give the user precise click-by-click steps to reach a destination (a setting, menu, page, or feature). Use when the user says "how do I get to X", "help me navigate to X", "where is the X setting", "guide me to X", "how do I find X".',
+                      parameters: {
+                        type: 'OBJECT',
+                        properties: {
+                          destination: { type: 'STRING', description: 'Where the user wants to get to, e.g. "Bluetooth settings", "dark mode toggle", "the checkout page".' }
+                        },
+                        required: ['destination']
                       }
                     },
                     {
@@ -1552,11 +1623,123 @@ export class JarvisGeminiLive {
             break
           }
 
+          case 'start_video_recording': {
+            const r = this.startVideoRecording()
+            output = r.message
+            break
+          }
+
+          case 'stop_video_recording': {
+            const r = await this.stopVideoRecording()
+            output = r.success ? `✅ ${r.message}` : r.message
+            break
+          }
+
+          case 'start_screen_recording': {
+            const r = await this.startScreenRecording()
+            output = r.message
+            break
+          }
+
+          case 'stop_screen_recording': {
+            const r = await this.stopScreenRecording()
+            output = r.success ? `✅ ${r.message}` : r.message
+            break
+          }
+
           case 'open_app': {
             const r = await api.toolOpenApp(args.app_name)
             output = r.success
               ? `✅ ${r.message}`
               : `Error opening app: ${r.error}`
+            break
+          }
+
+          case 'navigate_to': {
+            const r = await api.toolNavigateMaps(args.destination, args.origin)
+            output = r.success ? `✅ ${r.message}` : `Could not open directions: ${r.error}`
+            break
+          }
+
+          case 'set_reminder': {
+            const r = await api.toolSetReminder(args.text, Number(args.minutes))
+            output = r.success ? `✅ ${r.message}` : `Could not set reminder: ${r.error}`
+            break
+          }
+
+          case 'read_screen_aloud': {
+            try {
+              const ocr = await fetch(`${this.backendBase}/api/screen/ocr`)
+              const d = ocr.ok ? await ocr.json() : null
+              const text = (d?.text || '').trim()
+              if (!text) {
+                output = 'I could not read any text on the screen right now.'
+                break
+              }
+              // Speak it locally via Piper TTS.
+              await fetch(`${this.backendBase}/api/tts/speak`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text.slice(0, 2000), play: true })
+              })
+              output = `Reading the screen aloud now. It says: ${text.slice(0, 400)}${text.length > 400 ? '…' : ''}`
+            } catch (err) {
+              output = `Could not read the screen: ${err instanceof Error ? err.message : String(err)}`
+            }
+            break
+          }
+
+          case 'explain_clipboard': {
+            try {
+              const clip = await api.clipboardReadText()
+              const text = (clip?.text || '').trim()
+              if (!text) {
+                output = 'Your clipboard is empty — copy the text (or error) you want me to explain, then ask again.'
+                break
+              }
+              // Return the copied text so the model can explain it in its reply.
+              output = `The user copied this text — explain it clearly (if it is an error, say what caused it and how to fix it):\n\n${text.slice(0, 4000)}`
+            } catch (err) {
+              output = `Could not read the clipboard: ${err instanceof Error ? err.message : String(err)}`
+            }
+            break
+          }
+
+          case 'guide_me_to': {
+            const dest = String(args.destination || '').trim()
+            if (!dest) {
+              output = 'Tell me where you want to go — for example, "Bluetooth settings".'
+              break
+            }
+            try {
+              const shot = await api.takeScreenshot?.()
+              // Also inject the screenshot into the live vision channel so the
+              // model can reason over it directly.
+              if (shot?.success && shot.base64) this.sendImageToSession(shot.base64, 'image/png')
+
+              // Local (offline) vision analysis with a navigation-specific prompt.
+              const navPrompt =
+                `You are guiding a user on their computer, looking at a screenshot of their CURRENT screen. ` +
+                `Give clear, numbered, click-by-click steps to reach: "${dest}". ` +
+                `Name the exact buttons/menus/icons to click and where they are on screen. ` +
+                `If "${dest}" cannot be reached from what is currently shown, say which app or window to open first, then the steps. Keep it concise.`
+              let steps = ''
+              try {
+                const r = await fetch(`${this.backendBase}/api/screen/analyze?prompt=${encodeURIComponent(navPrompt)}`)
+                if (r.ok) {
+                  const d = await r.json()
+                  if (d?.success && d.text) steps = d.text
+                }
+              } catch { /* local vision unavailable */ }
+
+              if (steps) {
+                output = `Here are the steps to reach "${dest}" from the current screen:\n${steps}`
+              } else {
+                output = `I captured the screen and sent it to your vision — describe the click-by-click steps to reach "${dest}".`
+              }
+            } catch (err) {
+              output = `Could not guide you to "${dest}": ${err instanceof Error ? err.message : String(err)}`
+            }
             break
           }
 
@@ -2578,7 +2761,7 @@ export class JarvisGeminiLive {
       })
     }
 
-    // Send all results back to Gemini in IRIS-compatible format
+    // Send all results back to Gemini in Stormbreaker-compatible format
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(
         JSON.stringify({
@@ -2862,7 +3045,7 @@ export class JarvisGeminiLive {
             return navigator.mediaDevices.getUserMedia({
               audio: false,
               video: {
-                // Electron desktop capture path, following the IRIS approach.
+                // Electron desktop capture path, following the Stormbreaker approach.
                 // @ts-expect-error Electron desktop capture uses Chromium-only constraints.
                 mandatory: {
                   chromeMediaSource: 'desktop',
@@ -2895,6 +3078,45 @@ export class JarvisGeminiLive {
     }, 2000)
   }
 
+  /**
+   * Give the live voice EYES using a camera stream that already exists
+   * (owned by the dashboard optical feed) — WITHOUT opening a second
+   * getUserMedia. This avoids the Windows "camera in use" conflict where
+   * two consumers fight over the one webcam and both go black.
+   *
+   * We do NOT own/stop this stream — the dashboard feed does. We only read
+   * frames from it. `stopVision()` clears our timer + video wrapper but must
+   * not stop the shared tracks.
+   */
+  attachVisionStream(stream: MediaStream) {
+    // Tear down any prior vision wiring (but not the shared stream's tracks).
+    if (this.visionTimer !== null) {
+      window.clearInterval(this.visionTimer)
+      this.visionTimer = null
+    }
+    if (this.visionVideo) {
+      try {
+        this.visionVideo.pause()
+      } catch {
+        // ignore
+      }
+      this.visionVideo.srcObject = null
+    }
+
+    this.visionSource = 'camera'
+    this.ownsVisionStream = false
+    this.visionStream = stream
+    this.visionVideo = document.createElement('video')
+    this.visionVideo.muted = true
+    this.visionVideo.playsInline = true
+    this.visionVideo.srcObject = stream
+    void this.visionVideo.play()
+
+    this.visionTimer = window.setInterval(() => {
+      this.pushVisionFrame()
+    }, 2000)
+  }
+
   stopVision() {
     if (this.visionTimer !== null) {
       window.clearInterval(this.visionTimer)
@@ -2902,9 +3124,14 @@ export class JarvisGeminiLive {
     }
 
     if (this.visionStream) {
-      this.visionStream.getTracks().forEach((track) => track.stop())
+      // Only stop the tracks if WE opened them. A shared dashboard stream is
+      // owned by the optical feed — stopping it here would kill their preview.
+      if (this.ownsVisionStream) {
+        this.visionStream.getTracks().forEach((track) => track.stop())
+      }
       this.visionStream = null
     }
+    this.ownsVisionStream = true
 
     if (this.visionVideo) {
       try {
@@ -2921,6 +3148,156 @@ export class JarvisGeminiLive {
 
   getVisionSource(): VisionSource {
     return this.visionSource
+  }
+
+  /**
+   * REAL camera video recording. Records the live camera stream (the one the
+   * dashboard owns) via MediaRecorder. Honest about prerequisites: if the
+   * camera isn't on, it says so rather than pretending to record.
+   */
+  startVideoRecording(): { success: boolean; message: string } {
+    if (this.videoRecorder && this.videoRecorder.state === 'recording') {
+      return { success: false, message: 'Already recording. Say "stop recording" to save it.' }
+    }
+    const stream = this.visionStream
+    const hasVideo = stream && stream.getVideoTracks().length > 0
+    if (!stream || !hasVideo) {
+      return {
+        success: false,
+        message: 'The camera is not on, so there is nothing to record. Turn on the camera first, then ask me to record.'
+      }
+    }
+    try {
+      this.videoChunks = []
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm'
+      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) this.videoChunks.push(e.data)
+      }
+      recorder.start(1000) // collect a chunk every second
+      this.videoRecorder = recorder
+      return { success: true, message: 'Recording started from the camera. Say "stop recording" when you want me to save it.' }
+    } catch (err) {
+      return { success: false, message: `Could not start recording: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  }
+
+  /**
+   * REAL screen recording. Opens its OWN desktop-capture stream (independent
+   * of camera vision) and records it. Honest about save location + failures.
+   */
+  async startScreenRecording(): Promise<{ success: boolean; message: string }> {
+    if (this.screenRecorder && this.screenRecorder.state === 'recording') {
+      return { success: false, message: 'Already recording the screen. Say "stop recording" to save it.' }
+    }
+    try {
+      const sourceId = await window.desktopApi.getScreenSource()
+      if (!sourceId) {
+        return { success: false, message: 'Could not access the screen to record.' }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          // @ts-expect-error Electron desktop capture Chromium-only constraints
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+            maxWidth: 1920,
+            maxHeight: 1080,
+            maxFrameRate: 15
+          }
+        }
+      })
+      this.screenStream = stream
+      this.screenChunks = []
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm'
+      const recorder = new MediaRecorder(stream, { mimeType: mime })
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) this.screenChunks.push(e.data)
+      }
+      recorder.start(1000)
+      this.screenRecorder = recorder
+      return { success: true, message: 'Screen recording started. Say "stop recording" when you want me to save it.' }
+    } catch (err) {
+      return { success: false, message: `Could not start screen recording: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  }
+
+  async stopScreenRecording(): Promise<{ success: boolean; message: string; path?: string }> {
+    const recorder = this.screenRecorder
+    if (!recorder || recorder.state === 'inactive') {
+      return { success: false, message: 'The screen is not being recorded right now.' }
+    }
+    return new Promise((resolve) => {
+      recorder.onstop = async () => {
+        try {
+          const blob = new Blob(this.screenChunks, { type: 'video/webm' })
+          this.screenChunks = []
+          this.screenRecorder = null
+          // Release the desktop-capture stream we opened.
+          this.screenStream?.getTracks().forEach((t) => t.stop())
+          this.screenStream = null
+          if (blob.size === 0) {
+            resolve({ success: false, message: 'The screen recording was empty — nothing was captured.' })
+            return
+          }
+          const base64: string = await new Promise((res) => {
+            const reader = new FileReader()
+            reader.onloadend = () => res(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          const r = await window.desktopApi.toolSaveRecording(base64, 'webm')
+          if (r.success && r.path) {
+            const mb = ((r.bytes || 0) / 1048576).toFixed(1)
+            resolve({ success: true, message: `Saved the ${mb} MB screen recording to ${r.path}`, path: r.path })
+          } else {
+            resolve({ success: false, message: `Could not save the screen recording: ${r.error}` })
+          }
+        } catch (err) {
+          resolve({ success: false, message: `Error saving screen recording: ${err instanceof Error ? err.message : String(err)}` })
+        }
+      }
+      recorder.stop()
+    })
+  }
+
+  async stopVideoRecording(): Promise<{ success: boolean; message: string; path?: string }> {
+    const recorder = this.videoRecorder
+    if (!recorder || recorder.state === 'inactive') {
+      return { success: false, message: 'Nothing is being recorded right now.' }
+    }
+    return new Promise((resolve) => {
+      recorder.onstop = async () => {
+        try {
+          const blob = new Blob(this.videoChunks, { type: 'video/webm' })
+          this.videoChunks = []
+          this.videoRecorder = null
+          if (blob.size === 0) {
+            resolve({ success: false, message: 'The recording was empty — nothing was captured.' })
+            return
+          }
+          const base64: string = await new Promise((res) => {
+            const reader = new FileReader()
+            reader.onloadend = () => res(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          const r = await window.desktopApi.toolSaveRecording(base64, 'webm')
+          if (r.success && r.path) {
+            const mb = ((r.bytes || 0) / 1048576).toFixed(1)
+            resolve({ success: true, message: `Saved the ${mb} MB recording to ${r.path}`, path: r.path })
+          } else {
+            resolve({ success: false, message: `Could not save the recording: ${r.error}` })
+          }
+        } catch (err) {
+          resolve({ success: false, message: `Error saving recording: ${err instanceof Error ? err.message : String(err)}` })
+        }
+      }
+      recorder.stop()
+    })
   }
 
   private pushVisionFrame() {

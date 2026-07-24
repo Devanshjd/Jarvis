@@ -13,7 +13,7 @@ import type { JarvisShellSnapshot, SettingsTab } from '../lib/types'
 import { SHELL_VOICE_ENGINE } from '../lib/types'
 
 /* ═══════════════════════════════════════════
-   Settings View — IRIS-style config center
+   Settings View — Stormbreaker-style config center
    ═══════════════════════════════════════════ */
 
 export default function SettingsView({
@@ -76,36 +76,36 @@ export default function SettingsView({
         <AnimatePresence mode="wait">
           {activeTab === 'general' ? (
             <motion.div key="general" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="iris-setting-card md:col-span-2">
+              <div className="stormbreaker-setting-card md:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="iris-setting-title"><RiBrainLine /> Runtime Identity</span>
+                  <span className="stormbreaker-setting-title"><RiBrainLine /> Runtime Identity</span>
                   <button onClick={() => void onSave({ operatorName, provider, model, voiceEngine: SHELL_VOICE_ENGINE, personality, voiceProfile })} className="flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-xs font-bold tracking-[0.18em] text-black">
                     <RiSave3Line /> SAVE
                   </button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
-                  <label className="iris-input-wrap">
-                    <span className="iris-input-label">Operator Name</span>
-                    <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} className="iris-input" placeholder="Dev" />
+                  <label className="stormbreaker-input-wrap">
+                    <span className="stormbreaker-input-label">Operator Name</span>
+                    <input value={operatorName} onChange={(e) => setOperatorName(e.target.value)} className="stormbreaker-input" placeholder="Dev" />
                   </label>
-                  <label className="iris-input-wrap">
-                    <span className="iris-input-label">Active Provider</span>
-                    <input value={provider} onChange={(e) => setProvider(e.target.value)} className="iris-input" placeholder="ollama" />
+                  <label className="stormbreaker-input-wrap">
+                    <span className="stormbreaker-input-label">Active Provider</span>
+                    <input value={provider} onChange={(e) => setProvider(e.target.value)} className="stormbreaker-input" placeholder="ollama" />
                   </label>
-                  <label className="iris-input-wrap">
-                    <span className="iris-input-label">Model</span>
-                    <input value={model} onChange={(e) => setModel(e.target.value)} className="iris-input" placeholder="gemma3:4b" />
+                  <label className="stormbreaker-input-wrap">
+                    <span className="stormbreaker-input-label">Model</span>
+                    <input value={model} onChange={(e) => setModel(e.target.value)} className="stormbreaker-input" placeholder="gemma3:4b" />
                   </label>
                 </div>
               </div>
 
-              <div className="iris-setting-card md:col-span-2">
-                <div className="mb-4 iris-setting-title"><RiBrainLine /> Personality Matrix</div>
+              <div className="stormbreaker-setting-card md:col-span-2">
+                <div className="mb-4 stormbreaker-setting-title"><RiBrainLine /> Personality Matrix</div>
                 <textarea
                   value={personality}
                   onChange={(e) => setPersonality(e.target.value.slice(0, 500))}
                   placeholder="Describe how JARVIS should behave. Example: 'Be witty and confident, like Tony Stark's AI. Use casual language. Sometimes add sarcastic humor.'"
-                  className="iris-input h-28 resize-none"
+                  className="stormbreaker-input h-28 resize-none"
                 />
                 <div className="mt-2 flex items-center justify-between text-[10px] font-mono text-zinc-600">
                   <span>Defines the AI's conversational personality</span>
@@ -113,8 +113,8 @@ export default function SettingsView({
                 </div>
               </div>
 
-              <div className="iris-setting-card">
-                <div className="mb-4 iris-setting-title"><RiUserVoiceLine /> Voice Profile</div>
+              <div className="stormbreaker-setting-card">
+                <div className="mb-4 stormbreaker-setting-title"><RiUserVoiceLine /> Voice Profile</div>
                 <div className="grid grid-cols-2 gap-3">
                   {(['Kore', 'Puck', 'Charon', 'Aoede'] as const).map((v) => (
                     <button key={v} onClick={() => setVoiceProfile(v)} className={`rounded-xl border px-4 py-4 text-xs font-bold tracking-[0.18em] transition-all ${voiceProfile === v ? 'border-white bg-white text-black' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-600'}`}>
@@ -127,8 +127,8 @@ export default function SettingsView({
                 </p>
               </div>
 
-              <div className="iris-setting-card">
-                <div className="mb-4 iris-setting-title"><RiCommandLine /> Runtime Mode</div>
+              <div className="stormbreaker-setting-card">
+                <div className="mb-4 stormbreaker-setting-title"><RiCommandLine /> Runtime Mode</div>
                 <div className="rounded-2xl border border-white/10 bg-[#050505] px-4 py-4 text-sm font-bold text-white">
                   {snapshot?.config.mode || 'GENERAL'}
                 </div>
@@ -138,16 +138,16 @@ export default function SettingsView({
           ) : null}
 
           {activeTab === 'keys' ? (
-            <motion.div key="keys" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="iris-setting-card">
+            <motion.div key="keys" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="stormbreaker-setting-card">
               <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
-                <span className="iris-setting-title"><RiShieldKeyholeLine /> External API Endpoints</span>
+                <span className="stormbreaker-setting-title"><RiShieldKeyholeLine /> External API Endpoints</span>
                 <span className="rounded-lg bg-white px-4 py-2 text-xs font-bold tracking-[0.16em] text-black">LOCAL VAULT</span>
               </div>
               <div className="grid gap-5 md:grid-cols-2">
                 {keyRows.map(([label, value]) => (
                   <div key={label} className="space-y-2">
                     <div className="text-[10px] font-mono tracking-[0.18em] text-zinc-400 uppercase">{label}</div>
-                    <div className="iris-input text-sm font-mono text-zinc-100">{value}</div>
+                    <div className="stormbreaker-input text-sm font-mono text-zinc-100">{value}</div>
                   </div>
                 ))}
               </div>
@@ -159,12 +159,12 @@ export default function SettingsView({
 
           {activeTab === 'security' ? (
             <motion.div key="security" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="iris-setting-card">
-                <div className="mb-6 iris-setting-title"><RiShieldKeyholeLine /> Master PIN</div>
+              <div className="stormbreaker-setting-card">
+                <div className="mb-6 stormbreaker-setting-title"><RiShieldKeyholeLine /> Master PIN</div>
                 <div className="space-y-4">
-                  <label className="iris-input-wrap">
-                    <span className="iris-input-label">New 4-Digit PIN</span>
-                    <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))} className="iris-input text-center text-2xl tracking-[0.5em]" placeholder="••••" maxLength={4} />
+                  <label className="stormbreaker-input-wrap">
+                    <span className="stormbreaker-input-label">New 4-Digit PIN</span>
+                    <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))} className="stormbreaker-input text-center text-2xl tracking-[0.5em]" placeholder="••••" maxLength={4} />
                   </label>
                   <button onClick={() => { if (pinInput.length === 4) setPinSaved(true) }} className="w-full rounded-xl bg-white py-3 text-xs font-bold tracking-[0.18em] text-black transition-colors hover:bg-amber-400">
                     UPDATE PIN
@@ -175,7 +175,7 @@ export default function SettingsView({
                 </div>
               </div>
 
-              <div className="iris-setting-card flex flex-col items-center justify-center text-center">
+              <div className="stormbreaker-setting-card flex flex-col items-center justify-center text-center">
                 <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-white/5">
                   <RiCameraLine size={36} className="text-zinc-400" />
                 </div>

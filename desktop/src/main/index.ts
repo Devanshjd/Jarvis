@@ -1377,6 +1377,17 @@ function createWindow() {
     }
   })
 
+  // ─── API token — read the shared secret the backend wrote, so the
+  // renderer can authenticate to the protected endpoints. ───
+  ipcMain.handle('get-api-token', async () => {
+    try {
+      const p = join(app.getPath('home'), '.jarvis', 'api_token')
+      return (await fs.readFile(p, 'utf8')).trim()
+    } catch {
+      return ''
+    }
+  })
+
   // ─── Maps navigation — open directions to a physical place ───
   ipcMain.handle('tool-navigate-maps', async (_event, destination: string, origin?: string) => {
     try {

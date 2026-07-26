@@ -50,6 +50,59 @@ _runtime: HeadlessJarvisRuntime | None = None
 _runtime_lock = threading.Lock()
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
+# ── Shared-secret token: gates the dangerous endpoints so a random local
+# process or a malicious webpage (CSRF to localhost) can't drive the agent,
+# run code, or modify JARVIS. Only processes that can read this file (the
+# user's own apps) can call the protected routes. ──
+import secrets as _secrets
+_TOKEN_FILE = Path.home() / ".jarvis" / "api_token"
+
+
+def _get_or_create_api_token() -> str:
+    try:
+        if _TOKEN_FILE.exists():
+            t = _TOKEN_FILE.read_text(encoding="utf-8").strip()
+            if t:
+                return t
+    except Exception:
+        pass
+    t = _secrets.token_urlsafe(32)
+    try:
+        _TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _TOKEN_FILE.write_text(t, encoding="utf-8")
+    except Exception:
+        pass
+    return t
+
+
+API_TOKEN = _get_or_create_api_token()
+
+# Endpoints that can change the system / run code / drive the agent.
+_PROTECTED_PREFIXES = (
+    "/api/agent/execute",
+    "/api/self_modify/",
+    "/api/security/",
+    "/api/terminal",
+)
+
+
+@app.middleware("http")
+async def _token_guard(request, call_next):
+    from fastapi.responses import JSONResponse as _JSON
+    path = request.url.path
+    if request.method not in ("OPTIONS", "GET") and any(
+            path.startswith(p) for p in _PROTECTED_PREFIXES):
+        if request.headers.get("X-JARVIS-Token", "") != API_TOKEN:
+            return _JSON({"error": "unauthorized: missing or invalid X-JARVIS-Token"},
+                         status_code=403)
+    return await call_next(request)
+
+
+@app.get("/api/token/health")
+def api_token_health():
+    """Confirms the token guard is active (does not reveal the token)."""
+    return {"token_guard": True, "protected": list(_PROTECTED_PREFIXES)}
+
 
 def get_runtime() -> HeadlessJarvisRuntime:
     global _runtime

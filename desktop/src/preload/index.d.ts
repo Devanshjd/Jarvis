@@ -129,6 +129,7 @@ declare global {
       toolSnapWindow: (appName: string, position: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolExecuteMacro: (macroName: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolLockSystem: () => Promise<{ success: boolean; message?: string; error?: string }>
+      getApiToken: () => Promise<string>
       toolNavigateMaps: (destination: string, origin?: string) => Promise<{ success: boolean; message?: string; error?: string }>
       toolSetReminder: (text: string, minutes: number) => Promise<{ success: boolean; message?: string; error?: string }>
 

@@ -65,6 +65,7 @@ const desktopApi = {
   toolExecuteMacro: (macroName: string) =>
     ipcRenderer.invoke('tool-execute-macro', macroName),
   toolLockSystem: () => ipcRenderer.invoke('tool-lock-system'),
+  getApiToken: () => ipcRenderer.invoke('get-api-token'),
   toolNavigateMaps: (destination: string, origin?: string) =>
     ipcRenderer.invoke('tool-navigate-maps', destination, origin),
   toolSetReminder: (text: string, minutes: number) =>

@@ -38,7 +38,8 @@ import {
   extractTaskSummary,
   fetchJson,
   formatProvider,
-  mergeBackendWithShellMessages
+  mergeBackendWithShellMessages,
+  setApiToken
 } from './lib/types'
 import { blobToWavBase64 } from './services/audioUtils'
 
@@ -331,6 +332,12 @@ export default function App() {
       setLocalVoiceState('idle')
     }
   }
+
+  // Load the backend's shared-secret token ASAP so protected API calls
+  // (agent/execute, self-modify) authenticate. Must run before those calls.
+  useEffect(() => {
+    window.desktopApi.getApiToken?.().then((t) => setApiToken(t || '')).catch(() => {})
+  }, [])
 
   // Keep refs current for the gesture poller.
   useEffect(() => { activeTabRef.current = activeTab }, [activeTab])

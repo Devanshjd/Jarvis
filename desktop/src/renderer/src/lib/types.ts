@@ -129,8 +129,19 @@ export const MODULE_LIBRARY = [
    Utilities
    ═══════════════════════════════════════════ */
 
+// Shared-secret token for the backend's protected endpoints. Set once at
+// startup from the Electron main process (which reads it from disk).
+let _apiToken = ''
+export function setApiToken(t: string): void {
+  _apiToken = t || ''
+}
+
 export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  const response = await fetch(input, init)
+  const opts: RequestInit = { ...(init || {}) }
+  if (_apiToken) {
+    opts.headers = { ...(opts.headers || {}), 'X-JARVIS-Token': _apiToken }
+  }
+  const response = await fetch(input, opts)
   if (!response.ok) throw new Error((await response.text()) || `Request failed: ${response.status}`)
   return response.json() as Promise<T>
 }

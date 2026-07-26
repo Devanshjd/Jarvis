@@ -139,6 +139,15 @@ def close_app(image_name: str):
 #  Agent invocation
 # ═══════════════════════════════════════════════════════════════════════
 
+def _api_token() -> str:
+    """Read the shared-secret token the backend wrote (for protected routes)."""
+    try:
+        from pathlib import Path
+        return (Path.home() / ".jarvis" / "api_token").read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
 def run_agent(goal: str, timeout: float = 120.0) -> dict:
     """Send a goal to /api/agent/execute, return parsed result."""
     body = json.dumps({
@@ -147,7 +156,8 @@ def run_agent(goal: str, timeout: float = 120.0) -> dict:
     }).encode()
     req = urllib.request.Request(
         f"{BACKEND}/api/agent/execute", data=body,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json",
+                 "X-JARVIS-Token": _api_token()},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout + 20) as r:

@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-07-10 12:14:31",
+  "timestamp": "2026-07-26 13:44:03",
   "overall_rate": "100%",
-  "verified": 4,
+  "verified": 17,
   "failed": 0,
-  "unknown": 0,
+  "unknown": 1,
   "false_positives": 0,
   "by_category": {
     "app_launch": {
@@ -13,10 +13,58 @@
       "total": 2
     },
     "compound": {
+      "verified": 3,
+      "failed": 0,
+      "unknown": 0,
+      "total": 3
+    },
+    "screen_read": {
+      "verified": 1,
+      "failed": 0,
+      "unknown": 0,
+      "total": 1
+    },
+    "file_ops": {
       "verified": 2,
       "failed": 0,
       "unknown": 0,
       "total": 2
+    },
+    "query": {
+      "verified": 1,
+      "failed": 0,
+      "unknown": 0,
+      "total": 1
+    },
+    "browser": {
+      "verified": 3,
+      "failed": 0,
+      "unknown": 0,
+      "total": 3
+    },
+    "ui_click": {
+      "verified": 2,
+      "failed": 0,
+      "unknown": 0,
+      "total": 2
+    },
+    "multi_app": {
+      "verified": 2,
+      "failed": 0,
+      "unknown": 0,
+      "total": 2
+    },
+    "ambiguous": {
+      "verified": 1,
+      "failed": 0,
+      "unknown": 0,
+      "total": 1
+    },
+    "system": {
+      "verified": 0,
+      "failed": 0,
+      "unknown": 1,
+      "total": 1
     }
   },
   "results": [
@@ -26,7 +74,7 @@
       "goal": "open notepad",
       "verdict": "verified",
       "agent_claimed_success": true,
-      "elapsed_s": 0.9
+      "elapsed_s": 1.2
     },
     {
       "category": "app_launch",
@@ -42,7 +90,7 @@
       "goal": "open notepad and type reliability test alpha",
       "verdict": "verified",
       "agent_claimed_success": true,
-      "elapsed_s": 18.0
+      "elapsed_s": 20.0
     },
     {
       "category": "compound",
@@ -51,6 +99,118 @@
       "verdict": "verified",
       "agent_claimed_success": true,
       "elapsed_s": 4.4
+    },
+    {
+      "category": "compound",
+      "name": "calc 200 / 8",
+      "goal": "open calculator and compute 200 divided by 8",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 4.4
+    },
+    {
+      "category": "screen_read",
+      "name": "read screen text",
+      "goal": "read all the text on my screen",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 2.0
+    },
+    {
+      "category": "file_ops",
+      "name": "create word doc",
+      "goal": "create a word file called reliability_probe with hello content",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 1.6
+    },
+    {
+      "category": "query",
+      "name": "screenshot",
+      "goal": "take a screenshot",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 0.8
+    },
+    {
+      "category": "browser",
+      "name": "open chrome",
+      "goal": "open google chrome",
+      "verdict": "verified",
+      "agent_claimed_success": false,
+      "elapsed_s": 12.6
+    },
+    {
+      "category": "browser",
+      "name": "chrome to a site",
+      "goal": "open chrome and go to github.com",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 31.5
+    },
+    {
+      "category": "browser",
+      "name": "web search",
+      "goal": "open chrome and search for raspberry pi",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 9.3
+    },
+    {
+      "category": "ui_click",
+      "name": "notepad File menu",
+      "goal": "open notepad then click the File menu",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 22.9
+    },
+    {
+      "category": "ui_click",
+      "name": "open paint",
+      "goal": "open paint",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 1.2
+    },
+    {
+      "category": "multi_app",
+      "name": "explorer to downloads",
+      "goal": "open file explorer and go to the downloads folder",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 10.9
+    },
+    {
+      "category": "multi_app",
+      "name": "screenshot then paint",
+      "goal": "take a screenshot then open paint",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 1.7
+    },
+    {
+      "category": "file_ops",
+      "name": "create folder",
+      "goal": "create a folder called harness_probe_folder on the desktop",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 0.8
+    },
+    {
+      "category": "ambiguous",
+      "name": "percent question",
+      "goal": "what is 15 percent of 240",
+      "verdict": "verified",
+      "agent_claimed_success": true,
+      "elapsed_s": 6.0
+    },
+    {
+      "category": "system",
+      "name": "system info",
+      "goal": "show me system information",
+      "verdict": "unknown",
+      "agent_claimed_success": true,
+      "elapsed_s": 11.3
     }
   ]
 }

@@ -28,12 +28,13 @@ BOUNTY_HELP = """
     /bounty scope <id> in|out <asset> -- record in/out-of-scope assets
     /bounty check <id> <asset>       -- is an asset in scope? (safety check)
     /bounty recon <id>               -- generate a recon methodology checklist
-    /bounty report <id> <title>      -- draft a vulnerability report template
+    /bounty report <id> [type] <title> -- draft a CVSS+CWE report (type: idor/ssrf/cors/...)
     /bounty submit <id> <sev> <title> -- log a submission
     /bounty reward <id> <amt> <title> -- log a payout (INR)
     /bounty status <id> <status>     -- recon|testing|reporting|parked|done
     /bounty tools                    -- check which recon tools are installed
     /bounty scan <id> <root-domain>  -- run the scope-gated recon pipeline (local)
+    /bounty hunt <id> <root-domain>  -- deep hunt: auto-findings + manual hit-list
 """
 
 
@@ -201,12 +202,24 @@ class EarnLoopPlugin(PluginBase):
             return "\n".join(out)
 
         if sub == "report":
-            parts = rest.split(" ", 1)
+            parts = rest.split(" ", 2)
             if len(parts) < 2:
-                return "Usage: /bounty report <id> <title>"
+                return ("Usage: /bounty report <id> [bug-type] <title>\n"
+                        "  bug-type (optional) auto-fills CVSS + CWE + remediation:\n"
+                        "    idor · access-control · ssrf · open-redirect · cors ·\n"
+                        "    info-disclosure · subdomain-takeover · xss-reflected ·\n"
+                        "    xss-stored · sqli · auth-bypass\n"
+                        "  e.g. /bounty report ab12 idor Access any user's invoice via id param")
             self.bounty.get(parts[0])  # validate id
-            draft = self.bounty.draft_report(title=parts[1].strip())
-            return (f"Draft report for [{parts[0]}] — fill in and VERIFY before submitting:\n\n{draft}")
+            from core import cvss
+            # If the 2nd token is a known bug-type, use it; else it's the title.
+            if len(parts) == 3 and parts[1].strip().lower().replace(" ", "-") in cvss.BUG_TYPES:
+                btype, title = parts[1].strip(), parts[2].strip()
+            else:
+                btype, title = "", rest.split(" ", 1)[1].strip()
+            draft = self.bounty.draft_report(title=title, bug_type=btype)
+            return (f"Draft report for [{parts[0]}] — fill in the PoC and VERIFY "
+                    f"before submitting:\n\n{draft}")
 
         if sub == "submit":
             parts = rest.split(" ", 2)
@@ -243,6 +256,13 @@ class EarnLoopPlugin(PluginBase):
                 return "Usage: /bounty scan <id> <root-domain>"
             from core.recon_pipeline import get_pipeline
             return get_pipeline(self.jarvis).run(parts[0], parts[1].strip())
+
+        if sub == "hunt":
+            parts = rest.split(" ", 1)
+            if len(parts) < 2:
+                return "Usage: /bounty hunt <id> <root-domain>"
+            from core.vuln_hunter import get_hunter
+            return get_hunter(self.jarvis).hunt(parts[0], parts[1].strip())
 
         return f"Unknown bounty subcommand '{sub}'. Try /bounty help"
 

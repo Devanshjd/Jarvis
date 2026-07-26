@@ -171,6 +171,17 @@ _TOOL_PATTERNS = [
     (re.compile(r"\b(?:save|export)\s+(?:this|that|it)\s+(?:as|to)\s+(?:a\s+)?(?:excel|xlsx|spreadsheet)\b", re.I), "write_xlsx", 11),
     (re.compile(r"\b(?:create|make|write|generate|build)\s+(?:a\s+|an\s+)?(?:powerpoint|pptx|presentation|slide\s*deck|slides)\b", re.I), "write_pptx", 11),
     (re.compile(r"\b(?:save|export)\s+(?:this|that|it)\s+(?:as|to)\s+(?:a\s+)?(?:powerpoint|pptx|presentation|slides)\b", re.I), "write_pptx", 11),
+    # ── Read a FILE's contents (distinct from 'open' which launches it) ──
+    (re.compile(r"\b(?:read|cat|print)\s+(?:the\s+|this\s+|my\s+|contents?\s+of\s+)?(?:file\s+)?[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", re.I), "read_file", 12),
+    (re.compile(r"\bwhat(?:'s|\s+is)\s+in\s+(?:the\s+file\s+)?[\w./\\-]+\.[A-Za-z0-9]{1,6}\b", re.I), "read_file", 12),
+    (re.compile(r"\b(?:read|show\s+me)\s+(?:the\s+)?(?:contents?\s+of\s+)(?:the\s+)?file\b", re.I), "read_file", 11),
+    # ── Open a FILE (pdf/doc/code) — beats 'open app' (8) when a file is named ──
+    (re.compile(r"\b(?:open|show|view|display)\s+.*\.(?:pdf|docx?|xlsx?|pptx?|txt|md|csv|png|jpe?g|gif|py|js|ts|json|html?)\b", re.I), "open_file", 12),
+    (re.compile(r"\b(?:open|show|view)\s+(?:the\s+|this\s+|that\s+|my\s+)?(?:pdf|file|document|report|spreadsheet|presentation|image|photo)\b", re.I), "open_file", 10),
+    # ── Create a CODE/TEXT file (not an office doc) ──
+    (re.compile(r"\b(?:create|make|write|save|generate)\s+(?:a\s+|an\s+|the\s+|new\s+)*(?:python|code|script|text|source|config)\s+(?:file|script)?\b", re.I), "write_file", 11),
+    (re.compile(r"\b(?:create|make|write|save|new)\s+(?:a\s+|an\s+)?[\w./\\-]+\.(?:py|js|ts|txt|json|html?|css|java|c|cpp|go|rs|md|sh|ya?ml)\b", re.I), "write_file", 11),
+    (re.compile(r"\b(?:save|write|put)\s+(?:this|that|it|the\s+code)\s+(?:as|to|into)\s+[\w./\\-]+\.(?:py|js|ts|txt|json|html?|css|java|c|cpp|go|rs)\b", re.I), "write_file", 11),
     # ── Platform-specific searches (high specificity: 10) ──
     (re.compile(r"\b(?:open|play|watch|find|search)\s+.+\b(?:in|on)\s+(?:youtube|spotify|google|github|reddit)\b", re.I), "web_search", 10),
     (re.compile(r"\b(?:youtube|spotify)\s+.+", re.I), "web_search", 9),
@@ -1276,6 +1287,20 @@ class TaskOrchestrator:
                 task.metadata["correction_context"] = correction_context
                 return self._ai_pipeline(task)
 
+        # High-specificity intent patterns (score >= 11) win FIRST — before the
+        # generic capability matcher. Otherwise "create a python file" gets
+        # grabbed by a vague build-project capability that then asks
+        # "what goal?" instead of just writing the file.
+        if not tool_name:
+            best_specific = None
+            for pattern, tname, specificity in _TOOL_PATTERNS:
+                if specificity >= 11:
+                    m = pattern.search(msg_lower)
+                    if m and (best_specific is None or specificity > best_specific[1]):
+                        best_specific = (tname, specificity, m)
+            if best_specific:
+                tool_name, match_obj = best_specific[0], best_specific[2]
+
         # Detect the tool from patterns
         if not tool_name:
             capability_match = self._resolve_capability_match(msg)
@@ -1743,6 +1768,31 @@ class TaskOrchestrator:
     def _build_tool_args(self, tool_name: str, text: str, match) -> dict:
         """Build tool arguments from the user's text and regex match."""
         msg_lower = text.lower().strip()
+
+        if tool_name == "write_file":
+            # filename: "called X.py" / "named X" / a token ending in an extension
+            fn = re.search(r'(?:called|named|file(?:name)?|save\s+(?:as|to)|as|to)\s+'
+                           r'["\']?([\w./\\-]+\.[A-Za-z0-9]{1,6})', text, re.I)
+            if not fn:
+                fn = re.search(r'([\w./\\-]+\.[A-Za-z0-9]{1,6})\b', text)
+            file_name = fn.group(1) if fn else "new_file.txt"
+            # content: "with content Y" / "containing Y" / "that says Y" / after ':'
+            cm = re.search(r'(?:with\s+(?:the\s+)?content|containing|content\s*[:=]|'
+                           r'that\s+(?:says|contains|prints?)|:)\s*(.+)', text, re.I | re.S)
+            content = cm.group(1).strip().strip("`").strip() if cm else ""
+            # provide every key the schema / executor might expect
+            return {"file_name": file_name, "name": file_name, "path": file_name,
+                    "content": content}
+
+        if tool_name in ("read_file", "open_file"):
+            fn = re.search(r'([\w./\\:-]+\.[A-Za-z0-9]{1,6})\b', text)
+            if fn:
+                name = fn.group(1)
+            else:
+                m = re.search(r'\b(?:open|read|show|view|display)\s+'
+                              r'(?:the\s+|this\s+|that\s+|my\s+)?(.+)', text, re.I)
+                name = m.group(1).strip() if m else ""
+            return {"file_name": name, "name": name, "path": name}
 
         if tool_name == "open_app":
             # Extract app name from "open X" / "launch X"

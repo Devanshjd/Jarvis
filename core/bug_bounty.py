@@ -121,13 +121,23 @@ class BugBountyTracker:
         self._save()
         return t
 
+    @staticmethod
+    def _scope_match(asset: str, entry: str) -> bool:
+        """True if `asset` is the scope `entry` host or a subdomain of it.
+        Matches on a DOT boundary so 'acme.com' does NOT match 'notacme.com'
+        or 'evilacme.com' — that boundary is a safety control, not cosmetics."""
+        base = entry.strip().lower().lstrip("*.")
+        if not base:
+            return False
+        return asset == base or asset.endswith("." + base)
+
     def in_scope(self, target_id: str, asset: str) -> Optional[bool]:
         """True/False if the asset clearly matches scope, None if uncertain."""
         t = self.get(target_id)
         a = asset.strip().lower()
-        if any(a == s.lower() or a.endswith(s.lower().lstrip("*.")) for s in t.scope_out):
+        if any(self._scope_match(a, s) for s in t.scope_out):
             return False
-        if any(a == s.lower() or a.endswith(s.lower().lstrip("*.")) for s in t.scope_in):
+        if any(self._scope_match(a, s) for s in t.scope_in):
             return True
         return None
 
@@ -157,30 +167,62 @@ class BugBountyTracker:
         return llm or RECON_CHECKLIST
 
     # ─── Report drafting ──────────────────────────────────────────────────
-    def draft_report(self, title: str, severity: str = "medium",
-                     summary: str = "", steps: str = "", impact: str = "") -> str:
-        """Draft a clean vulnerability report. LLM-polished if available, else a
-        solid template. YOU verify every claim before submitting."""
-        sev = severity.lower() if severity.lower() in SEVERITIES else "medium"
+    def draft_report(self, title: str, bug_type: str = "", severity: str = "",
+                     summary: str = "", steps: str = "", impact: str = "",
+                     url: str = "") -> str:
+        """Draft a platform-standard vulnerability report (HackerOne/Intigriti
+        shape): Title, CVSS 3.1 vector+score, CWE, Summary, Steps to Reproduce,
+        PoC, Impact, Remediation, References. `bug_type` (e.g. 'idor', 'ssrf',
+        'cors') auto-fills a CVSS vector, CWE and remediation you then tune.
+        LLM-polished if a local model is up, else a solid static template.
+        YOU verify every claim before submitting."""
+        from core import cvss
+        meta = cvss.bug_type(bug_type) if bug_type else None
+        if meta:
+            cvss_score, cvss_sev, cvss_vec = cvss.score(meta["vector"])
+            cwe_id, cwe_name = meta["cwe"]
+            remediation = meta["remediation"]
+            title = title or meta["name"]
+        else:
+            cvss_score, cvss_sev, cvss_vec = 0.0, (severity or "medium"), ""
+            cwe_id, cwe_name, remediation = "", "", ""
+        sev = severity.lower() if severity.lower() in SEVERITIES else cvss_sev
+
+        header = f"# {title}\n\n"
+        if cvss_vec:
+            header += (f"**Severity:** {sev.capitalize()} "
+                       f"(CVSS 3.1: {cvss_score} / 10 — `{cvss_vec}`)\n\n"
+                       f"**Weakness:** {cwe_id} — {cwe_name}\n\n")
+        else:
+            header += f"**Severity:** {sev.capitalize()}\n\n"
+        if url:
+            header += f"**Affected asset:** {url}\n\n"
+
         llm = self._llm_text(
             system=(
-                "You write concise, professional bug-bounty vulnerability reports. "
-                "Use the standard sections: Title, Severity, Summary, Steps to "
-                "Reproduce, Impact, Remediation. Only state what the tester provided; "
-                "do NOT invent findings. Keep it factual and submission-ready."),
-            prompt=(f"Title: {title}\nSeverity: {sev}\nSummary: {summary}\n"
-                    f"Steps: {steps}\nImpact: {impact}\n\nWrite the report:"),
+                "You write concise, professional bug-bounty vulnerability reports "
+                "in the style HackerOne and Intigriti triagers expect. Use exactly "
+                "these sections: Summary, Steps to Reproduce (numbered, with the "
+                "exact requests), Proof of Concept, Impact (concrete attacker "
+                "capability), Remediation. Only state what the tester provided; "
+                "NEVER invent findings, endpoints, or results. Factual, submission-ready."),
+            prompt=(f"Title: {title}\nCWE: {cwe_id} {cwe_name}\nCVSS: {cvss_vec}\n"
+                    f"Affected: {url}\nSummary: {summary}\nSteps: {steps}\n"
+                    f"Impact: {impact}\nSuggested remediation: {remediation}\n\n"
+                    f"Write the report body (sections only, no title line):"),
         )
         if llm:
-            return llm
-        # Static template fallback
+            return header + llm
+        # Static template fallback — full platform-standard structure.
         return (
-            f"# {title}\n\n"
-            f"**Severity:** {sev}\n\n"
-            f"## Summary\n{summary or '<what the issue is, in one or two sentences>'}\n\n"
-            f"## Steps to Reproduce\n{steps or '1. ...\\n2. ...\\n3. ...'}\n\n"
-            f"## Impact\n{impact or '<what an attacker can actually do with this>'}\n\n"
-            f"## Remediation\n<the fix — validate input / enforce access control / etc.>\n\n"
+            header +
+            f"## Summary\n{summary or '<one or two sentences: what the flaw is and where>'}\n\n"
+            f"## Steps to Reproduce\n{steps or '1. Log in as User A and note ...\\n2. Send the request ...\\n3. Observe ...'}\n\n"
+            f"## Proof of Concept\n```http\n<paste the exact request/response, or attach a screenshot/video>\n```\n\n"
+            f"## Impact\n{impact or '<what an attacker can concretely do: whose data, what action, at what scale>'}\n\n"
+            f"## Remediation\n{remediation or '<the server-side fix>'}\n\n"
+            f"## References\n- {cwe_id or 'CWE-___'}: {cwe_name or '<weakness>'}\n"
+            f"- OWASP Testing Guide / relevant cheat sheet\n\n"
             f"---\n_Verify every step reproduces before submitting. Only report "
             f"confirmed, in-scope issues._"
         )

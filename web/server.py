@@ -38,7 +38,10 @@ from core.database import get_db
 app = FastAPI(title="JARVIS Web Shell", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Only the local Electron app / localhost may READ responses — not arbitrary
+    # websites (a "*" here let any page you visit exfiltrate files, chat history,
+    # etc. via the API). Electron's file:// renderer sends Origin: null.
+    allow_origin_regex=r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|file://.*|null)$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -871,18 +874,63 @@ _last_gesture = {"gesture": None, "action": None, "ts": 0.0}
 
 
 class GestureActionRequest(BaseModel):
-    gesture: str
-    action: str = ""
+    gesture: str = ""          # from the gesture service (open_palm, pinch, …)
+    action: str = ""           # from the Holo-HUD (wake_voice, bounty_status, …)
+    source: str = ""
+
+
+def _handle_hud_action(action: str) -> str:
+    """Map a Holo-HUD ring selection to a spoken response (with real data
+    where cheap). Returns the spoken line."""
+    a = (action or "").strip().lower()
+    try:
+        if a == "wake_voice":
+            return "At your service."
+        if a == "faceid_status":
+            from core.face_id import get_faceid
+            fid = get_faceid()
+            return (f"Face I.D. is enrolled for {', '.join(fid.enrolled_names())}."
+                    if fid.is_enrolled() else "Face I.D. is not set up yet.")
+        if a == "bounty_status":
+            from core.bug_bounty import get_tracker
+            n = len(get_tracker().targets)
+            return f"You have {n} bug bounty target{'s' if n != 1 else ''} tracked."
+        if a == "bounty_hunt":
+            return "Recon ready. Point me at an in-scope target."
+        if a == "open_earn":
+            return "Opening the earn loop."
+        if a == "recall_memory":
+            return "Semantic memory is online."
+        if a == "code_oracle":
+            return "Code oracle ready. Ask me about a repository."
+        if a == "sleep":
+            return "Going to sleep. Wake me with an open palm."
+    except Exception:
+        pass
+    return f"{a.replace('_', ' ')} selected." if a else ""
 
 
 @app.post("/api/gesture/action")
 def api_gesture_action(payload: GestureActionRequest):
-    """Receive a detected hand gesture (from the Python 3.11 gesture service)
-    and ACT on it — audible feedback via local TTS + a real control action.
-    This closes the loop from 'recognizes' to 'controls'."""
+    """Receive a hand gesture (from the gesture service) OR a Holo-HUD ring
+    selection, and ACT on it — audible feedback via local TTS + real action.
+    Closes the loop from 'recognizes' to 'controls'."""
     import time as _t
     g = (payload.gesture or "").strip()
-    _last_gesture.update({"gesture": g, "action": payload.action, "ts": _t.time()})
+    _last_gesture.update({"gesture": g or payload.action, "action": payload.action, "ts": _t.time()})
+
+    # Holo-HUD ring selections come in as `action` with no gesture.
+    if not g and payload.action:
+        spoken_hud = _handle_hud_action(payload.action)
+        if spoken_hud:
+            _speak_async(spoken_hud)
+            try:
+                rt = get_runtime()
+                if hasattr(rt, "chat"):
+                    rt.chat.add_message("system", f"◉ HoloHUD: {payload.action} → {spoken_hud}")
+            except Exception:
+                pass
+        return {"success": True, "action": payload.action, "spoken": spoken_hud}
 
     # Map each gesture to a spoken reaction + (where useful) a real action.
     spoken = ""
@@ -1318,10 +1366,19 @@ def api_tools_list():
 @app.post("/api/terminal/execute")
 def api_terminal_execute(payload: TerminalRequest):
     """Execute a shell command on the host system.
-    
-    Requires approve_desktop pattern — the Electron shell must
-    explicitly confirm the user has the toggle enabled.
+
+    SECURITY: this is arbitrary code execution. It is DISABLED by default and
+    must be explicitly enabled with the env var JARVIS_ENABLE_TERMINAL_API=1
+    (the Electron shell does not use this endpoint). Catastrophic commands are
+    blocked by the command guard regardless.
     """
+    if os.environ.get("JARVIS_ENABLE_TERMINAL_API") != "1":
+        return {"stdout": "", "stderr": "Terminal API is disabled. Set "
+                "JARVIS_ENABLE_TERMINAL_API=1 to enable it.", "returncode": 126}
+    from core.command_guard import check_command
+    allowed, reason = check_command(payload.command)
+    if not allowed:
+        return {"stdout": "", "stderr": f"Blocked for safety — {reason}.", "returncode": 126}
     try:
         cwd = payload.cwd or str(Path.home())
         result = subprocess.run(

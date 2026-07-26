@@ -190,6 +190,18 @@ class Executor:
             "new_folder": self._create_folder,
             "make_directory": self._create_folder,
             "mkdir": self._create_folder,
+            # ── Plain file read/write/open (code + text + PDF/docs) ──
+            "write_file": self._write_file,
+            "create_file": self._write_file,
+            "save_file": self._write_file,
+            "write_code": self._write_file,
+            "create_code_file": self._write_file,
+            "new_file": self._write_file,
+            "read_file": self._read_file,
+            "open_file": self._open_file,
+            "open_pdf": self._open_file,
+            "open_document": self._open_file,
+            "open_path": self._open_file,
             # ── Office documents (real .docx / .xlsx / .pptx, NOT markdown) ──
             "write_docx": self._write_docx,
             "create_word_file": self._write_docx,
@@ -495,6 +507,13 @@ class Executor:
         from plugins.automation.auto_plugin import APP_MAP
         exe = APP_MAP.get(app_name, app_name)
 
+        # If the app name isn't a known mapping, it gets interpolated into a
+        # shell command — reject shell metacharacters to prevent injection
+        # (e.g. an app name of  x" & calc & "  ).
+        from core.command_guard import is_safe_app_name
+        if exe == app_name and not is_safe_app_name(exe):
+            return ToolResult(success=False, error=f"Unsafe app name refused: {app_name!r}")
+
         try:
             if platform.system() == "Windows":
                 # URI schemes (steam://, whatsapp:, ms-settings:) need webbrowser or os.startfile
@@ -532,6 +551,15 @@ class Executor:
         command = args.get("command", "")
         if not command:
             return ToolResult(success=False, error="No command provided.")
+
+        # Defense-in-depth: block catastrophic / remote-code-exec commands, in
+        # case a prompt-injection payload (from web/screen/clipboard content)
+        # tries to trigger one.
+        from core.command_guard import check_command
+        allowed, reason = check_command(command)
+        if not allowed:
+            return ToolResult(success=False,
+                              error=f"Blocked for safety — {reason}. Refusing to run: {command[:120]}")
 
         try:
             result = run_text(
@@ -654,7 +682,12 @@ class Executor:
             if not si:
                 return ToolResult(success=False, error="Screen interaction engine not available.")
 
-            description = args.get("description", args.get("element", ""))
+            # Accept the many keys different LLM plans use for "what to click".
+            description = (args.get("description") or args.get("element")
+                          or args.get("target") or args.get("label")
+                          or args.get("item") or args.get("on")
+                          or args.get("text") or args.get("selector")
+                          or args.get("query") or "").strip()
             if not description:
                 return ToolResult(success=False, error="No element description provided.")
 
@@ -671,13 +704,31 @@ class Executor:
                     double = bool(args.get("double", False))
                     app_hint = (args.get("app") or args.get("app_hint") or "").strip()
 
+                    # If the LLM didn't say which app, infer it from the
+                    # foreground window so Tier 1 (pywinauto) can engage instead
+                    # of falling back to flaky OCR/vision. This is what fixed the
+                    # "click the File menu" reliability failure.
+                    if not app_hint:
+                        try:
+                            import win32gui
+                            title = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+                            # last word of the title is usually the app (e.g. "… - Notepad")
+                            if title:
+                                app_hint = title.split("-")[-1].strip() or title.strip()
+                        except Exception:
+                            app_hint = ""
+
+                    # Normalize the target: "File menu" / "Save button" → "File" /
+                    # "Save" so it matches the actual control name.
+                    import re as _re
+                    click_target = _re.sub(r"\s+(menu|button|option|item|tab|icon)$", "",
+                                           description, flags=_re.I).strip() or description
+
                     # Tier 1+2 (pywinauto control + OCR text) via precise_click.
-                    # Replaces the unreliable vision-LLM coordinate approach for
-                    # the common cases — button labels, link text, icon captions.
                     try:
                         from core.precise_click import click_element
                         pr = click_element(
-                            target=description,
+                            target=click_target,
                             app_hint=app_hint,
                             button=button,
                             double=double,
@@ -1417,6 +1468,97 @@ class Executor:
             return ToolResult(success=True, output=f"Created folder: {target}")
         except Exception as e:
             return ToolResult(success=False, error=f"Could not create folder: {e}")
+
+    def _resolve_user_path(self, name: str, location: str = "") -> str:
+        """Resolve a file path: absolute honored; bare names go to a sensible
+        base (location, else Desktop). Shared by write/read/open."""
+        import os
+        home = os.path.expanduser("~")
+        if os.path.isabs(name):
+            return name
+        base_map = {
+            "desktop": os.path.join(home, "Desktop"),
+            "documents": os.path.join(home, "Documents"),
+            "downloads": os.path.join(home, "Downloads"),
+            "home": home, "": os.path.join(home, "Desktop"),
+        }
+        loc = (location or "").strip().lower()
+        base = loc if loc and os.path.isabs(loc) else base_map.get(loc, os.path.join(home, "Desktop"))
+        return os.path.join(base, name)
+
+    def _write_file(self, args: dict) -> ToolResult:
+        """Create/overwrite a plain text or CODE file (e.g. a .py script)."""
+        import os, re
+        name = (args.get("file_name") or args.get("name") or args.get("path")
+                or args.get("filename") or "").strip()
+        content = args.get("content", "") or args.get("text", "") or ""
+        if not name:
+            return ToolResult(success=False, error="No file name provided.")
+        target = self._resolve_user_path(name, args.get("location", ""))
+        # Strip accidental markdown code fences the LLM may wrap code in.
+        if content.lstrip().startswith("```"):
+            content = re.sub(r"^\s*```[a-zA-Z0-9_+-]*\n", "", content.lstrip())
+            content = re.sub(r"\n```\s*$", "", content)
+        try:
+            os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(content)
+            if not os.path.exists(target):
+                return ToolResult(success=False, error=f"Write reported success but {target} is missing.")
+            return ToolResult(success=True,
+                              output=f"Wrote {len(content)} chars to {target}")
+        except Exception as e:
+            return ToolResult(success=False, error=f"Could not write file: {e}")
+
+    def _read_file(self, args: dict) -> ToolResult:
+        """Read a text/code file and return its contents."""
+        import os
+        name = (args.get("file_name") or args.get("name") or args.get("path")
+                or args.get("filename") or "").strip()
+        if not name:
+            return ToolResult(success=False, error="No file name provided.")
+        # try the resolved path, then common folders for a bare name
+        candidates = [self._resolve_user_path(name, args.get("location", ""))]
+        if not os.path.isabs(name):
+            home = os.path.expanduser("~")
+            candidates += [os.path.join(home, d, name) for d in
+                           ("Documents", "Downloads", "")]
+        for path in candidates:
+            if os.path.isfile(path):
+                try:
+                    text = open(path, encoding="utf-8", errors="ignore").read()
+                    if len(text) > 4000:
+                        text = text[:4000] + "\n... (truncated)"
+                    return ToolResult(success=True, output=f"{path}:\n\n{text}")
+                except Exception as e:
+                    return ToolResult(success=False, error=f"Could not read {path}: {e}")
+        return ToolResult(success=False, error=f"File not found: {name}")
+
+    def _open_file(self, args: dict) -> ToolResult:
+        """Open a file (PDF, image, doc, etc.) with the OS default application."""
+        import os, platform, subprocess
+        name = (args.get("file_name") or args.get("name") or args.get("path")
+                or args.get("filename") or args.get("file", "")).strip()
+        if not name:
+            return ToolResult(success=False, error="No file specified.")
+        candidates = [self._resolve_user_path(name, args.get("location", ""))]
+        if not os.path.isabs(name):
+            home = os.path.expanduser("~")
+            candidates += [os.path.join(home, d, name) for d in
+                           ("Documents", "Downloads", "Desktop", "")]
+        target = next((p for p in candidates if os.path.exists(p)), None)
+        if not target:
+            return ToolResult(success=False, error=f"File not found: {name}")
+        try:
+            if platform.system() == "Windows":
+                os.startfile(target)               # opens with default app
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", target])
+            else:
+                subprocess.Popen(["xdg-open", target])
+            return ToolResult(success=True, output=f"Opened {target}")
+        except Exception as e:
+            return ToolResult(success=False, error=f"Could not open {target}: {e}")
 
     def _write_docx(self, args: dict) -> ToolResult:
         """Create a real Microsoft Word .docx file (not markdown)."""

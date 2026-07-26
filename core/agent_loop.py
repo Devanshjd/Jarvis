@@ -935,6 +935,44 @@ class AgentLoop:
         step.error = result.error or ""
         return result.success
 
+    def _robust_click(self, desc: str) -> tuple[bool, str]:
+        """Click a UI element reliably: normalize the target, infer the app from
+        the foreground window, then pywinauto → OCR → vision. Returns
+        (success, detail). This replaced a broken `screen.click()` call."""
+        import re
+        raw = (desc or "").strip()
+        # "click the File menu" -> "File menu"
+        target = re.sub(r"^\s*(?:click|press|tap|select|open|hit)\s+(?:on\s+)?(?:the\s+|a\s+)?",
+                        "", raw, flags=re.I)
+        # "File menu" -> "File"
+        target = re.sub(r"\s+(menu|button|option|item|tab|icon|link|field)$", "",
+                        target, flags=re.I).strip() or raw
+        app_hint = ""
+        try:
+            import win32gui
+            title = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+            if title:
+                app_hint = title.split("-")[-1].strip() or title.strip()
+        except Exception:
+            pass
+        try:
+            from core.precise_click import click_element
+            pr = click_element(target=target, app_hint=app_hint)
+            if pr.success:
+                return True, f"clicked '{target}' via {pr.method}"
+        except Exception:
+            pass
+        # Vision fallback via the ScreenInteract engine.
+        try:
+            screen = getattr(self.jarvis, "screen_interact", None)
+            if screen and hasattr(screen, "click_element"):
+                r = screen.click_element(target)
+                if isinstance(r, dict) and r.get("success"):
+                    return True, f"clicked '{target}' via vision"
+        except Exception:
+            pass
+        return False, f"could not click '{target}'"
+
     def _execute_screen_step(self, step: ExecutionStep) -> bool:
         """Execute step via vision-based screen control."""
         screen = getattr(self.jarvis, "screen_interact", None)
@@ -944,17 +982,18 @@ class AgentLoop:
 
         try:
             if step.tool_name in ("screen_click", "click"):
-                desc = step.tool_args.get("description", step.description)
-                result = screen.click(desc)
-                step.result = str(result)
-                return bool(result)
+                desc = (step.tool_args.get("description") or step.tool_args.get("target")
+                        or step.tool_args.get("label") or step.description)
+                ok, detail = self._robust_click(desc)
+                step.result = detail
+                return ok
 
             elif step.tool_name in ("screen_type", "type_text"):
                 text = step.tool_args.get("text", "")
                 desc = step.tool_args.get("description", "")
                 if desc:
                     # Click the field first, then type
-                    screen.click(desc)
+                    self._robust_click(desc)
                     time.sleep(0.3)
                 result = screen.type_text(text)
                 step.result = str(result)

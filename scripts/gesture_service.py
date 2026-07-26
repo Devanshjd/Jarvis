@@ -41,11 +41,16 @@ def send(gesture: str, action: str) -> bool:
 
 def main():
     g = get_gestures()
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    import os
+    _src = os.environ.get("JARVIS_CAM", "0").strip()
+    if _src.isdigit():
+        cap = cv2.VideoCapture(int(_src), cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(int(_src))
+    else:
+        cap = cv2.VideoCapture(_src)   # phone URL (IP Webcam)
     if not cap.isOpened():
-        cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Could not open the webcam.")
+        print("Could not open the camera. Set JARVIS_CAM to a device index or phone URL.")
         return
 
     print("Gesture service live — hold a gesture to control JARVIS. Press Q to quit.")

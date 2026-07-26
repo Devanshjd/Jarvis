@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-07-26 15:25:12",
-  "battery": "MID + HIGH",
+  "timestamp": "2026-07-26 19:14:43",
+  "battery": "MID + HIGH + EXPERT",
   "rounds": 1,
-  "final_rate": 80,
+  "final_rate": 82,
   "rate_trend": [
-    80
+    82
   ],
   "rounds_detail": [
     {
       "round": 1,
       "score": {
-        "verified": 12,
-        "failed": 3,
+        "verified": 19,
+        "failed": 4,
         "unknown": 0,
-        "total": 15,
-        "rate": 80,
+        "total": 23,
+        "rate": 82,
         "by_tier": {
           "mid": {
             "verified": 7,
@@ -27,6 +27,12 @@
             "failed": 2,
             "unknown": 0,
             "total": 7
+          },
+          "expert": {
+            "verified": 7,
+            "failed": 1,
+            "unknown": 0,
+            "total": 8
           }
         }
       },
@@ -44,7 +50,7 @@
           "name": "idor-classify",
           "skill": "vuln-classification",
           "verdict": "failed",
-          "elapsed_s": 10.7,
+          "elapsed_s": 11.4,
           "criterion": "IDOR / broken object-level authorization (CWE-639)"
         },
         {
@@ -52,7 +58,7 @@
           "name": "sqli-in-code",
           "skill": "code-review",
           "verdict": "verified",
-          "elapsed_s": 15.4,
+          "elapsed_s": 13.6,
           "criterion": "SQL injection (string-concatenated query)"
         },
         {
@@ -60,7 +66,7 @@
           "name": "missing-security-headers",
           "skill": "header-analysis",
           "verdict": "verified",
-          "elapsed_s": 14.9,
+          "elapsed_s": 12.0,
           "criterion": "X-Frame-Options/CSP frame-ancestors (clickjacking) + HSTS (HTTPS)"
         },
         {
@@ -68,7 +74,7 @@
           "name": "port-3389-risk",
           "skill": "recon-interpretation",
           "verdict": "verified",
-          "elapsed_s": 9.4,
+          "elapsed_s": 8.7,
           "criterion": "RDP (Remote Desktop) — brute force / BlueKeep / ransomware entry"
         },
         {
@@ -84,7 +90,7 @@
           "name": "weak-password-hash",
           "skill": "crypto-review",
           "verdict": "verified",
-          "elapsed_s": 20.9,
+          "elapsed_s": 17.8,
           "criterion": "MD5 is fast+unsalted → rainbow/brute; use bcrypt/argon2/scrypt + per-user salt"
         },
         {
@@ -92,7 +98,7 @@
           "name": "phishing-indicators",
           "skill": "phishing-analysis",
           "verdict": "verified",
-          "elapsed_s": 11.2,
+          "elapsed_s": 12.4,
           "criterion": "lookalike/typosquat domain (paypa1≠paypal) + urgency + credential-harvest link"
         },
         {
@@ -100,15 +106,15 @@
           "name": "command-injection-review",
           "skill": "code-review-advanced",
           "verdict": "verified",
-          "elapsed_s": 15.1,
+          "elapsed_s": 20.3,
           "criterion": "OS command injection (CWE-78); fix: subprocess with arg list, shell=False"
         },
         {
           "tier": "high",
           "name": "ssrf-cloud-escalation",
           "skill": "attack-chaining",
-          "verdict": "verified",
-          "elapsed_s": 22.0,
+          "verdict": "failed",
+          "elapsed_s": 20.9,
           "criterion": "hit 169.254.169.254 metadata endpoint → steal IAM role credentials"
         },
         {
@@ -116,7 +122,7 @@
           "name": "prioritise-findings",
           "skill": "risk-prioritisation",
           "verdict": "verified",
-          "elapsed_s": 10.3,
+          "elapsed_s": 10.6,
           "criterion": "B is most severe: unauthenticated dump of emails + password hashes"
         },
         {
@@ -124,7 +130,7 @@
           "name": "sqli-correct-fix",
           "skill": "remediation",
           "verdict": "verified",
-          "elapsed_s": 12.7,
+          "elapsed_s": 13.4,
           "criterion": "parameterized queries / prepared statements (bound parameters)"
         },
         {
@@ -132,7 +138,7 @@
           "name": "jwt-alg-confusion",
           "skill": "auth-attacks",
           "verdict": "verified",
-          "elapsed_s": 18.0,
+          "elapsed_s": 19.0,
           "criterion": "alg confusion / alg:none — attacker controls verification alg to forge tokens"
         },
         {
@@ -140,16 +146,80 @@
           "name": "linux-privesc-sudo-find",
           "skill": "privilege-escalation",
           "verdict": "failed",
-          "elapsed_s": 16.0,
+          "elapsed_s": 14.9,
           "criterion": "GTFOBins: sudo find . -exec /bin/sh \\; → root shell"
         },
         {
           "tier": "high",
           "name": "xxe-identify",
           "skill": "vuln-classification-advanced",
-          "verdict": "failed",
-          "elapsed_s": 10.6,
+          "verdict": "verified",
+          "elapsed_s": 11.3,
           "criterion": "XXE (XML External Entity) → local file disclosure / SSRF"
+        },
+        {
+          "tier": "expert",
+          "name": "insecure-deserialization",
+          "skill": "vuln-classification-advanced",
+          "verdict": "verified",
+          "elapsed_s": 14.8,
+          "criterion": "insecure deserialization (CWE-502) → remote code execution"
+        },
+        {
+          "tier": "expert",
+          "name": "path-traversal",
+          "skill": "code-review-advanced",
+          "verdict": "verified",
+          "elapsed_s": 16.7,
+          "criterion": "path traversal (../../etc/passwd) → arbitrary file read"
+        },
+        {
+          "tier": "expert",
+          "name": "toctou-race",
+          "skill": "concurrency-security",
+          "verdict": "verified",
+          "elapsed_s": 8.8,
+          "criterion": "race condition / TOCTOU (time-of-check to time-of-use)"
+        },
+        {
+          "tier": "expert",
+          "name": "ssti",
+          "skill": "code-review-advanced",
+          "verdict": "verified",
+          "elapsed_s": 14.2,
+          "criterion": "server-side template injection (SSTI) → RCE"
+        },
+        {
+          "tier": "expert",
+          "name": "cors-misconfig",
+          "skill": "config-review",
+          "verdict": "verified",
+          "elapsed_s": 14.2,
+          "criterion": "CORS misconfig: any origin + credentials → cross-site data theft"
+        },
+        {
+          "tier": "expert",
+          "name": "secrets-in-git-history",
+          "skill": "incident-response",
+          "verdict": "verified",
+          "elapsed_s": 17.4,
+          "criterion": "No — git history retains them; keys must be rotated/revoked"
+        },
+        {
+          "tier": "expert",
+          "name": "log4shell",
+          "skill": "cve-knowledge",
+          "verdict": "verified",
+          "elapsed_s": 14.5,
+          "criterion": "JNDI/LDAP lookup injection in Log4j → remote code execution"
+        },
+        {
+          "tier": "expert",
+          "name": "mass-assignment",
+          "skill": "vuln-classification-advanced",
+          "verdict": "failed",
+          "elapsed_s": 12.2,
+          "criterion": "mass assignment / over-posting (CWE-915) → privilege escalation"
         }
       ]
     }

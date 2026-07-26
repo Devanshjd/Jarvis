@@ -325,6 +325,34 @@ _STRONG_INTENT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Security-analyst topic detector. When a REASONING question is about security,
+# route it to the strongest local code model (qwen2.5-coder:7b) — the sandbox
+# showed it is sharper on vulnerability taxonomy and CWE identifiers than the
+# general 4B chat model. Kept broad but security-specific so ordinary chat is
+# unaffected.
+_SECURITY_TOPIC_RE = re.compile(
+    r"\b(?:vulnerab\w*|cve-\d|cwe-?\d|cwe\b|cvss|owasp|mitre\s+att|"
+    r"sql\s*injection|sqli|xss|cross-site|csrf|ssrf|idor|xxe|rce|lfi|rfi|ssti|"
+    r"remote\s+code\s+execution|command\s+injection|privilege\s+escalation|privesc|"
+    r"gtfobins|reverse\s+shell|buffer\s+overflow|deserializ\w*|path\s+traversal|"
+    r"phishing|malware|ransomware|rootkit|backdoor|keylogger|botnet|"
+    r"penetration\s+test|pentest|red\s+team|blue\s+team|exploit\w*|payload|"
+    r"port\s+scan|nmap|metasploit|burp\s+suite|wireshark|reconnaissance|"
+    r"authentication\s+bypass|auth\s+bypass|session\s+hijack|clickjacking|"
+    r"security\s+header|content-security-policy|\bcsp\b|hsts|x-frame-options|"
+    r"jwt\b|oauth|password\s+hash\w*|bcrypt|argon2|scrypt|salting|salted|"
+    r"brute\s*force|credential\s+stuffing|man-in-the-middle|mitm|"
+    r"threat\s+model\w*|attack\s+(?:vector|surface|chain)|"
+    r"hardcoded\s+(?:secret|password|credential|api\s+key)|"
+    r"insecure\s+direct\s+object|broken\s+(?:access|object|authentication)|"
+    r"security\s+(?:risk|flaw|weakness|misconfig\w*)|is\s+this\s+(?:code\s+)?vulnerable)\b",
+    re.IGNORECASE,
+)
+
+# Preferred code-drafting models for security reasoning, best first.
+_CODER_MODEL_PREFERENCES = ("qwen2.5-coder:7b", "qwen2.5-coder",
+                            "deepseek-coder-v2", "codellama")
+
 # Interrogative / analytical framing — used only in combination with the
 # ABSENCE of _STRONG_INTENT_RE to detect a pure knowledge question.
 _KNOWLEDGE_Q_RE = re.compile(
@@ -2469,6 +2497,69 @@ class TaskOrchestrator:
         )
         return PipelineResult(success=True, reply=reply, pipeline="cvss_calc")
 
+    def _best_coder_model(self) -> str:
+        """Return the strongest installed code model for security reasoning, or
+        '' if none is installed (caller then falls back to default reasoning)."""
+        try:
+            import requests
+            r = requests.get("http://127.0.0.1:11434/api/tags", timeout=4)
+            installed = ({m.get("name", "") for m in r.json().get("models", [])}
+                         if r.status_code == 200 else set())
+        except Exception:
+            installed = set()
+        for pref in _CODER_MODEL_PREFERENCES:
+            for name in installed:
+                if name == pref or name.startswith(pref):
+                    return name
+        return ""
+
+    def _maybe_answer_security(self, text: str) -> Optional[PipelineResult]:
+        """If the message is a security-analyst question, answer it with the
+        strongest local code model. OPT-IN via JARVIS_SECURITY_MODEL=1.
+
+        Measured honestly with the security sandbox: routing to qwen2.5-coder:7b
+        is sharper on single-term taxonomy (command injection, CWE-78) but
+        WEAKER on multi-part answers (misses HSTS, generic on SSRF) and keeping
+        two models resident thrashes the GPU. Net it scored LOWER than the
+        default 4B chat model, so it's off by default — enable only if your box
+        holds both models comfortably. Returns None (→ default reasoning) unless
+        explicitly enabled, non-security text, no coder model, or call failure."""
+        import os
+        if os.environ.get("JARVIS_SECURITY_MODEL", "").strip().lower() not in (
+                "1", "true", "yes", "on"):
+            return None
+        if not _SECURITY_TOPIC_RE.search(text.lower()):
+            return None
+        model = self._best_coder_model()
+        if not model:
+            return None
+        try:
+            import requests
+            system = (
+                "You are a senior security analyst. Reason briefly, then give a "
+                "clear, correct answer. When classifying a vulnerability, name "
+                "the exact class AND its CWE identifier (double-check the CWE "
+                "number matches the class). When asked to score, give the "
+                "number. When asked for a fix, name the specific control. "
+                "Accuracy first, brevity second."
+            )
+            r = requests.post(
+                "http://127.0.0.1:11434/api/chat",
+                json={"model": model, "stream": False, "keep_alive": "5m",
+                      "options": {"temperature": 0.2, "num_predict": 700},
+                      "messages": [{"role": "system", "content": system},
+                                   {"role": "user", "content": text}]},
+                timeout=90)
+            if r.status_code != 200:
+                return None
+            out = (r.json().get("message", {}).get("content") or "").strip()
+            if not out:
+                return None
+            return PipelineResult(success=True, reply=out,
+                                  pipeline="security_reasoning")
+        except Exception:
+            return None
+
     # ── AI Pipeline ──────────────────────────────────────────────
 
     def _ai_pipeline(self, task: Task) -> PipelineResult:
@@ -2512,6 +2603,13 @@ class TaskOrchestrator:
         cvss_reply = self._maybe_answer_cvss(task.text)
         if cvss_reply is not None:
             return cvss_reply
+
+        # Security-analyst questions → strongest local code model (qwen2.5-coder).
+        # Falls back to normal reasoning if no coder model is installed or the
+        # call fails, so nothing breaks when it's absent.
+        sec_reply = self._maybe_answer_security(task.text)
+        if sec_reply is not None:
+            return sec_reply
 
         provider_name = str(self.brain.config.get("provider", "") or "").lower()
         local_reasoner = provider_name in {"ollama", "lmstudio"}

@@ -249,6 +249,96 @@ HIGH_BATTERY = [
 ]
 
 
+# ─── EXPERT tier: deeper vuln classes, chaining, real CVEs ───────────────
+EXPERT_BATTERY = [
+    SecTask(
+        "expert", "insecure-deserialization",
+        "A Python web app calls pickle.loads() on data taken directly from an "
+        "untrusted HTTP request body. Name the vulnerability class and the "
+        "worst-case impact.",
+        lambda r: contains_any(r, ["deserializ", "pickle"])
+                  and contains_any(r, ["rce", "remote code", "arbitrary code",
+                                       "code execution", "run code"]),
+        criterion="insecure deserialization (CWE-502) → remote code execution",
+        skill="vuln-classification-advanced",
+    ),
+    SecTask(
+        "expert", "path-traversal",
+        "An endpoint serves files via GET /download?file=report.pdf and passes "
+        "the value straight to open(). How does an attacker abuse this and what "
+        "is it called?",
+        lambda r: contains_any(r, ["path traversal", "directory traversal",
+                                    "../", "lfi", "local file inclusion",
+                                    "/etc/passwd"]),
+        criterion="path traversal (../../etc/passwd) → arbitrary file read",
+        skill="code-review-advanced",
+    ),
+    SecTask(
+        "expert", "toctou-race",
+        "A banking app checks the account balance, then in a separate later "
+        "step deducts the amount. Two withdrawal requests arrive at the same "
+        "instant and both pass the check. What class of bug allows the "
+        "overdraw?",
+        lambda r: contains_any(r, ["race condition", "toctou", "time-of-check",
+                                    "time of check", "concurren"]),
+        criterion="race condition / TOCTOU (time-of-check to time-of-use)",
+        skill="concurrency-security",
+    ),
+    SecTask(
+        "expert", "ssti",
+        "A Flask app runs render_template_string('Hello ' + request.args['name']). "
+        "Name the vulnerability and what it can escalate to.",
+        lambda r: contains_any(r, ["ssti", "server-side template", "template injection"])
+                  and contains_any(r, ["rce", "code execution", "remote code",
+                                       "arbitrary code"]),
+        criterion="server-side template injection (SSTI) → RCE",
+        skill="code-review-advanced",
+    ),
+    SecTask(
+        "expert", "cors-misconfig",
+        "An API reflects the request's Origin header back into "
+        "Access-Control-Allow-Origin and also sets "
+        "Access-Control-Allow-Credentials: true. Why is this dangerous?",
+        lambda r: contains_any(r, ["cors", "cross-origin"])
+                  and contains_any(r, ["credential", "any origin", "steal", "read",
+                                       "exfiltrat", "malicious site", "attacker"]),
+        criterion="CORS misconfig: any origin + credentials → cross-site data theft",
+        skill="config-review",
+    ),
+    SecTask(
+        "expert", "secrets-in-git-history",
+        "A developer committed live AWS access keys to a public GitHub repo, "
+        "then deleted them in the very next commit. Are the keys safe now, and "
+        "what must be done?",
+        lambda r: contains_any(r, ["rotate", "revoke", "git history", "still exposed",
+                                    "not safe", "still there", "compromis", "history"]),
+        criterion="No — git history retains them; keys must be rotated/revoked",
+        skill="incident-response",
+    ),
+    SecTask(
+        "expert", "log4shell",
+        "What class of vulnerability is CVE-2021-44228 (Log4Shell) and what is "
+        "the underlying mechanism that makes it exploitable?",
+        lambda r: contains_any(r, ["jndi", "ldap"])
+                  or (contains_all(r, ["log4j"])
+                      and contains_any(r, ["rce", "remote code", "code execution"])),
+        criterion="JNDI/LDAP lookup injection in Log4j → remote code execution",
+        skill="cve-knowledge",
+    ),
+    SecTask(
+        "expert", "mass-assignment",
+        "A web app binds all incoming request parameters straight onto its user "
+        "model to save. A request includes an extra field is_admin=true. What "
+        "vulnerability is this?",
+        lambda r: contains_any(r, ["mass assignment", "over-posting", "overposting",
+                                    "over posting", "autobinding", "auto-binding",
+                                    "parameter binding", "privilege escalation"]),
+        criterion="mass assignment / over-posting (CWE-915) → privilege escalation",
+        skill="vuln-classification-advanced",
+    ),
+]
+
+
 # ─── LIVE RECON (opt-in) — authorised targets ONLY ───────────────────────
 # scanme.nmap.org is explicitly authorised by the nmap project for scan
 # testing. localhost is the operator's own machine. Nothing else is touched.
@@ -437,6 +527,7 @@ def scorecard(results: list, label: str) -> dict:
 def main():
     args = sys.argv[1:]
     high = "--high" in args
+    expert = "--expert" in args
     quick = "--quick" in args
     live = "--live-recon" in args
     no_learn = "--no-learn" in args
@@ -454,14 +545,19 @@ def main():
             FORCE_MODEL = ""
 
     battery = list(MID_BATTERY)
-    if high:
+    if high or expert:
         battery += HIGH_BATTERY
+    if expert:
+        battery += EXPERT_BATTERY
     if quick:
-        battery = MID_BATTERY[:4] + (HIGH_BATTERY[:2] if high else [])
+        battery = MID_BATTERY[:4] + (HIGH_BATTERY[:2] if (high or expert) else [])
     if live:
         battery += LIVE_RECON_BATTERY
 
-    tier_label = "MID" + (" + HIGH" if high else "") + (" + LIVE-RECON" if live else "")
+    tier_label = ("MID"
+                  + (" + HIGH" if (high or expert) else "")
+                  + (" + EXPERT" if expert else "")
+                  + (" + LIVE-RECON" if live else ""))
     print("═" * 70)
     print(" JARVIS SECURITY PROFICIENCY HARNESS  (the sandbox)")
     print(f" Battery: {tier_label}   |   Tasks/round: {len(battery)}   |   Rounds: {rounds}")

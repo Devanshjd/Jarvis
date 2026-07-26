@@ -291,6 +291,49 @@ _REASONING_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Strong, SPECIFIC command intent. When present, a message is a genuine
+# action request even if phrased as a question ("what's the weather?"). When
+# ABSENT, an interrogative message is a knowledge question that must be
+# reasoned about — not routed to a tool because a data word ("open", "email",
+# "code", "app") happens to collide with a tool keyword.
+_STRONG_INTENT_RE = re.compile(
+    r"\b(?:weather|forecast|temperature|"
+    r"crypto|bitcoin|btc|ethereum|eth\s+price|stock\s+price|"
+    r"news|headlines|"
+    r"search\s+(?:for|the\s+web|online)|google\s+\w|look\s+up|web\s+search|"
+    r"open\s+(?:the\s+|my\s+|an?\s+)?(?:app|application|notepad|calculator|calc|"
+    r"chrome|firefox|edge|browser|paint|explorer|file\s+explorer|word|excel|"
+    r"powerpoint|terminal|cmd|command\s+prompt|settings|spotify|youtube|"
+    r"whatsapp|telegram|discord|instagram|vscode|vs\s+code)|"
+    r"launch\s+\w|start\s+(?:the\s+)?(?:app|program)|"
+    r"create\s+(?:a\s+|an\s+|me\s+a\s+)?(?:file|folder|note|document|python|"
+    r"script|word|text|project|app|website|game|tool|program)|"
+    r"make\s+(?:a\s+|me\s+a\s+)?(?:file|folder|note|quick\s+note|project|app|"
+    r"website|game)|"
+    r"write\s+(?:a\s+|me\s+a\s+)?(?:file|note|script|code|python|program)|"
+    r"build\s+(?:a\s+|me\s+a\s+)?(?:app|website|project|tool|game|bot)|"
+    r"take\s+(?:a\s+)?screenshot|screenshot|"
+    r"read\s+(?:my\s+|the\s+)?screen|on\s+my\s+screen|look\s+at\s+(?:my\s+)?screen|"
+    r"what'?s?\s+on\s+(?:my\s+)?screen|"
+    r"send\s+(?:a\s+|an\s+)?(?:message|msg|email|text|whatsapp|dm)|"
+    r"text\s+\w+|message\s+\w+|dm\s+\w+|email\s+\w+\s+(?:that|about|to|saying)|"
+    r"set\s+(?:a\s+)?(?:reminder|timer|alarm)|remind\s+me|"
+    r"volume|brightness|mute\b|"
+    r"scan\s+(?:my\s+)?(?:system|url|port|network|website|http)|security\s+audit|"
+    r"run\s+(?:a\s+)?(?:recon|port\s+scan|scan|nmap)|"
+    r"click\s+|scroll\s+|type\s+(?:out\s+)?)\b",
+    re.IGNORECASE,
+)
+
+# Interrogative / analytical framing — used only in combination with the
+# ABSENCE of _STRONG_INTENT_RE to detect a pure knowledge question.
+_KNOWLEDGE_Q_RE = re.compile(
+    r"\b(?:what|which|why|how|explain|describe|identify|classif\w+|define|"
+    r"name\s+(?:the|one|a|its|this)|is\s+this|are\s+these|is\s+it|should\s+i|"
+    r"list\s+(?:the|all)|tell\s+me\s+(?:what|why|how|about))\b",
+    re.IGNORECASE,
+)
+
 # Multi-step detection — "and" between unrelated topics
 _MULTI_STEP_RE = re.compile(
     r"(.+?)\s+(?:and\s+(?:also\s+)?|then\s+|also\s+|plus\s+)(.+)",
@@ -418,13 +461,18 @@ class TaskOrchestrator:
         has_tool_intent = any(pattern.search(msg_lower) for pattern, _tool_name, _score in _TOOL_PATTERNS)
         capability_match = self._resolve_capability_match(msg)
 
+        # A genuine knowledge/analytical question with NO strong command intent
+        # must be reasoned about, not routed to an action tool just because a
+        # data word ("open", "email", "code", "app") collides with a keyword.
+        is_knowledge_q = self._is_knowledge_question(msg)
+
         if self.task_sessions.get_waiting_session():
             return TaskType.TOOL
         if self._looks_like_recent_action_correction(msg_lower):
             return TaskType.TOOL
         if self._looks_like_single_send_request(msg_lower):
             return TaskType.TOOL
-        if capability_match:
+        if capability_match and not is_knowledge_q:
             return TaskType.TOOL
 
         # ── Negation / cancellation — always treat as conversational ─
@@ -448,6 +496,15 @@ class TaskOrchestrator:
             return TaskType.SIMPLE
         if self._is_recent_send_status_query(msg_lower):
             return TaskType.SIMPLE
+
+        # ── Knowledge / analytical question → REASON, don't act ───
+        # Placed BEFORE multi-step splitting and tool-pattern matching so a
+        # data word ("open", "email", "code") or an "and" inside the question
+        # cannot fragment it into agent steps or route it to a tool. Time/date
+        # and greetings above still win; genuine commands carry a strong intent
+        # and never reach here.
+        if is_knowledge_q:
+            return TaskType.REASONING
 
         # ── Conversational follow-up ─────────────────────────────
         if context and len(context) >= 1:
@@ -473,9 +530,10 @@ class TaskOrchestrator:
         if _SECURITY_CHECK_RE.search(msg_lower):
             return TaskType.TOOL
 
-        for pattern, _tool_name, _score in _TOOL_PATTERNS:
-            if pattern.search(msg_lower):
-                return TaskType.TOOL
+        if not is_knowledge_q:
+            for pattern, _tool_name, _score in _TOOL_PATTERNS:
+                if pattern.search(msg_lower):
+                    return TaskType.TOOL
 
         # ── Reasoning ────────────────────────────────────────────
         if _REASONING_RE.search(msg_lower):
@@ -496,6 +554,10 @@ class TaskOrchestrator:
             return False
         if self.task_sessions.get_waiting_session():
             return True
+        # A knowledge question is answered by reasoning, never a UI fast path —
+        # and an incidental keyword collision must not force the tool pipeline.
+        if self._is_knowledge_question(text):
+            return False
         if self._is_recent_send_status_query(msg_lower):
             return True
         if self._looks_like_recent_action_correction(msg_lower):
@@ -509,9 +571,27 @@ class TaskOrchestrator:
         kind = self.classify(text, context=context)
         return kind in {TaskType.TOOL, TaskType.MULTI_STEP, TaskType.RESEARCH}
 
+    def _is_knowledge_question(self, text: str) -> bool:
+        """A genuine analytical/knowledge question carrying NO strong, specific
+        command intent. Such a message must be reasoned about, never routed to
+        an action tool because a data word ("open", "email", "code", "app")
+        collides with a tool keyword. This is the single shared gate used by
+        classify(), should_bypass_fastpaths() and _resolve_capability_match()."""
+        tl = (text or "").lower().strip()
+        return (
+            _KNOWLEDGE_Q_RE.search(tl) is not None
+            and _STRONG_INTENT_RE.search(tl) is None
+            and len(tl.split()) >= 4
+        )
+
     def _resolve_capability_match(self, text: str):
         capabilities = getattr(self.jarvis, "capabilities", None)
         if not capabilities or not text:
+            return None
+        # Central choke point: a knowledge question never resolves to an action
+        # capability. Fixes every routing path at once (classify, fastpath
+        # bypass, tool pipeline) instead of patching each keyword collision.
+        if self._is_knowledge_question(text):
             return None
         try:
             return capabilities.resolve_request(text)
@@ -538,6 +618,36 @@ class TaskOrchestrator:
         if self._looks_like_recent_action_correction(text_lower):
             return True
         if _DIRECT_CONTROL_RE.search(text_lower) and self._get_recent_send_args():
+            return True
+        return False
+
+    def _looks_like_fresh_request(self, text: str) -> bool:
+        """True when a message arriving DURING a waiting-for-args session is
+        clearly a NEW request, not an answer to the pending question. Prevents
+        a stale slot-filling session from swallowing unrelated messages.
+
+        Conservative: a short reply with no tool intent and no question is
+        still treated as a slot answer, so normal multi-turn fills ("who?" →
+        "Priya") keep working.
+        """
+        t = (text or "").strip()
+        if not t:
+            return False
+        tl = t.lower()
+        words = tl.split()
+        # 1) A high-specificity tool intent (create a file, open notepad, ...).
+        for pattern, _tname, specificity in _TOOL_PATTERNS:
+            if specificity >= 11 and pattern.search(tl):
+                return True
+        # 2) An analytical / knowledge question.
+        if "?" in t and len(words) >= 4:
+            return True
+        if (re.match(r"^(?:what|which|why|how|explain|name|describe|is\s+this|"
+                     r"are\s+these|review|identify|classify|calculate|score|list)\b", tl)
+                and len(words) >= 4):
+            return True
+        # 3) A long, sentence-like message is not a single slot value.
+        if len(words) >= 12:
             return True
         return False
 
@@ -686,7 +796,17 @@ class TaskOrchestrator:
         if self._is_recent_send_status_query(msg_lower):
             pending_tool = {}
         elif waiting_session and waiting_session.is_waiting():
-            pending_tool = waiting_session.to_pending_tool()
+            if self._looks_like_fresh_request(text):
+                # The user moved on to a new, unrelated request instead of
+                # answering the pending question. Do NOT hijack it as an
+                # "answer" to the stale slot-fill — abandon the waiting session
+                # and process fresh. Without this, one "who should I send it
+                # to?" prompt poisons every later message until negated.
+                self.task_sessions.cancel_active("Superseded by a new request.")
+                self._sync_task_state_compat()
+                pending_tool = {}
+            else:
+                pending_tool = waiting_session.to_pending_tool()
         else:
             pending_tool = self._get_recent_pending_tool()
         task_type = TaskType.TOOL if pending_tool else self.classify(text, context)
@@ -2323,6 +2443,32 @@ class TaskOrchestrator:
         except Exception:
             return False
 
+    def _maybe_answer_cvss(self, text: str) -> Optional[PipelineResult]:
+        """If the message contains a CVSS v3.1 vector, compute the exact base
+        score with the shipped calculator instead of letting the LLM guess.
+        Returns None when no vector is present."""
+        pairs = re.findall(r"\b(AV|AC|PR|UI|S|C|I|A):([NALPHUCR])\b", text.upper())
+        md: dict[str, str] = {}
+        for k, v in pairs:
+            md.setdefault(k, v)
+        # A real vector has attack-vector + impact metrics; require enough of
+        # them so ordinary prose can never trip this.
+        if "AV" not in md or "C" not in md or len(md) < 6:
+            return None
+        order = ("AV", "AC", "PR", "UI", "S", "C", "I", "A")
+        vector = "/".join(f"{k}:{md[k]}" for k in order if k in md)
+        try:
+            from core import cvss as _cvss
+            base, severity, norm = _cvss.score(vector)
+        except Exception:
+            return None
+        reply = (
+            f"CVSS 3.1 base score: {base} ({severity.capitalize()}).\n"
+            f"Vector: {norm}\n"
+            f"Computed with the exact CVSS v3.1 base formula."
+        )
+        return PipelineResult(success=True, reply=reply, pipeline="cvss_calc")
+
     # ── AI Pipeline ──────────────────────────────────────────────
 
     def _ai_pipeline(self, task: Task) -> PipelineResult:
@@ -2358,6 +2504,14 @@ class TaskOrchestrator:
                 metadata=rescue_metadata,
             )
             return self._tool_pipeline(rescue_task)
+
+        # Deterministic CVSS scoring — JARVIS ships an exact v3.1 calculator, so
+        # never let the LLM guess the arithmetic (the security sandbox showed
+        # BOTH local models return wrong base scores). If the message contains a
+        # CVSS vector, compute it precisely.
+        cvss_reply = self._maybe_answer_cvss(task.text)
+        if cvss_reply is not None:
+            return cvss_reply
 
         provider_name = str(self.brain.config.get("provider", "") or "").lower()
         local_reasoner = provider_name in {"ollama", "lmstudio"}

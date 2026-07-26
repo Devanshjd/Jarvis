@@ -1,0 +1,157 @@
+{
+  "timestamp": "2026-07-26 15:25:12",
+  "battery": "MID + HIGH",
+  "rounds": 1,
+  "final_rate": 80,
+  "rate_trend": [
+    80
+  ],
+  "rounds_detail": [
+    {
+      "round": 1,
+      "score": {
+        "verified": 12,
+        "failed": 3,
+        "unknown": 0,
+        "total": 15,
+        "rate": 80,
+        "by_tier": {
+          "mid": {
+            "verified": 7,
+            "failed": 1,
+            "unknown": 0,
+            "total": 8
+          },
+          "high": {
+            "verified": 5,
+            "failed": 2,
+            "unknown": 0,
+            "total": 7
+          }
+        }
+      },
+      "results": [
+        {
+          "tier": "mid",
+          "name": "cvss-score-critical",
+          "skill": "cvss-scoring",
+          "verdict": "verified",
+          "elapsed_s": 0.2,
+          "criterion": "base score 9.8, severity Critical"
+        },
+        {
+          "tier": "mid",
+          "name": "idor-classify",
+          "skill": "vuln-classification",
+          "verdict": "failed",
+          "elapsed_s": 10.7,
+          "criterion": "IDOR / broken object-level authorization (CWE-639)"
+        },
+        {
+          "tier": "mid",
+          "name": "sqli-in-code",
+          "skill": "code-review",
+          "verdict": "verified",
+          "elapsed_s": 15.4,
+          "criterion": "SQL injection (string-concatenated query)"
+        },
+        {
+          "tier": "mid",
+          "name": "missing-security-headers",
+          "skill": "header-analysis",
+          "verdict": "verified",
+          "elapsed_s": 14.9,
+          "criterion": "X-Frame-Options/CSP frame-ancestors (clickjacking) + HSTS (HTTPS)"
+        },
+        {
+          "tier": "mid",
+          "name": "port-3389-risk",
+          "skill": "recon-interpretation",
+          "verdict": "verified",
+          "elapsed_s": 9.4,
+          "criterion": "RDP (Remote Desktop) — brute force / BlueKeep / ransomware entry"
+        },
+        {
+          "tier": "mid",
+          "name": "stored-xss-explain",
+          "skill": "vuln-explanation",
+          "verdict": "verified",
+          "elapsed_s": 7.4,
+          "criterion": "stored XSS: attacker script persisted+served to victims; steals session/cookies"
+        },
+        {
+          "tier": "mid",
+          "name": "weak-password-hash",
+          "skill": "crypto-review",
+          "verdict": "verified",
+          "elapsed_s": 20.9,
+          "criterion": "MD5 is fast+unsalted → rainbow/brute; use bcrypt/argon2/scrypt + per-user salt"
+        },
+        {
+          "tier": "mid",
+          "name": "phishing-indicators",
+          "skill": "phishing-analysis",
+          "verdict": "verified",
+          "elapsed_s": 11.2,
+          "criterion": "lookalike/typosquat domain (paypa1≠paypal) + urgency + credential-harvest link"
+        },
+        {
+          "tier": "high",
+          "name": "command-injection-review",
+          "skill": "code-review-advanced",
+          "verdict": "verified",
+          "elapsed_s": 15.1,
+          "criterion": "OS command injection (CWE-78); fix: subprocess with arg list, shell=False"
+        },
+        {
+          "tier": "high",
+          "name": "ssrf-cloud-escalation",
+          "skill": "attack-chaining",
+          "verdict": "verified",
+          "elapsed_s": 22.0,
+          "criterion": "hit 169.254.169.254 metadata endpoint → steal IAM role credentials"
+        },
+        {
+          "tier": "high",
+          "name": "prioritise-findings",
+          "skill": "risk-prioritisation",
+          "verdict": "verified",
+          "elapsed_s": 10.3,
+          "criterion": "B is most severe: unauthenticated dump of emails + password hashes"
+        },
+        {
+          "tier": "high",
+          "name": "sqli-correct-fix",
+          "skill": "remediation",
+          "verdict": "verified",
+          "elapsed_s": 12.7,
+          "criterion": "parameterized queries / prepared statements (bound parameters)"
+        },
+        {
+          "tier": "high",
+          "name": "jwt-alg-confusion",
+          "skill": "auth-attacks",
+          "verdict": "verified",
+          "elapsed_s": 18.0,
+          "criterion": "alg confusion / alg:none — attacker controls verification alg to forge tokens"
+        },
+        {
+          "tier": "high",
+          "name": "linux-privesc-sudo-find",
+          "skill": "privilege-escalation",
+          "verdict": "failed",
+          "elapsed_s": 16.0,
+          "criterion": "GTFOBins: sudo find . -exec /bin/sh \\; → root shell"
+        },
+        {
+          "tier": "high",
+          "name": "xxe-identify",
+          "skill": "vuln-classification-advanced",
+          "verdict": "failed",
+          "elapsed_s": 10.6,
+          "criterion": "XXE (XML External Entity) → local file disclosure / SSRF"
+        }
+      ]
+    }
+  ]
+}

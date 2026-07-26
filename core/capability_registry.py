@@ -427,14 +427,19 @@ class CapabilityRegistry:
 
         for alias in capability.aliases:
             alias_lower = alias.lower()
-            if alias_lower in text_lower:
+            # Word-boundary match — a substring test wrongly fires "mail" inside
+            # "email", "app" inside "apply", etc., letting a data noun trigger a
+            # whole capability. Match the alias as a standalone word/phrase only.
+            if re.search(r"\b" + re.escape(alias_lower) + r"\b", text_lower):
                 score += 2.0
 
         if capability.execution_mode == "operator" and any(word in text_lower for word in ("send", "text", "message", "call")):
             score += 1.5
         if capability.category == "screen" and any(word in text_lower for word in ("screen", "button", "click", "field", "box")):
             score += 1.5
-        if capability.category == "development" and any(word in text_lower for word in ("build", "create", "website", "app", "bot", "agent")):
+        if (capability.category == "development"
+                and re.search(r"\b(?:build|create|make|generate|scaffold|develop|write)\b", text_lower)
+                and any(word in text_lower for word in ("website", "app", "bot", "agent", "project", "tool", "program", "script"))):
             score += 1.5
 
         return score
@@ -490,11 +495,35 @@ class CapabilityRegistry:
             if re.search(r"\b(?:log\s*in|login|sign\s*in)\b", text_lower):
                 bonus += 5.0
 
+        elif capability.name in ("send_email", "check_inbox"):
+            # Only a real mail INTENT (a send/compose/check verb near a mail
+            # noun) should fire these. A bare "email"/"mail" noun appearing as
+            # data in a question ("...WHERE email = ...") must not trigger a
+            # compose flow that then asks "who should I send it to?".
+            has_send_verb = bool(re.search(
+                r"\b(?:send|compose|write|draft|reply|forward|check|read|open)\b", text_lower))
+            mentions_mail = bool(re.search(r"\b(?:e-?mail|inbox|mailbox)\b", text_lower))
+            if has_send_verb and mentions_mail:
+                bonus += 4.0
+            elif mentions_mail and not has_send_verb:
+                bonus -= 3.0
+
         elif capability.name == "build_project":
-            if re.search(r"\b(?:build|create|make|generate)\b", text_lower):
+            has_build_verb = bool(re.search(
+                r"\b(?:build|create|make|generate|scaffold|develop|code\s+me|write\s+me)\b", text_lower))
+            has_project_noun = bool(re.search(
+                r"\b(?:website|web\s*app|app|application|program|tool|script|game|bot|agent|project)\b", text_lower))
+            if has_build_verb:
                 bonus += 3.0
-            if re.search(r"\b(?:website|app|application|program|tool|script|game|bot|agent|project)\b", text_lower):
-                bonus += 2.0
+                if has_project_noun:
+                    bonus += 2.0
+            elif has_project_noun:
+                # A stray project noun ("web app", "tool", "program") inside an
+                # analytical QUESTION must NOT trigger a build. Without a build
+                # verb this is not a build request — push it below threshold so
+                # it falls through to the reasoning pipeline instead of asking
+                # "what goal should I use?".
+                bonus -= 3.0
 
         elif capability.name.startswith("screen_"):
             if re.search(r"\b(?:screen|button|field|box|input|menu|element|ui)\b", text_lower):

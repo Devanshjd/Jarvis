@@ -33,6 +33,31 @@ def vault_root() -> Path:
     return Path(env) if env else (Path.home() / "JarvisVault")
 
 
+_EMBED_MODEL = "nomic-embed-text"
+_OLLAMA_EMBED = "http://127.0.0.1:11434/api/embeddings"
+
+
+def _embed(text: str):
+    """Unit-normalised embedding via local Ollama (same as vector_memory), or
+    None if Ollama/the model isn't reachable — callers fall back to keywords."""
+    try:
+        import numpy as np
+        import requests
+        r = requests.post(_OLLAMA_EMBED,
+                          json={"model": _EMBED_MODEL, "prompt": (text or "")[:4000]},
+                          timeout=30)
+        if r.status_code != 200:
+            return None
+        vec = r.json().get("embedding")
+        if not vec:
+            return None
+        arr = np.asarray(vec, dtype=np.float32)
+        n = np.linalg.norm(arr)
+        return arr / n if n > 0 else arr
+    except Exception:
+        return None
+
+
 _WIKILINK = re.compile(r"\[\[([^\]]+)\]\]")
 
 
@@ -141,9 +166,14 @@ class Vault:
         scored.sort(key=lambda x: -x[0])
         return scored[:k]
 
-    def recall(self, query: str, k: int = 3) -> str:
-        """A context block JARVIS can prepend to its reasoning."""
-        hits = self.search(query, k)
+    def recall(self, query: str, k: int = 3, semantic: bool = True) -> str:
+        """A context block JARVIS can prepend to its reasoning. Tries semantic
+        recall (embeddings) when available; falls back to keyword recall."""
+        hits = None
+        if semantic:
+            hits = self._semantic_hits(query, k)
+        if not hits:
+            hits = self.search(query, k)
         if not hits:
             return ""
         out = ["[From JARVIS's knowledge vault]"]
@@ -152,6 +182,65 @@ class Vault:
             snippet = re.sub(r"\s+", " ", snippet)[:320]
             out.append(f"## {note.title}  ({note.folder})\n{snippet}")
         return "\n\n".join(out)
+
+    # ── semantic recall — embeddings + numpy cosine, keyword fallback ─────
+    def _semantic_hits(self, query: str, k: int) -> Optional[list[tuple[float, Note]]]:
+        """Rank notes by embedding cosine similarity. Returns None (→ caller
+        falls back to keyword search) if embeddings aren't available."""
+        try:
+            import numpy as np
+            qv = _embed(query)
+            if qv is None:
+                return None
+            index = self._embed_index()
+            if not index:
+                return None
+            notes, mat = index
+            scores = mat @ qv                       # unit-normalised → cosine
+            order = np.argsort(-scores)[:k]
+            hits = [(float(scores[i]), notes[i]) for i in order if scores[i] >= 0.45]
+            return hits or None
+        except Exception:
+            return None
+
+    def _embed_index(self):
+        """Build/refresh a cached embedding for every note. Cache keyed by file
+        mtime in a dotfile Obsidian ignores; only changed notes are re-embedded."""
+        import json
+        import numpy as np
+        cache_path = self.root / ".jarvis_index.json"
+        cache: dict = {}
+        if cache_path.exists():
+            try:
+                cache = json.loads(cache_path.read_text(encoding="utf-8"))
+            except Exception:
+                cache = {}
+        notes, vecs, changed = [], [], False
+        for note in self.list():
+            if note.path is None:
+                continue
+            key = str(note.path)
+            try:
+                mtime = note.path.stat().st_mtime
+            except Exception:
+                continue
+            rec = cache.get(key)
+            if rec and abs(float(rec.get("mtime", 0)) - mtime) < 1e-6:
+                vec = np.asarray(rec["vec"], dtype=np.float32)
+            else:
+                vec = _embed(f"{note.title}\n{note.body[:1500]}")
+                if vec is None:
+                    return None                     # embeddings down → fall back
+                cache[key] = {"mtime": mtime, "vec": vec.tolist()}
+                changed = True
+            notes.append(note)
+            vecs.append(vec)
+        if changed:
+            try:
+                cache_path.write_text(json.dumps(cache), encoding="utf-8")
+            except Exception:
+                pass
+        return (notes, np.stack(vecs)) if vecs else None
 
     def stats(self) -> dict:
         notes = self.list()

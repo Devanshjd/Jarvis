@@ -53,7 +53,9 @@ _SECURITY = re.compile(
     r"sql\s*injection|sqli|xss|csrf|ssrf|idor|xxe|rce|lfi|ssti|"
     r"privilege\s+escalation|privesc|command\s+injection|deserializ\w*|"
     r"phishing|malware|ransomware|pentest|penetration\s+test|recon|nmap|"
-    r"port\s+scan|security\s+(?:audit|risk|flaw|assessment|review)|"
+    r"port\s+scan|security\s+(?:audit|risk|flaw|assessment|review|issue|problem|"
+    r"weakness|concern|bug|hole|check|scan)|"
+    r"(?:security[- ]?)?(?:scan|audit)\s+(?:this\s+|the\s+|my\s+)?(?:code|file|repo|script)|"
     r"is\s+this\s+(?:code\s+)?vulnerable|hardcoded\s+secret)\b", re.I)
 
 _CODE = re.compile(

@@ -23,6 +23,27 @@ def team_enabled() -> bool:
     return os.environ.get("JARVIS_TEAM", "").strip().lower() in ("1", "true", "yes", "on")
 
 
+_CREW = (
+    "[YOUR CREW — you are JARVIS, orchestrator of a local multi-agent team. "
+    "When asked which agents / specialists you have, name THESE and no others "
+    "(never invent 'coder/researcher/writer' agents):\n"
+    "- ULTRON: cybersecurity analyst (Foundation-Sec-8B) — vuln analysis, exact "
+    "CWE, CVSS, Bandit code scans.\n"
+    "- FRIDAY: code & dev (qwen2.5-coder) — code review, fixes, the Code Oracle.\n"
+    "- VISION: perception (moondream) — reads your screen and camera, gestures, "
+    "Face ID.\n"
+    "- EDITH: improvement & oversight — learns from mistakes and proposes "
+    "sandbox-gated upgrades.\n"
+    "You route work to them and they share a blackboard.]"
+)
+
+
+def crew_context() -> str:
+    """JARVIS's accurate self-knowledge of its crew — so it stops confabulating
+    old agent names. Empty when the flag is off."""
+    return _CREW if team_enabled() else ""
+
+
 def recall_context(text: str, k: int = 2) -> str:
     """Pull relevant knowledge from the Obsidian vault to ground the answer.
     Returns a context block for the system prompt, or '' (flag off / no hits /

@@ -2570,6 +2570,62 @@ class TaskOrchestrator:
         except Exception:
             return None
 
+    def _maybe_route_to_team(self, text: str) -> Optional[PipelineResult]:
+        """Opt-in real dispatch to specialists that need more than text:
+        VISION captures and describes the screen; EDITH reports recurring gaps.
+        Returns None (→ normal reasoning) when the flag is off or no match."""
+        try:
+            from core.live_integration import team_enabled
+            if not team_enabled():
+                return None
+        except Exception:
+            return None
+        tl = (text or "").lower()
+        try:
+            from core.agent_team import _VISION, _IMPROVE
+            if _VISION.search(tl):
+                return self._vision_describe(text)
+            if _IMPROVE.search(tl):
+                return self._edith_summary()
+        except Exception:
+            return None
+        return None
+
+    def _vision_describe(self, text: str) -> Optional[PipelineResult]:
+        """VISION agent: grab the screen and describe it with moondream."""
+        try:
+            import io as _io, base64 as _b64
+            import pyautogui
+            img = pyautogui.screenshot().resize((672, 378))
+            buf = _io.BytesIO(); img.save(buf, format="PNG")
+            b64 = _b64.b64encode(buf.getvalue()).decode()
+            from core.agent_team import make_vision_handler, TaskEnvelope, Blackboard
+            res = make_vision_handler()(
+                TaskEnvelope(goal=text, payload={"image": b64}), Blackboard())
+            if res and res.output and res.status == "verified":
+                return PipelineResult(success=True,
+                                      reply=f"[VISION] {res.output}", pipeline="vision")
+        except Exception:
+            pass
+        return None
+
+    def _edith_summary(self) -> Optional[PipelineResult]:
+        """EDITH agent: report the crew's recurring weak spots (read-only)."""
+        try:
+            from core.edith import Edith
+            ws = Edith().observe()
+            if not ws:
+                return PipelineResult(
+                    success=True, pipeline="edith",
+                    reply="[EDITH] No recurring failures in the learning log right now.")
+            top = "; ".join(f"{w.signature} (x{w.count})" for w in ws[:4])
+            return PipelineResult(
+                success=True, pipeline="edith",
+                reply=f"[EDITH] I've spotted {len(ws)} recurring weak spot(s): {top}. "
+                      f"Green fixes auto-apply after a sandbox pass; risky ones I bring to you.")
+        except Exception:
+            return None
+
     # ── AI Pipeline ──────────────────────────────────────────────
 
     def _ai_pipeline(self, task: Task) -> PipelineResult:
@@ -2621,6 +2677,13 @@ class TaskOrchestrator:
         if sec_reply is not None:
             return sec_reply
 
+        # Real team dispatch (opt-in JARVIS_TEAM=1): VISION actually looks at the
+        # screen, EDITH reports what the crew keeps getting wrong. Returns None
+        # to fall through to normal reasoning.
+        team_reply = self._maybe_route_to_team(task.text)
+        if team_reply is not None:
+            return team_reply
+
         provider_name = str(self.brain.config.get("provider", "") or "").lower()
         local_reasoner = provider_name in {"ollama", "lmstudio"}
 
@@ -2666,11 +2729,15 @@ class TaskOrchestrator:
         except Exception:
             pass
 
-        # ── Knowledge vault recall (opt-in via JARVIS_TEAM=1) ──
-        # Grounds the answer in JARVIS's durable memory — decisions, findings,
-        # datasets it has learned. No-op when the flag is off.
+        # ── Crew self-knowledge + vault recall (opt-in via JARVIS_TEAM=1) ──
+        # Gives JARVIS an accurate description of its real crew (so it stops
+        # confabulating old agent names) and grounds the answer in its durable
+        # vault memory. No-op when the flag is off.
         try:
-            from core.live_integration import recall_context
+            from core.live_integration import recall_context, crew_context
+            crew = crew_context()
+            if crew:
+                full_system += f"\n\n{crew}"
             vault_ctx = recall_context(task.text)
             if vault_ctx:
                 full_system += f"\n\n{vault_ctx}"

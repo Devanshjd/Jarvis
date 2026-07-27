@@ -267,7 +267,15 @@ def make_security_handler() -> AgentHandler:
         if not findings:
             return AgentResult(frm="ULTRON", status="verified", confidence=0.9,
                                output="Static analysis found no issues.")
-        top = "; ".join(f"{f.cwe or '?'} @ {f.location}" for f in findings[:3])
+        try:                                    # ground each CWE number in its name
+            try:
+                from core.cwe_lookup import enrich as _cwe
+            except ImportError:
+                from cwe_lookup import enrich as _cwe
+        except Exception:
+            _cwe = lambda c: c
+        top = "; ".join(f"{_cwe(f.cwe) if f.cwe else '?'} @ {f.location}"
+                        for f in findings[:3])
         return AgentResult(
             frm="ULTRON", status="verified", confidence=0.9,
             output=f"Bandit found {len(findings)} issue(s): {top}",

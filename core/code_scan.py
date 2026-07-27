@@ -37,8 +37,21 @@ class CodeFinding:
     confidence: str = "" # high | medium | low
 
     def one_line(self) -> str:
-        cwe = f" [{self.cwe}]" if self.cwe else ""
+        cwe = f" [{_cwe_name(self.cwe)}]" if self.cwe else ""
         return f"{self.severity.upper():<6} L{self.line}: {self.message}{cwe}  ({self.rule})"
+
+
+def _cwe_name(cwe: str) -> str:
+    """Enrich a bare 'CWE-78' with its canonical name, if the catalogue is
+    available. Grounds the taxonomy in data rather than a number alone."""
+    try:
+        try:
+            from core.cwe_lookup import enrich
+        except ImportError:
+            from cwe_lookup import enrich
+        return enrich(cwe)
+    except Exception:
+        return cwe
 
 
 _SEV_ORDER = {"high": 3, "medium": 2, "low": 1, "": 0}

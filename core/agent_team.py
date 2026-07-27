@@ -119,6 +119,7 @@ class TaskEnvelope:
     frm: str = "JARVIS"
     context_refs: list[str] = field(default_factory=list)
     constraints: dict = field(default_factory=dict)   # scope, gate, budget
+    payload: dict = field(default_factory=dict)       # inline data, e.g. {"code": ...}
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
 
 
@@ -199,13 +200,15 @@ class AgentTeam:
                 return name
         return "JARVIS"
 
-    def handle(self, text: str, *, max_handoffs: int = 3) -> list[AgentResult]:
+    def handle(self, text: str, *, payload: Optional[dict] = None,
+               max_handoffs: int = 3) -> list[AgentResult]:
         """Route a request, run the chosen agent, and follow any handoff chain
         — always back through the hub, capped so it can't loop forever."""
         self.blackboard.set_mission(text)
         results: list[AgentResult] = []
         target = self.route(text)
-        env = TaskEnvelope(goal=text, to=target, intent=self._intent_for(target))
+        env = TaskEnvelope(goal=text, to=target, intent=self._intent_for(target),
+                           payload=payload or {})
 
         seen = 0
         while env and seen <= max_handoffs:
@@ -228,7 +231,7 @@ class AgentTeam:
                 env = TaskEnvelope(
                     goal=f"Act on {res.frm}'s findings for: {text}",
                     to=nxt, frm=res.frm, intent=self._intent_for(nxt),
-                    context_refs=[f"bb://findings/{env.id}"])
+                    context_refs=[f"bb://findings/{env.id}"], payload=env.payload)
             else:
                 env = None
         return results
@@ -239,6 +242,40 @@ class AgentTeam:
                 "VISION": "perceive", "EDITH": "improve"}.get(agent, "answer")
 
 
+# ── A real, tool-backed handler ──────────────────────────────────────────
+
+def make_security_handler() -> AgentHandler:
+    """ULTRON's real handler: scan code from the envelope with Bandit (a proven
+    SAST engine) instead of guessing. Hands off to FRIDAY when issues are found.
+    Falls back gracefully to 'nothing to scan' if no code payload is present."""
+    def handler(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
+        code = (env.payload or {}).get("code")
+        if not code:
+            return AgentResult(frm="ULTRON", status="needs_input", confidence=0.0,
+                               output="No code supplied to scan.")
+        try:
+            try:
+                from core.code_scan import scan_python
+            except ImportError:
+                from code_scan import scan_python  # when run as a script
+            raw = scan_python(code=code)
+        except Exception as exc:
+            return AgentResult(frm="ULTRON", status="failed",
+                               output=f"Scanner error: {exc}")
+        findings = [Finding(what=f.message, cwe=f.cwe, severity=f.severity,
+                            location=f"line {f.line}") for f in raw]
+        if not findings:
+            return AgentResult(frm="ULTRON", status="verified", confidence=0.9,
+                               output="Static analysis found no issues.")
+        top = "; ".join(f"{f.cwe or '?'} @ {f.location}" for f in findings[:3])
+        return AgentResult(
+            frm="ULTRON", status="verified", confidence=0.9,
+            output=f"Bandit found {len(findings)} issue(s): {top}",
+            findings=findings, handoff_request="FRIDAY",
+            citations=[f.cwe for f in findings if f.cwe])
+    return handler
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Smoke test — a real routed Ultron → FRIDAY handoff with mock handlers.
 # ═══════════════════════════════════════════════════════════════════════
@@ -246,32 +283,34 @@ class AgentTeam:
 def _demo() -> None:
     team = AgentTeam()
 
-    def ultron(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
-        return AgentResult(
-            frm="ULTRON", status="verified", confidence=0.86,
-            output="Found IDOR in the invoice endpoint - object ref not authorized.",
-            findings=[Finding("Insecure Direct Object Reference", "CWE-639",
-                              "high", "auth.py:88")],
-            handoff_request="FRIDAY", citations=["auth.py:88", "CWE-639"])
+    # ULTRON: the REAL Bandit-backed scanner (not a mock).
+    team.bind("ULTRON", make_security_handler())
 
     def friday(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
-        prior = bb.findings[-1] if bb.findings else None
-        fix = f"add ownership check before returning {prior.location}" if prior else "n/a"
+        locs = ", ".join(f.location for f in bb.findings) or "n/a"
         return AgentResult(
             frm="FRIDAY", status="verified", confidence=0.79,
-            output=f"Drafted fix (proposed, not applied): {fix}. Sandbox: syntax+import OK.")
+            output=f"Drafted fixes for {len(bb.findings)} finding(s) at {locs} "
+                   f"(proposed, not applied). Sandbox: syntax+import OK.")
 
-    team.bind("ULTRON", ultron)
     team.bind("FRIDAY", friday)
 
-    request = "Audit the auth module for an IDOR vulnerability and fix what you find"
+    vulnerable = (
+        "import os, hashlib\n"
+        "def run(host):\n"
+        "    os.system('ping -c 1 ' + host)\n"
+        "SECRET = 'hunter2'\n"
+        "def h(x):\n"
+        "    return hashlib.md5(x).hexdigest()\n"
+    )
+    request = "Audit this code for vulnerabilities and fix what you find"
     print("=" * 68)
-    print(" AGENT TEAM -- smoke test")
+    print(" AGENT TEAM -- smoke test (real Bandit scan through the team)")
     print("=" * 68)
     print(f"\n  request: {request!r}")
     print(f"  routed to: {team.route(request)}\n")
 
-    results = team.handle(request)
+    results = team.handle(request, payload={"code": vulnerable})
 
     print("  -- blackboard trail --------------------------------------------")
     for line in team.blackboard.trail():
@@ -279,8 +318,8 @@ def _demo() -> None:
     print(f"\n  agents engaged: {' -> '.join(r.frm for r in results)}")
     print(f"  findings on board: {len(team.blackboard.findings)}")
     ok = ([r.frm for r in results] == ["ULTRON", "FRIDAY"]
-          and len(team.blackboard.findings) == 1)
-    print(f"\n  {'[PASS] handoff works: Ultron -> FRIDAY, findings shared' if ok else '[FAIL] unexpected flow'}")
+          and len(team.blackboard.findings) >= 1)
+    print(f"\n  {'[PASS] real scan -> Ultron -> FRIDAY, findings shared' if ok else '[FAIL] unexpected flow'}")
 
 
 if __name__ == "__main__":

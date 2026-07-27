@@ -15,3 +15,6 @@ pyaudio            # Microphone input (required by SpeechRecognition)
 
 # ── System Monitoring ────────
 psutil             # CPU, RAM, disk, battery stats
+
+# ── Security tooling (SAST) ────────
+bandit             # static analysis vuln scanner (ULTRON/FRIDAY code scan)

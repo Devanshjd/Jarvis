@@ -48,15 +48,22 @@ class Agent:
 
 
 # Intent triggers. Kept specific so ordinary chat falls through to JARVIS.
+# Note: NO trailing \b on the whole group — it broke plurals ("security issues"
+# matched "issue" then failed the boundary). Per-alternative boundaries are kept
+# where needed. `(?:\w+\s+){0,3}` lets a language/adjective sit between the verb
+# and "code" ("scan this Python code for security issues").
 _SECURITY = re.compile(
     r"\b(?:vulnerab\w*|cve-?\d|cwe-?\d|cvss|owasp|mitre|exploit\w*|payload|"
     r"sql\s*injection|sqli|xss|csrf|ssrf|idor|xxe|rce|lfi|ssti|"
     r"privilege\s+escalation|privesc|command\s+injection|deserializ\w*|"
     r"phishing|malware|ransomware|pentest|penetration\s+test|recon|nmap|"
-    r"port\s+scan|security\s+(?:audit|risk|flaw|assessment|review|issue|problem|"
-    r"weakness|concern|bug|hole|check|scan)|"
-    r"(?:security[- ]?)?(?:scan|audit)\s+(?:this\s+|the\s+|my\s+)?(?:code|file|repo|script)|"
-    r"is\s+this\s+(?:code\s+)?vulnerable|hardcoded\s+secret)\b", re.I)
+    r"port\s+scan|"
+    r"security\s+(?:audit|risk|flaw|assessment|review|issue|problem|"
+    r"weakness|concern|bug|hole|check|scan|vulnerab\w*)|"
+    r"(?:security[- ]?)?(?:scan|audit|review|analyze|inspect|check)\s+"
+    r"(?:this\s+|the\s+|my\s+)?(?:\w+\s+){0,3}?(?:code|file|repo|script|function)|"
+    r"(?:is|are)\s+(?:this|these|my)\s+(?:code\s+|file\s+)?"
+    r"(?:secure|vulnerable|safe)|hardcoded\s+secret)", re.I)
 
 _CODE = re.compile(
     r"\b(?:refactor|debug|write\s+(?:a\s+)?(?:function|class|test|script)|"
@@ -328,11 +335,19 @@ def make_vision_handler() -> AgentHandler:
                 json={"model": "moondream:latest", "prompt": prompt,
                       "images": [img], "stream": False},
                 timeout=120)
+            if r.status_code != 200:
+                return AgentResult(frm="VISION", status="failed", confidence=0.0,
+                                   output=f"Vision model returned HTTP {r.status_code}.")
             desc = (r.json().get("response", "") or "").strip()
+            # An empty description is a FAILURE, not a verified success — never
+            # report seeing something we didn't.
+            if not desc:
+                return AgentResult(frm="VISION", status="failed", confidence=0.0,
+                                   output="The vision model returned no description.")
             return AgentResult(frm="VISION", status="verified", confidence=0.8,
-                               output=desc or "(no description)")
+                               output=desc)
         except Exception as exc:
-            return AgentResult(frm="VISION", status="failed",
+            return AgentResult(frm="VISION", status="failed", confidence=0.0,
                                output=f"Vision error: {exc}")
     return handler
 

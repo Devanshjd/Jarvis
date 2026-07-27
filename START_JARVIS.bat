@@ -46,9 +46,9 @@ echo    2. JARVIS will ask for it on first launch
 echo  ============================================
 echo.
 
-:: Launch
+:: Launch (main.py was removed; the backend entry point is web_main.py)
 echo  Initializing J.A.R.V.I.S...
 echo.
-python main.py
+python web_main.py
 
 pause

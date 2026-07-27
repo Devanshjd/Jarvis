@@ -546,7 +546,10 @@ async function ensureBackend() {
     env: {
       ...process.env,
       JARVIS_NO_BROWSER: '1',
-      JARVIS_PORT: String(BACKEND_PORT)
+      JARVIS_PORT: String(BACKEND_PORT),
+      // Turn the multi-agent crew ON in the desktop app by default. Overridable:
+      // set JARVIS_TEAM=0 in the environment to run the plain (faster) path.
+      JARVIS_TEAM: process.env.JARVIS_TEAM ?? '1'
     },
     stdio: 'ignore',
     detached: false,

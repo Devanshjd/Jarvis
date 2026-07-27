@@ -829,6 +829,17 @@ class TaskOrchestrator:
             waiting_session = None
         self._sync_task_state_compat()
 
+        # ── Unified crew dispatch (opt-in JARVIS_TEAM=1) ──
+        # Crew intents (VISION / ULTRON / EDITH) are handled here, BEFORE the
+        # normal tool/reasoning split, so they're reliable instead of losing to
+        # a pre-existing tool depending on phrasing. Skipped mid slot-fill and
+        # for anything that isn't a clear crew intent (falls through).
+        if not (waiting_session and waiting_session.is_waiting()):
+            crew = self._dispatch_team_early(text)
+            if crew is not None:
+                on_reply(crew.reply, 0.0)
+                return
+
         if self._is_recent_send_status_query(msg_lower):
             pending_tool = {}
         elif waiting_session and waiting_session.is_waiting():
@@ -2570,6 +2581,30 @@ class TaskOrchestrator:
         except Exception:
             return None
 
+    def _dispatch_team_early(self, text: str) -> Optional[PipelineResult]:
+        """Unified crew router, run BEFORE the tool/reasoning split so the crew
+        is reliable, not phrase-sensitive. One path for ULTRON (security),
+        VISION (screen), and EDITH (self-review); returns a result for a clear
+        crew intent, else None (normal routing continues). Opt-in JARVIS_TEAM=1."""
+        try:
+            from core.live_integration import team_enabled
+            if not team_enabled():
+                return None
+            from core.agent_team import _VISION, _IMPROVE, _SECURITY
+        except Exception:
+            return None
+        tl = (text or "").lower()
+        try:
+            if _VISION.search(tl):
+                return self._vision_describe(text)          # VISION
+            if _IMPROVE.search(tl):
+                return self._edith_summary()                # EDITH
+            if _SECURITY.search(tl):
+                return self._maybe_answer_security(text)     # ULTRON (Foundation-Sec)
+        except Exception:
+            return None
+        return None
+
     def _maybe_route_to_team(self, text: str) -> Optional[PipelineResult]:
         """Opt-in real dispatch to specialists that need more than text:
         VISION captures and describes the screen; EDITH reports recurring gaps.
@@ -2592,22 +2627,34 @@ class TaskOrchestrator:
         return None
 
     def _vision_describe(self, text: str) -> Optional[PipelineResult]:
-        """VISION agent: grab the screen and describe it with moondream."""
+        """VISION agent: describe the screen via the shared screen-analysis
+        service (OCR + vision model + fallback), which is stronger than a raw
+        moondream call. On any failure it says so HONESTLY — never silently
+        falls back to guessing about the screen. Reports the source too."""
+        import os
         try:
-            import io as _io, base64 as _b64
-            import pyautogui
-            img = pyautogui.screenshot().resize((672, 378))
-            buf = _io.BytesIO(); img.save(buf, format="PNG")
-            b64 = _b64.b64encode(buf.getvalue()).decode()
-            from core.agent_team import make_vision_handler, TaskEnvelope, Blackboard
-            res = make_vision_handler()(
-                TaskEnvelope(goal=text, payload={"image": b64}), Blackboard())
-            if res and res.output and res.status == "verified":
-                return PipelineResult(success=True,
-                                      reply=f"[VISION] {res.output}", pipeline="vision")
-        except Exception:
-            pass
-        return None
+            import requests
+            port = os.environ.get("JARVIS_PORT", "8765")
+            r = requests.get(
+                f"http://127.0.0.1:{port}/api/screen/analyze",
+                params={"prompt": text, "with_ocr": "true"}, timeout=120)
+            d = r.json() if r.status_code == 200 else {}
+        except Exception as exc:
+            logger.warning("VISION screen analyze failed: %s", exc)
+            return PipelineResult(
+                success=True, pipeline="vision",
+                reply="[VISION] I couldn't access the screen just now — screen "
+                      "capture is unavailable in this environment.")
+        if d.get("success") and (d.get("text") or "").strip():
+            src = d.get("source") or "vision"
+            return PipelineResult(success=True, pipeline="vision",
+                                  reply=f"[VISION · {src}] {d['text'].strip()}")
+        reason = d.get("error") or "no readable content on screen"
+        logger.info("VISION could not read the screen: %s", reason)
+        return PipelineResult(
+            success=True, pipeline="vision",
+            reply=f"[VISION] I looked but couldn't get a clear read of the "
+                  f"screen ({reason}).")
 
     def _edith_summary(self) -> Optional[PipelineResult]:
         """EDITH agent: report the crew's recurring weak spots (read-only)."""

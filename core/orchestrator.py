@@ -349,9 +349,17 @@ _SECURITY_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Preferred code-drafting models for security reasoning, best first.
-_CODER_MODEL_PREFERENCES = ("qwen2.5-coder:7b", "qwen2.5-coder",
-                            "deepseek-coder-v2", "codellama")
+# Security-analyst model preferences for the opt-in specialist path, best
+# first. Foundation-Sec-8B (Cisco, continued-pretrained on CVE/CWE/MITRE) is
+# the most ACCURATE local security model measured by the sandbox — 86% overall
+# and 100% on the hard tier, vs ~82% for general models — but SLOW on 8GB VRAM
+# (Q8 spills to CPU + long reasoning traces, ~45s avg, up to ~130s). qwen is the
+# faster, less-accurate fallback. Whole path is OFF unless JARVIS_SECURITY_MODEL=1.
+_CODER_MODEL_PREFERENCES = (
+    "axonvertex/Foundation-Sec-8B-Reasoning-Q8_0-GGUF",
+    "Foundation-Sec-8B-Reasoning", "foundation-sec",
+    "qwen2.5-coder:7b", "qwen2.5-coder", "deepseek-coder-v2", "codellama",
+)
 
 # Interrogative / analytical framing — used only in combination with the
 # ABSENCE of _STRONG_INTENT_RE to detect a pure knowledge question.
@@ -2514,16 +2522,16 @@ class TaskOrchestrator:
         return ""
 
     def _maybe_answer_security(self, text: str) -> Optional[PipelineResult]:
-        """If the message is a security-analyst question, answer it with the
-        strongest local code model. OPT-IN via JARVIS_SECURITY_MODEL=1.
+        """If the message is a security-analyst question, route it to the
+        specialist security model. OPT-IN via JARVIS_SECURITY_MODEL=1.
 
-        Measured honestly with the security sandbox: routing to qwen2.5-coder:7b
-        is sharper on single-term taxonomy (command injection, CWE-78) but
-        WEAKER on multi-part answers (misses HSTS, generic on SSRF) and keeping
-        two models resident thrashes the GPU. Net it scored LOWER than the
-        default 4B chat model, so it's off by default — enable only if your box
-        holds both models comfortably. Returns None (→ default reasoning) unless
-        explicitly enabled, non-security text, no coder model, or call failure."""
+        Measured honestly with the security sandbox (23-task battery): the
+        specialist Foundation-Sec-8B scores 86% (100% on the hard tier) — the
+        best local result, clearly beating the 82% general models on multi-part
+        reasoning (SSRF chains, privesc, XXE). The trade-off is SPEED: ~45s
+        average and up to ~130s on 8GB VRAM. So it's the "call in the analyst"
+        mode, OFF by default (fast 4B stays the default). Returns None (→ default
+        reasoning) unless enabled, or for non-security text / no model / failure."""
         import os
         if os.environ.get("JARVIS_SECURITY_MODEL", "").strip().lower() not in (
                 "1", "true", "yes", "on"):
@@ -2549,7 +2557,7 @@ class TaskOrchestrator:
                       "options": {"temperature": 0.2, "num_predict": 700},
                       "messages": [{"role": "system", "content": system},
                                    {"role": "user", "content": text}]},
-                timeout=90)
+                timeout=200)  # specialist model can take ~130s on 8GB VRAM
             if r.status_code != 200:
                 return None
             out = (r.json().get("message", {}).get("content") or "").strip()

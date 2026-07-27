@@ -33,7 +33,11 @@ _HARD = {
     "gcp_api_key":       re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b"),
     "github_token":      re.compile(r"\bgh[pousr]_[0-9A-Za-z]{20,}\b"),
     "slack_token":       re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b"),
-    "openai_key":        re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
+    # OpenAI (incl. sk-proj-/sk-svcacct-) and Anthropic (sk-ant-api03-) — the
+    # `_-` in the class is what makes the modern hyphenated formats match.
+    "openai_anthropic_key": re.compile(r"\bsk-[A-Za-z0-9_-]{18,}\b"),
+    "groq_key":          re.compile(r"\bgsk_[A-Za-z0-9]{20,}\b"),
+    "google_oauth":      re.compile(r"\bya29\.[A-Za-z0-9_-]{20,}\b"),
     "jwt":               re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
     "generic_secret_kv": re.compile(
         r"\b(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)\s*[=:]\s*['\"]?[^\s'\"]{6,}", re.I),

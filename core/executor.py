@@ -198,6 +198,7 @@ class Executor:
             "create_code_file": self._write_file,
             "new_file": self._write_file,
             "read_file": self._read_file,
+            "jarvis_chat": self._jarvis_chat,
             "open_file": self._open_file,
             "open_pdf": self._open_file,
             "open_document": self._open_file,
@@ -1509,6 +1510,15 @@ class Executor:
                               output=f"Wrote {len(content)} chars to {target}")
         except Exception as e:
             return ToolResult(success=False, error=f"Could not write file: {e}")
+
+    def _jarvis_chat(self, args: dict) -> ToolResult:
+        """Handler for the registered `jarvis_chat` tool. It carries a message
+        back for general reasoning; returning it as output keeps the agent loop
+        from hitting a missing handler (the reasoning layer answers it)."""
+        msg = (args.get("message") or args.get("text") or "").strip()
+        if not msg:
+            return ToolResult(success=False, error="jarvis_chat needs a 'message'.")
+        return ToolResult(success=True, output=msg)
 
     def _read_file(self, args: dict) -> ToolResult:
         """Read a text/code file and return its contents."""

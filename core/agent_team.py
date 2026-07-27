@@ -65,10 +65,14 @@ _CODE = re.compile(
     r"add\s+(?:a\s+)?(?:function|method|endpoint)|optimize\s+(?:this|the))\b", re.I)
 
 _VISION = re.compile(
-    r"\b(?:on\s+(?:my|the|this)\s+screen|on\s+screen|read\s+(?:my|the)\s+screen|"
-    r"look\s+at|what\s+(?:do\s+you\s+see|am\s+i\s+(?:holding|showing)|is\s+(?:on|in))|"
-    r"describe\s+(?:the\s+|this\s+|my\s+)?(?:screen|image|picture|scene|photo)|camera|webcam|"
-    r"recognize\s+(?:me|my\s+face)|gesture|screenshot\s+and\s+(?:read|describe))\b", re.I)
+    r"\b(?:on\s+(?:my|the|this)\s+screen|read\s+(?:my|the)\s+screen|"
+    r"look\s+at\s+(?:my|the|this)\s+(?:screen|camera|image|picture|photo)|"
+    r"what\s+(?:do\s+you\s+see|am\s+i\s+(?:holding|showing))|"
+    r"what\s+is\s+(?:on|in)\s+(?:my\s+|the\s+|this\s+)?"
+    r"(?:screen|image|picture|photo|frame|camera|view|webcam)|"
+    r"describe\s+(?:the\s+|this\s+|my\s+)?(?:screen|image|picture|scene|photo)|"
+    r"\bcamera\b|webcam|recognize\s+(?:me|my\s+face)|"
+    r"screenshot\s+and\s+(?:read|describe))\b", re.I)
 
 _IMPROVE = re.compile(
     r"\b(?:improve\s+yourself|self[-\s]?improve|learn\s+from\s+(?:your\s+)?mistakes|"

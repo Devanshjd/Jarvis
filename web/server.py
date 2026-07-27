@@ -83,6 +83,8 @@ _PROTECTED_PREFIXES = (
     "/api/self_modify/",
     "/api/security/",
     "/api/terminal",
+    "/api/edith/",       # can write to the vault when apply=true
+    "/api/escalate",     # can reach the cloud rung (opt-in)
 )
 
 

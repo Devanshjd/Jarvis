@@ -30,7 +30,10 @@ DB_PATH = Path.home() / ".jarvis_memory.db"
 # ═══════════════════════════════════════════════════════════
 
 _local = threading.local()
-_db_lock = threading.Lock()
+# Reentrant: get_db() holds this while constructing JarvisDB, whose first-run
+# migration calls kv_set() which re-acquires it on the same thread. A plain
+# Lock() deadlocks a fresh install here; RLock allows the same-thread re-entry.
+_db_lock = threading.RLock()
 
 
 def _get_conn() -> sqlite3.Connection:

@@ -208,9 +208,13 @@ class Edith:
 
     # ── the loop ─────────────────────────────────────────────────────────
     def run_once(self, apply_green: bool = True) -> dict:
-        self.vault.ensure()
+        # When apply_green is False this is a pure DRY RUN — it must not write
+        # anything (no vault.ensure(), no audit log). Only an applying run
+        # touches disk.
+        if apply_green:
+            self.vault.ensure()
         weaknesses = self.observe()
-        report = {"observed": len(weaknesses), "decisions": []}
+        report = {"observed": len(weaknesses), "decisions": [], "applied": apply_green}
         log_entries = []
         for w in weaknesses:
             change = self.propose(w)
@@ -225,7 +229,8 @@ class Edith:
                    "applied_to": applied_to}
             report["decisions"].append(rec)
             log_entries.append(rec)
-        self._log(log_entries)
+        if apply_green:
+            self._log(log_entries)
         return report
 
 

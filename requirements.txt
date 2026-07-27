@@ -8,6 +8,16 @@ keyboard           # Global hotkeys
 pystray            # System tray icon
 pyautogui          # Mouse/keyboard automation
 
+# ── Backend / API (Required — web_main.py won't run without these) ──
+fastapi            # HTTP API framework (web/server.py)
+uvicorn            # ASGI server that runs the FastAPI app
+pydantic           # request/response models
+requests           # HTTP client (Ollama, web research, escalation)
+numpy              # vectors / embeddings / vision math
+opencv-python      # camera, face ID, image processing
+faster-whisper     # local speech-to-text (CPU/int8)
+pytesseract        # OCR (screen reading); needs Tesseract installed
+
 # ── Voice System ─────────────
 pyttsx3            # Text-to-Speech (JARVIS voice)
 SpeechRecognition  # Speech-to-Text (voice commands)

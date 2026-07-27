@@ -104,6 +104,65 @@ def api_token_health():
     return {"token_guard": True, "protected": list(_PROTECTED_PREFIXES)}
 
 
+# ═══════════════════════════════════════════
+# Agent Team (multi-agent scaffold) — additive, analysis-only
+# ═══════════════════════════════════════════
+_team_last_agent = "JARVIS"
+
+
+class TeamRouteRequest(BaseModel):
+    text: str = Field(min_length=1)
+    image: str | None = None       # base64 PNG for VISION
+    code: str | None = None        # source to scan for ULTRON/FRIDAY
+
+
+@app.get("/api/team/status")
+def api_team_status():
+    """Roster + which specialists have a live handler + last active agent."""
+    try:
+        from core.agent_team import make_team
+        team = make_team()
+        roster = {
+            name: {"role": a.role, "model": a.model or "(orchestrator)",
+                   "bound": name in team._handlers}
+            for name, a in team.roster.items()
+        }
+        return {"agents": roster, "last_active": _team_last_agent}
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+@app.post("/api/team/route")
+def api_team_route(payload: TeamRouteRequest):
+    """Route a request through the crew and return the trail. Fresh team per
+    call (stateless); handlers are analysis-only (scan/describe/observe)."""
+    global _team_last_agent
+    try:
+        from core.agent_team import make_team
+        team = make_team()
+        routed = team.route(payload.text)
+        _team_last_agent = routed
+        data = {}
+        if payload.image:
+            data["image"] = payload.image
+        if payload.code:
+            data["code"] = payload.code
+        results = team.handle(payload.text, payload=data or None)
+        return {
+            "routed_to": routed,
+            "results": [
+                {"from": r.frm, "status": r.status, "confidence": r.confidence,
+                 "output": r.output, "handoff": r.handoff_request,
+                 "findings": [{"what": f.what, "cwe": f.cwe, "severity": f.severity,
+                               "location": f.location} for f in r.findings]}
+                for r in results
+            ],
+            "trail": team.blackboard.trail(),
+        }
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
 def get_runtime() -> HeadlessJarvisRuntime:
     global _runtime
     with _runtime_lock:

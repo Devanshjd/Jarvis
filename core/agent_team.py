@@ -63,8 +63,9 @@ _CODE = re.compile(
     r"add\s+(?:a\s+)?(?:function|method|endpoint)|optimize\s+(?:this|the))\b", re.I)
 
 _VISION = re.compile(
-    r"\b(?:on\s+(?:my|the)\s+screen|read\s+(?:my|the)\s+screen|look\s+at|"
-    r"what\s+(?:do\s+you\s+see|am\s+i\s+(?:holding|showing))|camera|webcam|"
+    r"\b(?:on\s+(?:my|the|this)\s+screen|on\s+screen|read\s+(?:my|the)\s+screen|"
+    r"look\s+at|what\s+(?:do\s+you\s+see|am\s+i\s+(?:holding|showing)|is\s+(?:on|in))|"
+    r"describe\s+(?:the\s+|this\s+|my\s+)?(?:screen|image|picture|scene|photo)|camera|webcam|"
     r"recognize\s+(?:me|my\s+face)|gesture|screenshot\s+and\s+(?:read|describe))\b", re.I)
 
 _IMPROVE = re.compile(
@@ -216,7 +217,13 @@ class AgentTeam:
             self.blackboard.log("JARVIS", "dispatch", f"-> {env.to}  ({env.intent})")
             handler = self._handlers.get(env.to)
             if handler is None:
-                self.blackboard.log(env.to, "error", "no handler bound")
+                # No specialist bound (e.g. routed to JARVIS) — in the live
+                # system the orchestrator's normal reasoning handles it. Return
+                # a clear result instead of an empty list.
+                self.blackboard.log(env.to, "no-handler", "JARVIS / general reasoning")
+                results.append(AgentResult(
+                    frm=env.to, status="needs_input",
+                    output=f"No specialist handler for {env.to}; handled by JARVIS."))
                 break
             res = handler(env, self.blackboard)
             res.envelope_id = env.id
@@ -282,6 +289,78 @@ def make_security_handler() -> AgentHandler:
             findings=findings, handoff_request="FRIDAY",
             citations=[f.cwe for f in findings if f.cwe])
     return handler
+
+
+def make_code_handler() -> AgentHandler:
+    """FRIDAY: turn ULTRON's findings into a concrete remediation plan. Drafting
+    the actual patch uses the human-gated self-improve proposer (not here)."""
+    def handler(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
+        fs = list(bb.findings)
+        if not fs:
+            return AgentResult(frm="FRIDAY", status="needs_input", confidence=0.0,
+                               output="No findings to remediate.")
+        plan = "; ".join(f"{f.location}: fix {f.cwe or f.what[:30]}" for f in fs[:4])
+        return AgentResult(
+            frm="FRIDAY", status="verified", confidence=0.75,
+            output=f"Remediation plan for {len(fs)} finding(s): {plan}. "
+                   f"Applying a patch goes through propose -> sandbox -> your approval.")
+    return handler
+
+
+def make_vision_handler() -> AgentHandler:
+    """VISION: describe an image (screenshot / camera frame) with moondream."""
+    def handler(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
+        img = (env.payload or {}).get("image")
+        if not img:
+            return AgentResult(frm="VISION", status="needs_input", confidence=0.0,
+                               output="No image supplied to look at.")
+        try:
+            import requests
+            prompt = env.goal or "Describe what you see, concisely."
+            r = requests.post(
+                "http://127.0.0.1:11434/api/generate",
+                json={"model": "moondream:latest", "prompt": prompt,
+                      "images": [img], "stream": False},
+                timeout=120)
+            desc = (r.json().get("response", "") or "").strip()
+            return AgentResult(frm="VISION", status="verified", confidence=0.8,
+                               output=desc or "(no description)")
+        except Exception as exc:
+            return AgentResult(frm="VISION", status="failed",
+                               output=f"Vision error: {exc}")
+    return handler
+
+
+def make_edith_handler() -> AgentHandler:
+    """EDITH: report what the crew keeps getting wrong (observe, don't apply)."""
+    def handler(env: TaskEnvelope, bb: Blackboard) -> AgentResult:
+        try:
+            try:
+                from core.edith import Edith
+            except ImportError:
+                from edith import Edith
+            weaknesses = Edith().observe()
+        except Exception as exc:
+            return AgentResult(frm="EDITH", status="failed", output=f"Observe error: {exc}")
+        if not weaknesses:
+            return AgentResult(frm="EDITH", status="verified", confidence=0.9,
+                               output="No recurring failures in the learning log.")
+        top = "; ".join(f"{w.signature} (x{w.count})" for w in weaknesses[:4])
+        return AgentResult(
+            frm="EDITH", status="verified", confidence=0.85,
+            output=f"{len(weaknesses)} recurring gap(s): {top}. "
+                   f"Green fixes auto-apply after a sandbox pass; risky ones ask you.")
+    return handler
+
+
+def make_team() -> "AgentTeam":
+    """A fully-wired crew with the real tool-backed handlers bound."""
+    team = AgentTeam()
+    team.bind("ULTRON", make_security_handler())
+    team.bind("FRIDAY", make_code_handler())
+    team.bind("VISION", make_vision_handler())
+    team.bind("EDITH", make_edith_handler())
+    return team
 
 
 # ═══════════════════════════════════════════════════════════════════════

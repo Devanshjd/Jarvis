@@ -74,6 +74,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [clock, setClock] = useState(() => new Date())
   const [visionSource, setVisionSource] = useState<VisionSource>('none')
+  const [crewReady, setCrewReady] = useState(0)
   const [dashboardVisionSource, setDashboardVisionSource] = useState<'none' | 'camera' | 'screen'>('none')
   const [showVisionSourceModal, setShowVisionSourceModal] = useState(false)
   const [overlayMode, setOverlayMode] = useState(false)
@@ -207,6 +208,19 @@ export default function App() {
   useEffect(() => { snapshotRef.current = snapshot }, [snapshot])
   useEffect(() => { statusRef.current = status }, [status])
   useEffect(() => { backendStateRef.current = backendState }, [backendState])
+
+  // Multi-agent crew readiness (isolated, non-critical polling)
+  useEffect(() => {
+    let alive = true
+    const load = (): void => {
+      fetchJson<{ agents?: Record<string, { bound?: boolean }> }>(`${API_BASE}/api/team/status`)
+        .then((d) => { if (alive) setCrewReady(Object.values(d.agents ?? {}).filter((a) => a.bound).length) })
+        .catch(() => { /* team endpoint optional */ })
+    }
+    load()
+    const id = setInterval(load, 15000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
 
   // ─── Mirror live-session JARVIS replies into transcript ───────────────────
   // When the user typed text via sendUserText (expectingLiveReplyRef = true),
@@ -730,7 +744,7 @@ export default function App() {
           {/* Bottom status bar */}
           {activeTab !== 'dashboard' ? (
             <div className="border-t border-white/5 bg-zinc-950/80 px-6 py-3 text-[11px] font-mono tracking-[0.18em] text-zinc-500">
-              PROVIDER: {formatProvider(status?.provider)} // CURRENT TASK: {currentTask}
+              PROVIDER: {formatProvider(status?.provider)} // CREW: {crewReady} SPECIALISTS // CURRENT TASK: {currentTask}
             </div>
           ) : null}
         </div>

@@ -2533,8 +2533,10 @@ class TaskOrchestrator:
         mode, OFF by default (fast 4B stays the default). Returns None (→ default
         reasoning) unless enabled, or for non-security text / no model / failure."""
         import os
-        if os.environ.get("JARVIS_SECURITY_MODEL", "").strip().lower() not in (
-                "1", "true", "yes", "on"):
+        _on = ("1", "true", "yes", "on")
+        _enabled = (os.environ.get("JARVIS_SECURITY_MODEL", "").strip().lower() in _on
+                    or os.environ.get("JARVIS_TEAM", "").strip().lower() in _on)
+        if not _enabled:
             return None
         if not _SECURITY_TOPIC_RE.search(text.lower()):
             return None
@@ -2661,6 +2663,17 @@ class TaskOrchestrator:
             situational_ctx = ctx_injector.build_context()
             if situational_ctx:
                 full_system += f"\n\n{situational_ctx}"
+        except Exception:
+            pass
+
+        # ── Knowledge vault recall (opt-in via JARVIS_TEAM=1) ──
+        # Grounds the answer in JARVIS's durable memory — decisions, findings,
+        # datasets it has learned. No-op when the flag is off.
+        try:
+            from core.live_integration import recall_context
+            vault_ctx = recall_context(task.text)
+            if vault_ctx:
+                full_system += f"\n\n{vault_ctx}"
         except Exception:
             pass
 

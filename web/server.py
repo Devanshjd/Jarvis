@@ -163,6 +163,28 @@ def api_team_route(payload: TeamRouteRequest):
         return {"error": str(exc)}
 
 
+@app.post("/api/edith/run")
+def api_edith_run(apply: bool = False):
+    """Run one EDITH improvement pass (observe → propose → decide). apply=false
+    by default: reports what it would do without writing lessons to the vault."""
+    from core.live_integration import run_edith
+    return run_edith(apply_green=apply)
+
+
+class EscalateRequest(BaseModel):
+    problem: str = Field(min_length=1)
+    context: str = ""
+    allow_cloud: bool = False
+
+
+@app.post("/api/escalate")
+def api_escalate(payload: EscalateRequest):
+    """Run a problem up the escalation ladder (local → web → cloud → human).
+    Cloud is opt-in and payloads are scrubbed of secrets/PII first."""
+    from core.live_integration import escalate
+    return escalate(payload.problem, payload.context, payload.allow_cloud)
+
+
 def get_runtime() -> HeadlessJarvisRuntime:
     global _runtime
     with _runtime_lock:

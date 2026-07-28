@@ -16,6 +16,7 @@ import Sphere from '../components/Sphere'
 import CameraFeed from '../components/CameraFeed'
 import MarkdownMessage from '../components/MarkdownMessage'
 import type {
+  ActivityStatus,
   ChatMessage,
   RuntimeStatus,
   SystemStatsResult,
@@ -42,6 +43,7 @@ export interface DashboardViewProps {
   dashboardVisionSource: 'none' | 'camera' | 'screen'
   systemStats: SystemStatsResult | null
   audioLevel: number
+  activity: ActivityStatus
   onSend: () => void
   onRefresh: () => void
   onToggleVision: () => void
@@ -58,6 +60,7 @@ export default function DashboardView(props: DashboardViewProps) {
     status, voice, backendState, messages, prompt, setPrompt,
     approveDesktop, setApproveDesktop, busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
+    activity,
     onSend, onToggleVision, onToggleVoice, onToggleMic,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
@@ -74,7 +77,21 @@ export default function DashboardView(props: DashboardViewProps) {
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
-  const sphereState = busy ? 'thinking' : status?.waiting_for_input ? 'waiting' : voiceLive ? 'listening' : 'idle'
+  const activityAgent = activity.active_agent ?? 'JARVIS'
+  const activityText = activity.state === 'error'
+    ? activity.error || 'JARVIS ENCOUNTERED AN ERROR'
+    : activity.label || (activity.state === 'idle' ? 'SYSTEM READY' : activity.state.replace('_', ' ').toUpperCase())
+  const activityColor = activity.state === 'error'
+    ? 'border-red-500/35 text-red-300'
+    : activity.state === 'tool_running' && activity.active_agent === 'ULTRON'
+      ? 'border-red-400/35 text-red-300'
+      : activity.state === 'tool_running' && activity.active_agent === 'FRIDAY'
+        ? 'border-cyan-400/35 text-cyan-300'
+        : activity.state === 'tool_running' && activity.active_agent === 'VISION'
+          ? 'border-violet-400/35 text-violet-300'
+          : activity.state === 'tool_running' && activity.active_agent === 'EDITH'
+            ? 'border-emerald-400/35 text-emerald-300'
+            : 'border-amber-500/20 text-zinc-400'
 
   return (
     <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden px-4 py-4">
@@ -179,17 +196,29 @@ export default function DashboardView(props: DashboardViewProps) {
         {/* Status badge */}
         <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
           <div className="rounded-full border border-amber-500/20 bg-black/40 px-4 py-1.5 text-[10px] font-mono tracking-[0.34em] text-zinc-500 backdrop-blur-md">
-            {status?.waiting_for_input ? 'AWAITING INPUT' : busy ? 'PROCESSING' : voiceLive ? 'VOICE CORE ACTIVE' : 'SYSTEM READY'}
+            {status?.waiting_for_input ? 'AWAITING INPUT' : activityText.toUpperCase()}
           </div>
         </div>
 
         {/* 3D Sphere — audio-reactive */}
         <div className="h-[46vh] w-[46vh] max-h-[72%] max-w-[92%]">
-          <Sphere state={sphereState as 'idle' | 'listening' | 'thinking' | 'waiting'} audioLevel={audioLevel} />
+          <Sphere state={activity.state} agent={activity.active_agent} audioLevel={audioLevel} />
+        </div>
+
+        {/* Backend activity is factual; the color identifies a crew member only
+            while the backend says that specialist is actually running. */}
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
+          <div
+            data-testid="dashboard-activity-state"
+            className={`rounded-full border bg-black/55 px-4 py-2 text-[10px] font-mono tracking-[0.2em] backdrop-blur-md ${activityColor}`}
+            title={activity.tool || undefined}
+          >
+            {activity.state === 'idle' ? 'JARVIS // STANDBY' : `${activityAgent} // ${activityText.toUpperCase()}`}
+          </div>
         </div>
 
         {/* Voice state badge */}
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2">
           <div
             data-testid="dashboard-voice-state"
             className="rounded-full border border-white/10 bg-black/55 px-4 py-2 text-[10px] font-mono tracking-[0.24em] text-zinc-400 backdrop-blur-md"

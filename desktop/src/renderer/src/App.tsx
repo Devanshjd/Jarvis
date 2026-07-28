@@ -23,6 +23,7 @@ import WidgetToolbar from './components/WidgetToolbar'
 import ViewSkeleton from './components/ViewSkeleton'
 import { JarvisGeminiLive, type VisionSource, type VoiceBridgeState } from './services/JarvisGeminiLive'
 import type {
+  ActivityStatus,
   ChatMessage,
   ChatResponse,
   JarvisShellSnapshot,
@@ -33,12 +34,14 @@ import type {
 } from './lib/types'
 import {
   API_BASE,
+  IDLE_ACTIVITY,
   SHELL_VOICE_ENGINE,
   createRendererVoiceSnapshot,
   extractTaskSummary,
   fetchJson,
   formatProvider,
   mergeBackendWithShellMessages,
+  resolveOrbActivity,
   setApiToken
 } from './lib/types'
 import { blobToWavBase64 } from './services/audioUtils'
@@ -60,6 +63,7 @@ export default function App() {
   const [locked, setLocked] = useState(true)
   const [activeTab, setActiveTab] = useState<ShellTab>('dashboard')
   const [status, setStatus] = useState<RuntimeStatus | null>(null)
+  const [activity, setActivity] = useState<ActivityStatus>(IDLE_ACTIVITY)
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
@@ -113,6 +117,7 @@ export default function App() {
         snapshotPromise
       ])
       setStatus(nextStatus)
+      setActivity(nextStatus.activity ?? IDLE_ACTIVITY)
       setMessages((c) => mergeBackendWithShellMessages(history.messages ?? [], c))
       setBackendState(backend.running ? `LIVE:${backend.port}` : 'OFFLINE')
       if (shellSnapshot) setSnapshot(shellSnapshot)
@@ -208,6 +213,28 @@ export default function App() {
   useEffect(() => { snapshotRef.current = snapshot }, [snapshot])
   useEffect(() => { statusRef.current = status }, [status])
   useEffect(() => { backendStateRef.current = backendState }, [backendState])
+
+  // Activity changes can be brief (for example a fast local tool call), so
+  // poll the small truthful activity contract more often than chat history.
+  useEffect(() => {
+    let alive = true
+    let inFlight = false
+    const poll = async (): Promise<void> => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const next = await fetchJson<Pick<RuntimeStatus, 'activity'>>(`${API_BASE}/api/status`)
+        if (alive) setActivity(next.activity ?? IDLE_ACTIVITY)
+      } catch {
+        // Keep the last honest state when the backend is briefly restarting.
+      } finally {
+        inFlight = false
+      }
+    }
+    void poll()
+    const id = window.setInterval(() => void poll(), 500)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [])
 
   // Multi-agent crew readiness (isolated, non-critical polling)
   useEffect(() => {
@@ -620,6 +647,7 @@ export default function App() {
 
   const currentTask = snapshot?.tasks?.[0] ? extractTaskSummary(snapshot.tasks[0]) : 'NONE'
   const lastTranscript = voiceStatus?.last_output || voiceStatus?.last_input || ''
+  const orbActivity = resolveOrbActivity(activity, voiceStatus, localVoiceState, busy)
 
   // ─── Page transition config ───
   const viewTransition = { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }
@@ -706,7 +734,7 @@ export default function App() {
                   approveDesktop={approveDesktop} setApproveDesktop={setApproveDesktop}
                   busy={busy} visionSource={visionSource}
                   dashboardVisionSource={dashboardVisionSource}
-                  systemStats={systemStats} audioLevel={audioLevel}
+                  systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity}
                   onSend={() => void sendPrompt()} onRefresh={() => void refreshAll()}
                   onToggleVision={() => void toggleVision()}
                   onToggleVoice={() => void toggleVoice()}

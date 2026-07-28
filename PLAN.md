@@ -138,3 +138,8 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   Codex has the war stories (python 3.11-vs-3.13 backend launch, 8GB VRAM OOM +
   slow ULTRON, no hot-reload, single-camera-owner, cp1252, the honesty bugs, and
   why "bigger model" is a dead end). Read it before running/testing the backend.
+- `2026-07-28 · Codex` — Wired the truthful `/api/status.activity` contract into
+  the Electron dashboard. The existing orb now uses backend agent/state colours,
+  a lightweight scan-ring/wireframe upgrade, and real renderer mic/playback
+  overrides; no second camera owner or CDN gesture dependency was added. Desktop
+  typecheck and production build pass.

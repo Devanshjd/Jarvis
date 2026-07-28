@@ -26,6 +26,8 @@ export type VoiceBridgeState = {
   live_session: boolean
   wake_word_active: boolean
   mic_muted: boolean
+  /** True only while scheduled Gemini audio is actually playing. */
+  speaking: boolean
   last_input: string
   last_output: string
   error: string
@@ -72,6 +74,7 @@ export class JarvisGeminiLive {
   analyser: AnalyserNode | null = null
   private monitorGain: GainNode | null = null
   private outputGain: GainNode | null = null
+  private playbackSources = new Set<AudioBufferSourceNode>()
   private nextStartTime = 0
   private muteUntil = 0
   private micMuted = false
@@ -104,6 +107,7 @@ export class JarvisGeminiLive {
     live_session: false,
     wake_word_active: false,
     mic_muted: false,
+    speaking: false,
     last_input: '',
     last_output: '',
     error: ''
@@ -2814,11 +2818,13 @@ export class JarvisGeminiLive {
       live_session: false,
       wake_word_active: false,
       mic_muted: this.micMuted,
+      speaking: false,
       ...(resetError ? { error: '' } : {})
     })
   }
 
   private cleanupAudio() {
+    this.stopPlayback()
     try {
       this.workletNode?.disconnect()
     } catch {
@@ -2924,11 +2930,31 @@ export class JarvisGeminiLive {
     const currentTime = this.audioContext.currentTime
     if (this.nextStartTime < currentTime) this.nextStartTime = currentTime + 0.05
 
+    this.playbackSources.add(source)
+    source.onended = () => {
+      this.playbackSources.delete(source)
+      if (this.playbackSources.size === 0) this.updateState({ speaking: false })
+    }
     source.start(this.nextStartTime)
     this.nextStartTime += buffer.duration
+    this.updateState({ speaking: true })
 
     this.audioChunksPlayed += 1
     if (this.audioChunksPlayed === 1) console.log('[GeminiLive] 🔊 First audio chunk playing')
+  }
+
+  /** Stop every scheduled source so the renderer never claims it is speaking
+   * after a live session has been stopped or disconnected. */
+  private stopPlayback() {
+    for (const source of this.playbackSources) {
+      try {
+        source.stop()
+      } catch {
+        // A source that has already ended cannot be stopped again.
+      }
+    }
+    this.playbackSources.clear()
+    if (this.state.speaking) this.updateState({ speaking: false })
   }
 
 

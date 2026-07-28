@@ -1,13 +1,19 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import type { ActivityAgent, ActivityState } from '../lib/types'
 
-type SphereState = 'idle' | 'listening' | 'thinking' | 'waiting'
-
-function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: number }) {
+function ParticleCore({ state, agent, audioLevel }: {
+  state: ActivityState
+  agent: ActivityAgent
+  audioLevel: number
+}) {
   const pointsRef = useRef<THREE.Points>(null)
   const shellRef = useRef<THREE.Points>(null)
   const ringRef = useRef<THREE.Points>(null)
+  const wireRef = useRef<THREE.Mesh>(null)
+  const scanOuterRef = useRef<THREE.Mesh>(null)
+  const scanInnerRef = useRef<THREE.Mesh>(null)
 
   const particleCount = 5200
   const shellCount = 1400
@@ -77,6 +83,10 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
     const ringCloud = ringRef.current
     if (!pointCloud || !shellCloud || !ringCloud) return
 
+    const wire = wireRef.current
+    const scanOuter = scanOuterRef.current
+    const scanInner = scanInnerRef.current
+
     // Audio-reactive energy boost — key Stormbreaker feature
     const audioBoost = audioLevel * 0.6
 
@@ -84,6 +94,8 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
     // distinct from Stormbreaker's teal-green. State changes shift the amber tone.
     let energy = 0.08 + audioBoost
     let rotationBoost = 0.06
+    let scanStrength = 0.08
+    let wireOpacity = 0.08
     let hue = '#FFB020'                       // idle — tactical amber
 
     if (state === 'listening') {
@@ -94,10 +106,40 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
       energy = 0.32 + audioBoost
       rotationBoost = 0.22
       hue = '#FF8C2A'                         // thinking — hot orange
-    } else if (state === 'waiting') {
+    } else if (state === 'idle') {
       energy = 0.14 + audioBoost
       rotationBoost = 0.09
       hue = '#FFC862'                         // waiting — soft amber
+    }
+
+    if (state === 'tool_running') {
+      energy = 0.28 + audioBoost
+      rotationBoost = 0.2
+      hue = agent === 'ULTRON' ? '#FF5364'
+        : agent === 'FRIDAY' ? '#45D8FF'
+          : agent === 'VISION' ? '#B89CFF'
+            : agent === 'EDITH' ? '#63E6A6'
+              : '#FFB020'
+      scanStrength = 0.34
+      wireOpacity = 0.24
+    } else if (state === 'speaking') {
+      energy = 0.28 + audioBoost * 1.8
+      rotationBoost = 0.14
+      hue = '#FFE29A'
+      scanStrength = 0.22
+      wireOpacity = 0.18
+    } else if (state === 'error') {
+      energy = 0.16 + audioBoost
+      rotationBoost = 0.04
+      hue = '#FF5364'
+      scanStrength = 0.4
+      wireOpacity = 0.28
+    } else if (state === 'listening') {
+      scanStrength = 0.2
+      wireOpacity = 0.16
+    } else if (state === 'thinking') {
+      scanStrength = 0.28
+      wireOpacity = 0.2
     }
 
     pointCloud.rotation.y += rotationBoost * 0.01
@@ -145,6 +187,34 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
     // Shell opacity reacts to audio
     const shellMat = shellCloud.material as THREE.PointsMaterial
     shellMat.opacity = 0.18 + audioBoost * 0.3
+
+    if (wire) {
+      wire.rotation.x += 0.0015 + rotationBoost * 0.006
+      wire.rotation.y -= 0.001 + rotationBoost * 0.003
+      const material = wire.material as THREE.MeshBasicMaterial
+      material.color.set(hue)
+      material.opacity = wireOpacity
+    }
+
+    // Two low-cost scan rings add the holographic language of the reference
+    // UI without introducing a field of canvas sprites or post-processing.
+    if (scanOuter) {
+      const wave = Math.sin(t * (state === 'error' ? 5 : 1.6))
+      scanOuter.rotation.z += 0.006 + rotationBoost * 0.01
+      scanOuter.scale.setScalar(1 + wave * 0.025)
+      const material = scanOuter.material as THREE.MeshBasicMaterial
+      material.color.set(hue)
+      material.opacity = scanStrength * (0.72 + (wave + 1) * 0.14)
+    }
+    if (scanInner) {
+      const wave = Math.sin(t * (state === 'error' ? 7 : 2.1) + 1.7)
+      scanInner.rotation.z -= 0.008 + rotationBoost * 0.006
+      scanInner.rotation.y += 0.002
+      scanInner.scale.setScalar(1 + wave * 0.04)
+      const material = scanInner.material as THREE.MeshBasicMaterial
+      material.color.set(hue)
+      material.opacity = scanStrength * (0.5 + (wave + 1) * 0.18)
+    }
   })
 
   return (
@@ -168,6 +238,41 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
           sizeAttenuation
         />
       </points>
+
+      {/* Restrained holographic shells: a few geometries, no sprite field. */}
+      <mesh ref={wireRef} rotation={[0.35, 0.2, 0.1]}>
+        <icosahedronGeometry args={[2.18, 2]} />
+        <meshBasicMaterial
+          color="#FFB020"
+          wireframe
+          transparent
+          opacity={0.08}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={scanOuterRef} rotation={[1.15, 0.15, 0]}>
+        <ringGeometry args={[2.52, 2.54, 96]} />
+        <meshBasicMaterial
+          color="#FFB020"
+          transparent
+          opacity={0.08}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh ref={scanInnerRef} rotation={[0.55, 0.7, 0.4]}>
+        <ringGeometry args={[1.92, 1.935, 80]} />
+        <meshBasicMaterial
+          color="#FFB020"
+          transparent
+          opacity={0.06}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
 
       {/* Outer shell */}
       <points ref={shellRef}>
@@ -214,16 +319,18 @@ function ParticleCore({ state, audioLevel }: { state: SphereState; audioLevel: n
 
 export default function Sphere({
   state = 'idle',
+  agent = null,
   audioLevel = 0
 }: {
-  state?: SphereState
+  state?: ActivityState
+  agent?: ActivityAgent
   audioLevel?: number
 }) {
   return (
-    <Canvas camera={{ position: [0, 0, 5.1], fov: 50 }}>
+    <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, 5.1], fov: 50 }}>
       <ambientLight intensity={0.18} />
       <pointLight position={[0, 0, 5]} intensity={4} color="#FFB020" />
-      <ParticleCore state={state} audioLevel={audioLevel} />
+      <ParticleCore state={state} agent={agent} audioLevel={audioLevel} />
     </Canvas>
   )
 }

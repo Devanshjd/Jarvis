@@ -9,6 +9,34 @@
 
 export type ProviderInfo = { name?: string; model?: string; local?: boolean }
 
+/**
+ * The backend's truthful, real-time activity contract.  It is intentionally
+ * separate from voice connectivity: an open microphone is not the same thing
+ * as JARVIS running a tool.
+ */
+export type ActivityState = 'idle' | 'listening' | 'thinking' | 'tool_running' | 'speaking' | 'error'
+export type ActivityAgent = 'JARVIS' | 'ULTRON' | 'FRIDAY' | 'VISION' | 'EDITH' | null
+
+export type ActivityStatus = {
+  state: ActivityState
+  active_agent: ActivityAgent
+  label: string | null
+  tool: string | null
+  run_id: string | null
+  since: string | null
+  error: string | null
+}
+
+export const IDLE_ACTIVITY: ActivityStatus = {
+  state: 'idle',
+  active_agent: null,
+  label: null,
+  tool: null,
+  run_id: null,
+  since: null,
+  error: null
+}
+
 export type RuntimeStatus = {
   provider?: ProviderInfo
   mode?: string
@@ -21,6 +49,7 @@ export type RuntimeStatus = {
   waiting_summary?: string
   voice_enabled?: boolean
   voice?: VoiceStatus
+  activity?: ActivityStatus
 }
 
 export type VoiceStatus = {
@@ -32,6 +61,8 @@ export type VoiceStatus = {
   wake_word_active?: boolean
   live_session?: boolean
   mic_muted?: boolean
+  /** True only while the renderer has scheduled real audio playback. */
+  speaking?: boolean
   last_input?: string
   last_output?: string
   error?: string
@@ -57,6 +88,50 @@ export type ChatResponse = {
 
 export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle'
 export type SettingsTab = 'general' | 'keys' | 'security'
+
+/**
+ * Merge the backend contract with renderer-only facts.  Gemini owns its mic
+ * and audio graph, so those two states cannot be inferred by Python.  Backend
+ * errors and active work take priority over a continuously-open voice mic.
+ */
+export function resolveOrbActivity(
+  backend: ActivityStatus | undefined,
+  voice: VoiceStatus | null | undefined,
+  localVoiceState: 'idle' | 'recording' | 'thinking',
+  rendererBusy = false
+): ActivityStatus {
+  const activity = backend ?? IDLE_ACTIVITY
+
+  if (activity.state === 'error') return activity
+  if (voice?.speaking) {
+    return {
+      ...IDLE_ACTIVITY,
+      state: 'speaking',
+      active_agent: 'JARVIS',
+      label: 'Speaking through live voice'
+    }
+  }
+  if (activity.state === 'tool_running' || activity.state === 'thinking' || activity.state === 'speaking') {
+    return activity
+  }
+  if (rendererBusy || localVoiceState === 'thinking') {
+    return {
+      ...IDLE_ACTIVITY,
+      state: 'thinking',
+      active_agent: 'JARVIS',
+      label: 'Processing local voice input'
+    }
+  }
+  if (localVoiceState === 'recording' || Boolean(voice?.active && !voice.mic_muted)) {
+    return {
+      ...IDLE_ACTIVITY,
+      state: 'listening',
+      active_agent: 'JARVIS',
+      label: 'Listening'
+    }
+  }
+  return activity
+}
 
 export type SystemStatsResult = {
   cpuLoad: number
@@ -188,5 +263,5 @@ export function mergeBackendWithShellMessages(backendMessages: ChatMessage[], cu
 }
 
 export function createRendererVoiceSnapshot(): VoiceStatus {
-  return { loaded: false, active: false, connecting: false, engine: SHELL_VOICE_ENGINE, live_session: false, wake_word_active: false, mic_muted: false, last_input: '', last_output: '', error: '', source: 'renderer' }
+  return { loaded: false, active: false, connecting: false, engine: SHELL_VOICE_ENGINE, live_session: false, wake_word_active: false, mic_muted: false, speaking: false, last_input: '', last_output: '', error: '', source: 'renderer' }
 }

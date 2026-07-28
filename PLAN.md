@@ -73,6 +73,57 @@ thinking=amber spin · tool_running=per-agent color (ULTRON red / FRIDAY cyan /
 VISION violet / EDITH green) + show `label` · speaking=bright amber waveform ·
 error=red + show `error`. Use `run_id` to animate transitions.
 
+## Issues & pain points we hit (read this to save yourself hours)
+
+These are real problems from building the crew — most bite when running or
+testing against the backend, which you'll do a lot from the `desktop/` lane.
+
+**Running the backend correctly**
+- `python` is ambiguous on this box: some shells resolve it to **Python 3.11**
+  (the gesture-only env — NO fastapi/uvicorn → `ModuleNotFoundError: uvicorn`).
+  The real env is **3.13**. Launch with `python3.13` (the WindowsApps alias) or
+  let the Electron app spawn it. If the backend "won't start", this is usually why.
+- **No hot-reload.** `uvicorn.run` has no reload — after any Python change you
+  must **restart** the backend. A stale backend silently serves old code.
+- **The Electron app owns its own backend** (spawns `web_main.py`, now with
+  `JARVIS_TEAM=1`). If you also run a backend by hand you'll get a port clash on
+  8765, and killing one disconnects the app.
+
+**Hardware reality (8 GB VRAM)**
+- Loading **Foundation-Sec-8B (ULTRON, ~8.5 GB)** while gemma is resident can
+  **OOM and crash the backend** — it already took the app down once. It's also
+  **slow: 45–130 s** per answer. So: never block the UI waiting on it; the
+  `activity` contract's `tool_running` state is there so the orb shows progress
+  instead of freezing. Treat ULTRON as "call the analyst, expect a wait".
+- Everyday chat is gemma3:4b and fast (1–16 s). Keep the snappy path snappy.
+
+**Windows quirks**
+- Console is **cp1252** — printing emoji/box-glyphs throws `UnicodeEncodeError`.
+  Wrap stdout in UTF-8 or stick to ASCII in any CLI you add.
+- `START_JARVIS.bat` used to point at a missing `main.py` (fixed → `web_main.py`).
+
+**Camera (directly relevant to your orb/gesture work)**
+- **Single-camera-owner rule.** The dashboard vision, the Gemini voice loop, and
+  Face ID all want the one webcam; only one may hold it at a time or you get a
+  black frame. `CameraFeed.tsx` must stay the sole owner — route the orb's
+  gesture/preview through it, don't open a second `getUserMedia`.
+
+**Honesty bugs are easy to ship — the whole team's #1 rule**
+- We shipped (and Codex caught) a VISION agent that reported `verified` on an
+  empty model reply, and one that swallowed screen-capture errors silently.
+  **Never show a state/success without a real event behind it.** The orb must
+  reflect the *actual* `activity.state`, show `activity.error` on error, and only
+  show `listening`/`speaking` when the real mic/TTS is active. If you don't know,
+  show "uncertain", not a confident lie.
+
+**Routing was phrase-sensitive** (mostly fixed) — small wording changes flipped
+which agent handled a request. If a crew action doesn't fire, it's often the
+intent regex, not the dispatch.
+
+**"Bigger model" is a dead end here** (measured): 12B == 4B on our tasks, 27B
+won't load, a general 7B scored worse. The crew wins by *specialization + tools*,
+not size — so the roadmap is polish/trust, not more/bigger models.
+
 ## Handoff log (newest at bottom; append, don't overwrite)
 
 - `2026-07-27 · Claude` — Phases 1–3 done + model store moved to D: + full test
@@ -83,3 +134,7 @@ error=red + show `error`. Use `run_id` to animate transitions.
   crew dispatch, process_text try/finally) and exposed in `/api/status.activity`.
   Verified live. **Codex: the orb dependency is ready — wire `Sphere.tsx` to it,
   set `listening` from the renderer mic, reuse `CameraFeed.tsx`.**
+- `2026-07-27 · Claude` — Added the **"Issues & pain points" section above** so
+  Codex has the war stories (python 3.11-vs-3.13 backend launch, 8GB VRAM OOM +
+  slow ULTRON, no hot-reload, single-camera-owner, cp1252, the honesty bugs, and
+  why "bigger model" is a dead end). Read it before running/testing the backend.

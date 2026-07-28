@@ -761,6 +761,12 @@ class JarvisRuntime:
             self.main_core.set_mode(mode)
         if getattr(self, "core_3d", None):
             self.core_3d.set_mode(mode)
+        # Mirror the real lifecycle mode into the activity contract for the orb.
+        try:
+            from core.activity_state import get_activity
+            get_activity().from_core_mode(mode)
+        except Exception:
+            pass
 
     def _core_voice(self, level: float):
         if hasattr(self, "main_core"):

@@ -2595,11 +2595,19 @@ class TaskOrchestrator:
             return None
         tl = (text or "").lower()
         try:
+            from core.activity_state import get_activity
+            act = get_activity()
+        except Exception:
+            act = None
+        try:
             if _VISION.search(tl):
+                if act: act.agent_working("VISION", "Reading the screen", "screen_analyze")
                 return self._vision_describe(text)          # VISION
             if _IMPROVE.search(tl):
+                if act: act.agent_working("EDITH", "Reviewing recent mistakes", "edith")
                 return self._edith_summary()                # EDITH
             if _SECURITY.search(tl):
+                if act: act.agent_working("ULTRON", "Running a security analysis", "security")
                 return self._maybe_answer_security(text)     # ULTRON (Foundation-Sec)
         except Exception:
             return None

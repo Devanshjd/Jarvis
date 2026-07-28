@@ -396,8 +396,25 @@ class HeadlessJarvisRuntime(JarvisRuntime):
                     pass  # memory extraction must never break the response
 
                 return result
+            except Exception as exc:
+                try:
+                    from core.activity_state import get_activity
+                    get_activity().error(str(exc))
+                except Exception:
+                    pass
+                raise
             finally:
                 self._request_options = {}
+                # A finished text turn must never leave the orb spinning. If the
+                # turn ended still "thinking"/"tool_running" (no explicit idle
+                # fired), settle to idle. An error state is left for the UI.
+                try:
+                    from core.activity_state import get_activity
+                    act = get_activity()
+                    if act.snapshot().get("state") in ("thinking", "tool_running"):
+                        act.idle()
+                except Exception:
+                    pass
 
     def _wait_for_turn(self, start_index: int, timeout: float) -> dict[str, Any]:
         deadline = time.time() + max(1.0, timeout)
@@ -457,7 +474,17 @@ class HeadlessJarvisRuntime(JarvisRuntime):
             "waiting_summary": self.orchestrator.task_sessions.describe_for_user() if waiting else "",
             "agent_loop": self.agent_loop.get_status(),
             "struggle": self.struggle_detector.get_status(),
+            "activity": self._activity_snapshot(),
         }
+
+    def _activity_snapshot(self) -> dict[str, Any]:
+        """Real-time 'what is JARVIS doing' for the orb UI (see core/activity_state)."""
+        try:
+            from core.activity_state import get_activity
+            return get_activity().snapshot()
+        except Exception:
+            return {"state": "idle", "active_agent": None, "label": None,
+                    "tool": None, "run_id": None, "since": None, "error": None}
 
     def history(self, limit: int = 120) -> list[dict[str, Any]]:
         return self.chat.snapshot()[-max(1, int(limit)):]

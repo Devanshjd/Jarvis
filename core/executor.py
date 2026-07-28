@@ -345,6 +345,12 @@ class Executor:
         # The schemas use specific names but LLMs often hallucinate close variants.
         tool_args = _normalize_arg_aliases(tool_name, tool_args or {})
 
+        try:
+            from core.activity_state import get_activity
+            get_activity().tool_running(tool_name)
+        except Exception:
+            pass
+
         t0 = time.perf_counter()
         try:
             result = handler(tool_args)

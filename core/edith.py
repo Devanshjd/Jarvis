@@ -63,6 +63,11 @@ _RED_HINTS = ("safety", "gate", "permission", "guard", "token", "auth",
 _FORBIDDEN = ("security_harness", "reliability_harness", "harness", "sandbox",
               "grader", "_report.json", "edith.py", "safety.py")
 
+# Which vault folder an approved change is captured in, by kind. (Approving does
+# NOT patch live source — see _apply_item.)
+_FOLDER_FOR = {"lesson": "Lessons", "note": "Lessons", "prompt": "Decisions",
+               "routing": "Decisions", "config": "Decisions"}
+
 
 @dataclass
 class Weakness:
@@ -105,6 +110,15 @@ class Edith:
         self.vault = vault or Vault()
         self._propose_fn = propose_fn
         self._prove_fn = prove_fn
+        self._queue = None    # lazy ApprovalQueue (see _q)
+
+    def _q(self):
+        """The human-approval queue where red-tier passes wait for your eyes.
+        Lazy so a pure dry run never touches it (or disk)."""
+        if self._queue is None:
+            from core.approval_queue import ApprovalQueue
+            self._queue = ApprovalQueue(self.vault.root)
+        return self._queue
 
     # ── watch ────────────────────────────────────────────────────────────
     def observe(self, log_path: Path = LEARNING_LOG, min_count: int = 1) -> list[Weakness]:
@@ -196,6 +210,57 @@ class Edith:
             return str(path)
         return ""
 
+    # ── approval queue: the human gate, made real & batchable ────────────
+    def queue_view(self, limit: int = 50) -> dict:
+        """Everything the review UI needs: what's waiting, recent history, tallies."""
+        q = self._q()
+        return {"pending": q.pending(), "recent": q.all(limit), "counts": q.counts()}
+
+    def pending(self) -> list[dict]:
+        return self._q().pending()
+
+    def approve(self, item_id: str) -> dict:
+        return self._q().approve(item_id, self._apply_item)
+
+    def reject(self, item_id: str) -> dict:
+        return self._q().reject(item_id)
+
+    def approve_all(self) -> dict:
+        return self._q().approve_all(self._apply_item)
+
+    def reject_all(self) -> dict:
+        return self._q().reject_all()
+
+    def rollback(self, item_id: str) -> dict:
+        return self._q().rollback(item_id, self._rollback_item)
+
+    def _apply_item(self, item):
+        """Apply an approved queued change — reversibly. IMPORTANT: a `code`
+        change is NOT auto-patched into source (highest blast radius, and it
+        would need a fresh sandbox run on the *approved* form). Approving code
+        records it as an approved proposal in the vault for you (or the existing
+        self-modify path) to implement. Everything else is captured as a durable,
+        reversible vault note. Either way a backup is taken so it can roll back."""
+        from core.approval_queue import ApplyResult
+        if item.kind == "code":
+            folder = "Proposals"
+            title = f"APPROVED - {item.title}"
+            body = (f"> Approved code proposal for `{item.target}`. EDITH does not "
+                    f"auto-patch source; implement via the self-modify path.\n\n"
+                    + item.body)
+        else:
+            folder = _FOLDER_FOR.get(item.kind, "Lessons")
+            title, body = item.title, item.body
+        target_path = self.vault.root / folder / f"{Vault._slug(title)}.md"
+        backup = self._q().backup_file(item.id, target_path)
+        path = self.vault.write(folder, title, body,
+                                tags=["edith", "approved", item.tier], type=item.kind)
+        return ApplyResult(applied_to=str(path), backup=backup)
+
+    def _rollback_item(self, item) -> None:
+        from core.approval_queue import ApprovalQueue
+        ApprovalQueue.restore_backup(item.backup)
+
     def _log(self, entries: list[dict]) -> None:
         if not entries:
             return
@@ -221,14 +286,23 @@ class Edith:
             change.tier = self.tier(change)
             proof = self.prove(change)
             decision = self.decide(change, proof)
-            applied_to = ""
+            applied_to, queued_id = "", ""
             if decision.action == Action.AUTO_APPLY and apply_green:
                 applied_to = self._apply_green(change)
+            elif decision.action == Action.HUMAN_GATE and apply_green:
+                # Passed the sandbox but red-tier → park it for your approval
+                # instead of dropping it. (Dry runs never reach here.)
+                queued_id = self._q().enqueue(
+                    tier=change.tier.value, kind=change.kind, target=change.target,
+                    title=change.title, body=change.body, reason=decision.reason,
+                    proof={"passed": proof.passed, "before": proof.before,
+                           "after": proof.after, "note": proof.note})
             rec = {"sig": w.signature, "tier": change.tier.value,
                    "action": decision.action.value, "reason": decision.reason,
-                   "applied_to": applied_to}
+                   "applied_to": applied_to, "queued_id": queued_id}
             report["decisions"].append(rec)
             log_entries.append(rec)
+        report["queued"] = sum(1 for d in report["decisions"] if d.get("queued_id"))
         if apply_green:
             self._log(log_entries)
         return report

@@ -168,9 +168,57 @@ def api_team_route(payload: TeamRouteRequest):
 @app.post("/api/edith/run")
 def api_edith_run(apply: bool = False):
     """Run one EDITH improvement pass (observe → propose → decide). apply=false
-    by default: reports what it would do without writing lessons to the vault."""
+    by default: reports what it would do without writing lessons to the vault.
+    With apply=true, green passes auto-apply and red passes are parked in the
+    approval queue below."""
     from core.live_integration import run_edith
     return run_edith(apply_green=apply)
+
+
+class EdithItemRequest(BaseModel):
+    id: str = Field(min_length=1)
+
+
+@app.get("/api/edith/queue")
+def api_edith_queue(limit: int = 50):
+    """The approval digest: red-tier changes that PASSED the sandbox and are
+    waiting for your sign-off, plus recent history and status tallies. Read-only
+    (GET), so the desktop can poll it for a review badge."""
+    from core.live_integration import edith_queue
+    return edith_queue(limit)
+
+
+@app.post("/api/edith/approve")
+def api_edith_approve(payload: EdithItemRequest):
+    """Approve one queued change → apply it reversibly (a backup is taken)."""
+    from core.live_integration import edith_approve
+    return edith_approve(payload.id)
+
+
+@app.post("/api/edith/reject")
+def api_edith_reject(payload: EdithItemRequest):
+    from core.live_integration import edith_reject
+    return edith_reject(payload.id)
+
+
+@app.post("/api/edith/approve_all")
+def api_edith_approve_all():
+    """Batch-approve the whole pending digest in one shot."""
+    from core.live_integration import edith_approve_all
+    return edith_approve_all()
+
+
+@app.post("/api/edith/reject_all")
+def api_edith_reject_all():
+    from core.live_integration import edith_reject_all
+    return edith_reject_all()
+
+
+@app.post("/api/edith/rollback")
+def api_edith_rollback(payload: EdithItemRequest):
+    """Undo an applied change (restore the pre-change file / delete the new note)."""
+    from core.live_integration import edith_rollback
+    return edith_rollback(payload.id)
 
 
 class EscalateRequest(BaseModel):

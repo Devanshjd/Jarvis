@@ -62,10 +62,65 @@ def recall_context(text: str, k: int = 2) -> str:
 def run_edith(apply_green: bool = False) -> dict:
     """Run one EDITH improvement pass on demand (observe → propose → decide).
     apply_green=False by default: it reports what it WOULD do without writing,
-    so an API call can't spam the vault with lesson stubs."""
+    so an API call can't spam the vault with lesson stubs. When apply_green=True,
+    green passes auto-apply and red passes are parked in the approval queue."""
     try:
         from core.edith import Edith
         return Edith().run_once(apply_green=apply_green)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+# ── EDITH approval queue: red-tier passes wait here for your sign-off ─────
+# Independence without removing the gate — green auto-applies, red is batchable.
+def edith_queue(limit: int = 50) -> dict:
+    """What's pending review, recent history, and status tallies."""
+    try:
+        from core.edith import Edith
+        return Edith().queue_view(limit)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def edith_approve(item_id: str) -> dict:
+    """Approve one queued change → apply it (reversibly, with a backup)."""
+    try:
+        from core.edith import Edith
+        return Edith().approve(item_id)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def edith_reject(item_id: str) -> dict:
+    try:
+        from core.edith import Edith
+        return Edith().reject(item_id)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def edith_approve_all() -> dict:
+    """Batch approve the whole pending digest in one shot."""
+    try:
+        from core.edith import Edith
+        return Edith().approve_all()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def edith_reject_all() -> dict:
+    try:
+        from core.edith import Edith
+        return Edith().reject_all()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def edith_rollback(item_id: str) -> dict:
+    """Undo an applied change (restore the pre-change file / delete the new note)."""
+    try:
+        from core.edith import Edith
+        return Edith().rollback(item_id)
     except Exception as exc:
         return {"error": str(exc)}
 

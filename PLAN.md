@@ -106,6 +106,48 @@ carries a `kind`:
   `/api/history`. (The old bug: a generic answer then a late real one.)
 - `kind:"empty"` — a rare honest "couldn't produce a response; rephrase?".
 
+## EDITH approval queue — the "batch-approve digest" (Codex, build the review UI on THIS)
+
+The independence-without-removing-the-gate design. EDITH auto-applies GREEN
+(safe/reversible) changes after the sandbox passes — real autonomy. RED changes
+(code, gates, permissions) still PASS the sandbox but then **wait in an approval
+queue** for your sign-off, one-by-one or as a batch "digest". Every apply is
+backed up (rollback), every action audited.
+
+Endpoints (POSTs are token-guarded like the other `/api/edith/*`; the GET is open
+so the desktop can poll it for a review badge):
+
+```
+GET  /api/edith/queue?limit=50  → { pending:[item], recent:[item], counts:{status:int} }
+POST /api/edith/approve      {id} → applies it (reversibly); returns the item
+POST /api/edith/reject       {id}
+POST /api/edith/approve_all       → { count, results:[item] }   ← the digest button
+POST /api/edith/reject_all
+POST /api/edith/rollback     {id} → undo an applied item (restore file / delete new note)
+```
+
+`item` shape:
+```jsonc
+{ "id":"8-hex", "created_at":"ISO", "status":"pending|applied|rejected|rolled_back|failed",
+  "tier":"red", "kind":"code|lesson|prompt|routing|config", "target":"core/x.py",
+  "title":"…", "body":"…", "preview":"one-line", "reason":"why it was gated",
+  "proof":{ "passed":true, "before":82, "after":84, "note":"…" },
+  "applied_to":"<path written on approve>", "decided_at":"ISO", "error":"" }
+```
+
+UX to build: a **review badge** = length of `pending` (poll the GET). A **digest
+panel** listing `pending` with per-item Approve/Reject + one **"Approve all"**
+(→ `approve_all`). Show applied items with an **Undo** (→ `rollback`). **Empty
+`pending` is the normal state** — green auto-applies; only red parks here. Items
+only appear after a real applying pass (`POST /api/edith/run?apply=true`), and
+not until a red-tier proposer exists (today the default proposer makes green
+lessons only), so don't treat empty as an error.
+
+Honesty note baked into the backend: approving a `code` item does NOT auto-patch
+source — it records an approved proposal in the vault (`Proposals/`) for the
+human/self-modify path to implement. So "Approve" on code = "I sign off on this",
+not "the agent just rewrote itself". Reflect that in the copy.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -191,3 +233,14 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   the one real reply. Gemini Live receives the accurate five-member crew roster
   in its renderer context. Verified against the live backend; typecheck +
   production build pass. Desktop-only files touched.
+- `2026-07-30 · Claude` — **EDITH approval queue shipped** (independence WITHOUT
+  removing the gate — the answer to "just make it autonomous like Hermes": even
+  Hermes keeps a human gate). Green auto-applies after the sandbox; RED passes now
+  park in a persistent, batchable approval queue instead of being dropped. New
+  `core/approval_queue.py` (thread-safe, atomic, audit log + file backup/rollback);
+  EDITH enqueues `HUMAN_GATE` decisions and gained `approve/reject/approve_all/
+  reject_all/rollback`; six `/api/edith/*` endpoints (contract above). The
+  un-gameable rule still holds — a change touching the grader is REJECTED, never
+  queued. Tests `training/test_edith_queue.py` **7/7**; decision matrix + backend
+  truthfulness still green; verified live on 8765 (queue shape, token guard 403,
+  graceful bad-id). **Codex: build the batch-approve digest UI on the contract above.**

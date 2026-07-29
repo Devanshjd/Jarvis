@@ -7,7 +7,50 @@
    Type Definitions
    ═══════════════════════════════════════════ */
 
-export type ProviderInfo = { name?: string; model?: string; local?: boolean }
+export type ProviderInfo = {
+  name?: string
+  model?: string
+  local?: boolean
+  /** Live backend probe; false means the configured provider is unavailable. */
+  reachable?: boolean
+  error?: string
+}
+
+/**
+ * Backend-owned service-health contract. Renderer-only facts (the active
+ * Gemini WebSocket and media streams) stay in VoiceStatus / the view state.
+ */
+export type RuntimeHealth = {
+  ollama?: {
+    reachable?: boolean
+    active_model?: string | null
+    models?: number
+    error?: string | null
+  }
+  gemini_live?: {
+    configured?: boolean
+    connected?: boolean | null
+    error?: string | null
+  }
+  vision?: {
+    available?: boolean
+    active_model?: string | null
+    ocr?: boolean
+    active_source?: 'camera' | 'screen' | null
+    error?: string | null
+  }
+  memory_embedder?: {
+    available?: boolean
+    healthy?: boolean | null
+    model?: string | null
+    error?: string | null
+  }
+  stt?: { available?: boolean; engine?: string | null; healthy?: boolean; error?: string | null }
+  tts?: { available?: boolean; engine?: string | null; healthy?: boolean; error?: string | null }
+  gesture?: { available?: boolean | null; kind?: string | null; healthy?: boolean | null; error?: string | null }
+  checked_at?: string
+  error?: string
+}
 
 /**
  * The backend's truthful, real-time activity contract.  It is intentionally
@@ -50,6 +93,7 @@ export type RuntimeStatus = {
   voice_enabled?: boolean
   voice?: VoiceStatus
   activity?: ActivityStatus
+  health?: RuntimeHealth
 }
 
 export type VoiceStatus = {
@@ -83,6 +127,9 @@ export type ChatResponse = {
   waiting_for_input: boolean
   processing: boolean
   timed_out?: boolean
+  /** Backend terminal-response contract: never fabricate a reply on timeout. */
+  kind?: 'ok' | 'timeout' | 'empty'
+  still_working?: boolean
   status?: RuntimeStatus
 }
 

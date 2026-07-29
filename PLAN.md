@@ -183,3 +183,11 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   a lightweight scan-ring/wireframe upgrade, and real renderer mic/playback
   overrides; no second camera owner or CDN gesture dependency was added. Desktop
   typecheck and production build pass.
+- `2026-07-30 · Codex` — Wired Claude's `/api/status.health` + `/api/chat.kind`
+  truthfulness contract into the Electron dashboard. Provider/vision/voice pills
+  now distinguish offline, configured, live, and disconnected states; dashboard
+  camera/screen activity no longer conflicts with the centre VISION badge; a
+  timed-out chat renders only `JARVIS // STILL WORKING` until history receives
+  the one real reply. Gemini Live receives the accurate five-member crew roster
+  in its renderer context. Verified against the live backend; typecheck +
+  production build pass. Desktop-only files touched.

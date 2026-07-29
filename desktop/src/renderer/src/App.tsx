@@ -70,6 +70,7 @@ export default function App() {
   const [prompt, setPrompt] = useState('')
   const [approveDesktop, setApproveDesktop] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [stillWorking, setStillWorking] = useState(false)
   const [localVoiceState, setLocalVoiceState] = useState<'idle' | 'recording' | 'thinking'>('idle')
   const localRecorderRef = useRef<MediaRecorder | null>(null)
   const localChunksRef = useRef<Blob[]>([])
@@ -90,6 +91,10 @@ export default function App() {
   const snapshotRef = useRef<JarvisShellSnapshot | null>(null)
   const statusRef = useRef<RuntimeStatus | null>(null)
   const backendStateRef = useRef('OFFLINE')
+  // A timeout is not a reply. Keep this id so the history poll can clear the
+  // renderer-only "still working" indicator only after the real assistant
+  // answer arrives.
+  const pendingTimeoutTurnRef = useRef<number | null>(null)
   const audioAnimRef = useRef<number>(0)
   // Refs so the gesture poller reads current state without stale closures.
   const activeTabRef = useRef<ShellTab>('dashboard')
@@ -119,6 +124,13 @@ export default function App() {
       setStatus(nextStatus)
       setActivity(nextStatus.activity ?? IDLE_ACTIVITY)
       setMessages((c) => mergeBackendWithShellMessages(history.messages ?? [], c))
+      const pendingTurnId = pendingTimeoutTurnRef.current
+      if (pendingTurnId !== null && (history.messages ?? []).some((message) =>
+        message.id > pendingTurnId && message.role === 'assistant' && String(message.text ?? '').trim()
+      )) {
+        pendingTimeoutTurnRef.current = null
+        setStillWorking(false)
+      }
       setBackendState(backend.running ? `LIVE:${backend.port}` : 'OFFLINE')
       if (shellSnapshot) setSnapshot(shellSnapshot)
       statusRef.current = nextStatus
@@ -486,7 +498,7 @@ export default function App() {
 
   async function sendPrompt(nextPrompt?: string) {
     const text = (nextPrompt ?? prompt).trim()
-    if (!text) return
+    if (!text || stillWorking) return
     setError(''); setPrompt('')
 
     // ── Route: if Gemini Live session is active, inject into it directly ──────
@@ -519,12 +531,29 @@ export default function App() {
         body: JSON.stringify({ text, approve_desktop: approveDesktop })
       })
       setStatus(result.status ?? status)
-      // Protect against backend returning null reply (e.g. unrecognised input)
-      const messages = result.messages ?? []
-      if (messages.length === 0 && result.reply) {
-        messages.push({ id: Date.now(), role: 'jarvis', text: result.reply, ts: new Date().toISOString() })
+      setActivity(result.status?.activity ?? activity)
+      const responseMessages = [...(result.messages ?? [])]
+
+      if (result.kind === 'timeout') {
+        // Timeout is explicitly not an assistant reply. Preserve the user turn,
+        // expose a non-bubble progress state, and wait for history to contain
+        // the one real answer.
+        const timedOutUserTurn = [...responseMessages].reverse().find((message) => message.role === 'user')
+        pendingTimeoutTurnRef.current = timedOutUserTurn?.id ?? null
+        setStillWorking(Boolean(result.still_working))
+      } else {
+        pendingTimeoutTurnRef.current = null
+        setStillWorking(false)
+        const hasTerminalResponse = responseMessages.some((message) =>
+          (message.role === 'assistant' || message.role === 'system') && String(message.text ?? '').trim()
+        )
+        // An honest `empty` response is still useful feedback, but only add it
+        // when the backend did not already place a terminal message in history.
+        if (!hasTerminalResponse && result.reply) {
+          responseMessages.push({ id: Date.now(), role: 'assistant', text: result.reply, ts: new Date().toISOString() })
+        }
       }
-      setMessages((c) => mergeBackendWithShellMessages(messages, c))
+      setMessages((c) => mergeBackendWithShellMessages(responseMessages, c))
       await refreshAll(false)
     } catch (err) {
       setPrompt(text)
@@ -544,7 +573,9 @@ export default function App() {
         `Provider: ${formatProvider(statusRef.current?.provider)}`,
         `Mode: ${statusRef.current?.mode || cs?.config.mode || 'GENERAL'}`,
         `Backend: ${backendStateRef.current}`,
-        `Current task: ${cs?.tasks?.[0] ? extractTaskSummary(cs.tasks[0]) : 'NONE'}`
+        `Current task: ${cs?.tasks?.[0] ? extractTaskSummary(cs.tasks[0]) : 'NONE'}`,
+        'Crew roster: JARVIS (orchestrator), ULTRON (security), FRIDAY (code), VISION (perception), EDITH (oversight).',
+        'When asked about the crew, describe this roster accurately and state only observed availability.'
       ].join('\n')
       await voiceBridgeRef.current?.start({
         apiKey: sk.geminiKey,
@@ -734,7 +765,7 @@ export default function App() {
                   approveDesktop={approveDesktop} setApproveDesktop={setApproveDesktop}
                   busy={busy} visionSource={visionSource}
                   dashboardVisionSource={dashboardVisionSource}
-                  systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity}
+                  systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
                   onSend={() => void sendPrompt()} onRefresh={() => void refreshAll()}
                   onToggleVision={() => void toggleVision()}
                   onToggleVoice={() => void toggleVoice()}

@@ -44,6 +44,7 @@ export interface DashboardViewProps {
   systemStats: SystemStatsResult | null
   audioLevel: number
   activity: ActivityStatus
+  stillWorking: boolean
   onSend: () => void
   onRefresh: () => void
   onToggleVision: () => void
@@ -60,28 +61,67 @@ export default function DashboardView(props: DashboardViewProps) {
     status, voice, backendState, messages, prompt, setPrompt,
     approveDesktop, setApproveDesktop, busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
-    activity,
+    activity, stillWorking,
     onSend, onToggleVision, onToggleVoice, onToggleMic,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const backendOnline = backendState !== 'OFFLINE'
+  const backendOnline = backendState !== 'OFFLINE' && Boolean(status)
   const voiceLive = Boolean(voice?.active || voice?.connecting || status?.voice_enabled)
   const voiceConnecting = Boolean(voice?.connecting)
   const voiceMuted = Boolean(voice?.mic_muted)
   const voiceError = voice?.error || ''
+  const health = status?.health
+  const localBrainOffline = Boolean(status?.provider?.local) && (
+    status?.provider?.reachable === false || health?.ollama?.reachable === false
+  )
+  const geminiConfigured = health?.gemini_live?.configured
+  // The centre and dashboard optical feed share their real stream state. This
+  // prevents a visible camera/screen feed from being labelled "VISION OFF".
+  const activeVisionSource = visionSource !== 'none' ? visionSource : dashboardVisionSource
+  const visionUnavailable = health?.vision?.available === false
+  const readinessText = !backendOnline
+    ? 'BACKEND OFFLINE'
+    : localBrainOffline
+      ? 'LOCAL BRAIN OFFLINE'
+      : 'SYSTEM READY'
+  const voiceModelText = voiceError
+    ? 'VOICE DISCONNECTED'
+    : voiceConnecting
+      ? 'GEMINI CONNECTING'
+      : voiceLive
+        ? 'GEMINI LIVE'
+        : geminiConfigured === true
+          ? 'GEMINI CONFIGURED'
+          : geminiConfigured === false
+            ? 'GEMINI UNCONFIGURED'
+            : 'VOICE STATUS UNKNOWN'
+  const voiceCoreText = voiceError
+    ? 'VOICE DISCONNECTED'
+    : voiceConnecting
+      ? 'VOICE CORE CONNECTING'
+      : voiceLive
+        ? (voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE')
+        : 'VOICE CORE STANDBY'
+  const visionText = visionUnavailable
+    ? 'VISION UNAVAILABLE'
+    : activeVisionSource === 'screen'
+      ? 'VISION // SCREEN'
+      : activeVisionSource === 'camera'
+        ? 'VISION // CAMERA'
+        : 'VISION // OFF'
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages])
+  }, [messages, stillWorking])
 
   const activityAgent = activity.active_agent ?? 'JARVIS'
   const activityText = activity.state === 'error'
     ? activity.error || 'JARVIS ENCOUNTERED AN ERROR'
-    : activity.label || (activity.state === 'idle' ? 'SYSTEM READY' : activity.state.replace('_', ' ').toUpperCase())
-  const activityColor = activity.state === 'error'
+    : activity.label || (activity.state === 'idle' ? readinessText : activity.state.replace('_', ' ').toUpperCase())
+  const activityColor = activity.state === 'error' || !backendOnline || localBrainOffline
     ? 'border-red-500/35 text-red-300'
     : activity.state === 'tool_running' && activity.active_agent === 'ULTRON'
       ? 'border-red-400/35 text-red-300'
@@ -122,22 +162,22 @@ export default function DashboardView(props: DashboardViewProps) {
         <div className="sb-panel p-4">
           <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
             <span className="sb-label">NEURAL UPLINK</span>
-            <span className={`text-[10px] font-mono tracking-[0.2em] ${backendOnline ? 'text-amber-400' : 'text-zinc-600'}`}>
-              {backendOnline ? 'LINKED' : 'STANDBY'}
+            <span className={`text-[10px] font-mono tracking-[0.2em] ${backendOnline ? 'text-amber-400' : 'text-red-400'}`}>
+              {backendOnline ? 'LINKED' : 'OFFLINE'}
             </span>
           </div>
           <div className="flex items-end justify-between">
             <div>
               <div className="text-[10px] font-mono tracking-[0.2em] text-zinc-600">HOST NODE</div>
-              <div className="mt-2 flex items-center gap-2 text-sm font-black text-white">
-                <RiWifiLine className={backendOnline ? 'text-amber-400' : 'text-zinc-600'} />
-                {status?.provider?.local ? 'LOCAL' : 'REMOTE'}
+              <div className={`mt-2 flex items-center gap-2 text-sm font-black ${localBrainOffline || !backendOnline ? 'text-red-300' : 'text-white'}`}>
+                <RiWifiLine className={localBrainOffline || !backendOnline ? 'text-red-400' : 'text-amber-400'} />
+                {localBrainOffline ? 'LOCAL BRAIN OFFLINE' : status?.provider?.local ? 'LOCAL' : status ? 'REMOTE' : 'CHECKING'}
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-mono tracking-[0.2em] text-zinc-600">VOICE MODEL</div>
-              <div className="mt-2 text-sm font-black text-white">
-                {voiceLive ? 'GEMINI LIVE' : 'GEMINI READY'}
+              <div className={`mt-2 text-sm font-black ${voiceError ? 'text-red-300' : 'text-white'}`}>
+                {voiceModelText}
               </div>
             </div>
           </div>
@@ -196,7 +236,7 @@ export default function DashboardView(props: DashboardViewProps) {
         {/* Status badge */}
         <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
           <div className="rounded-full border border-amber-500/20 bg-black/40 px-4 py-1.5 text-[10px] font-mono tracking-[0.34em] text-zinc-500 backdrop-blur-md">
-            {status?.waiting_for_input ? 'AWAITING INPUT' : activityText.toUpperCase()}
+            {status?.waiting_for_input && activity.state !== 'error' && !localBrainOffline ? 'AWAITING INPUT' : activityText.toUpperCase()}
           </div>
         </div>
 
@@ -213,7 +253,7 @@ export default function DashboardView(props: DashboardViewProps) {
             className={`rounded-full border bg-black/55 px-4 py-2 text-[10px] font-mono tracking-[0.2em] backdrop-blur-md ${activityColor}`}
             title={activity.tool || undefined}
           >
-            {activity.state === 'idle' ? 'JARVIS // STANDBY' : `${activityAgent} // ${activityText.toUpperCase()}`}
+            {activity.state === 'idle' && activityText === 'SYSTEM READY' ? 'JARVIS // STANDBY' : `${activityAgent} // ${activityText.toUpperCase()}`}
           </div>
         </div>
 
@@ -223,7 +263,7 @@ export default function DashboardView(props: DashboardViewProps) {
             data-testid="dashboard-voice-state"
             className="rounded-full border border-white/10 bg-black/55 px-4 py-2 text-[10px] font-mono tracking-[0.24em] text-zinc-400 backdrop-blur-md"
           >
-            {voiceConnecting ? 'VOICE CORE CONNECTING' : voiceLive ? (voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE') : 'VOICE CORE STANDBY'}
+            {voiceCoreText}
           </div>
         </div>
 
@@ -232,7 +272,7 @@ export default function DashboardView(props: DashboardViewProps) {
           data-testid="dashboard-vision-state"
           className="absolute top-16 right-6 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-[10px] font-mono tracking-[0.24em] text-zinc-500 backdrop-blur-md"
         >
-          {visionSource === 'screen' ? 'VISION // SCREEN' : visionSource === 'camera' ? 'VISION // CAMERA' : 'VISION // OFF'}
+          {visionText}
         </div>
 
         {/* Bottom control cluster — Stormbreaker pill bar */}
@@ -241,7 +281,7 @@ export default function DashboardView(props: DashboardViewProps) {
             <button
               data-testid="dashboard-vision-button"
               onClick={onToggleVision}
-              className={`rounded-full p-3 transition-colors ${visionSource !== 'none' ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'text-zinc-500 hover:bg-white/10 hover:text-amber-300'}`}
+              className={`rounded-full p-3 transition-colors ${activeVisionSource !== 'none' ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'text-zinc-500 hover:bg-white/10 hover:text-amber-300'}`}
             >
               <RiCameraLine size={20} />
             </button>
@@ -251,7 +291,9 @@ export default function DashboardView(props: DashboardViewProps) {
               className={`rounded-full border-2 p-4 transition-all ${
                 voiceConnecting || voiceLive
                   ? 'border-amber-400 bg-amber-500 text-black shadow-[0_0_18px_rgba(255,176,32,0.45)]'
-                  : 'border-red-500/50 bg-red-500/10 text-red-400'
+                  : voiceError
+                    ? 'border-red-500/50 bg-red-500/10 text-red-400'
+                    : 'border-white/10 bg-white/5 text-zinc-500 hover:border-amber-500/40 hover:text-amber-300'
               }`}
             >
               <RiPhoneFill size={22} className={voiceConnecting ? 'animate-pulse' : ''} />
@@ -297,7 +339,9 @@ export default function DashboardView(props: DashboardViewProps) {
               <RiTerminalBoxLine />
               TRANSCRIPT
             </span>
-            <span className="text-[10px] font-mono tracking-[0.24em] text-amber-500/70">LIVE-LOG</span>
+            <span className={`text-[10px] font-mono tracking-[0.24em] ${stillWorking ? 'animate-pulse text-amber-300' : 'text-amber-500/70'}`}>
+              {stillWorking ? 'JARVIS // STILL WORKING' : 'LIVE-LOG'}
+            </span>
           </div>
 
           {/* Live voice I/O — green box (keeps voice working) */}
@@ -372,7 +416,7 @@ export default function DashboardView(props: DashboardViewProps) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   e.stopPropagation()
-                  if (!busy && prompt.trim()) onSend()
+                  if (!busy && !stillWorking && prompt.trim()) onSend()
                 }
               }}
               onPaste={(e) => {
@@ -408,11 +452,11 @@ export default function DashboardView(props: DashboardViewProps) {
               <button
                 data-testid="dashboard-send-button"
                 type="button"
-                disabled={busy}
+                disabled={busy || stillWorking}
                 onClick={onSend}
                 className="rounded-xl bg-amber-500 px-5 py-3 text-xs font-black tracking-[0.18em] text-black transition-all hover:bg-amber-400 disabled:cursor-default disabled:opacity-60"
               >
-                {busy ? 'PROCESSING' : 'SEND'}
+                {busy ? 'PROCESSING' : stillWorking ? 'WORKING' : 'SEND'}
               </button>
             </div>
             {voiceError ? (

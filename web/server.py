@@ -273,9 +273,20 @@ def api_chat(payload: ChatRequest):
         approve_desktop=payload.approve_desktop,
         timeout=payload.timeout_s,
     )
-    # Never let reply be null/None — the Electron UI renders it literally
-    if not result.get("reply"):
-        result["reply"] = "I'm here, sir. Could you please rephrase your request?"
+    # Exactly ONE terminal result with honest kind. Critically: on a timeout we
+    # do NOT fabricate a generic answer ("rephrase…") — that used to render as a
+    # real reply and then get followed by the late real reply (two answers for
+    # one turn). Instead we flag the timeout and return no fake answer, so the UI
+    # shows a "still working" state and the real reply arrives once, via history.
+    if result.get("timed_out"):
+        result["kind"] = "timeout"
+        result["reply"] = ""          # no fake answer competing with the real one
+        result["still_working"] = True
+    elif result.get("reply"):
+        result["kind"] = "ok"
+    else:
+        result["kind"] = "empty"
+        result["reply"] = "I didn't produce a response for that — could you rephrase?"
     return result
 
 @app.get("/api/screenshot")

@@ -460,8 +460,22 @@ class HeadlessJarvisRuntime(JarvisRuntime):
         waiting = self.orchestrator.task_sessions.get_waiting_session()
         voice = self.voice_snapshot()
         self.voice_enabled = bool(voice.get("active"))
+
+        # Truthful service health (cached live probes). Also correct the provider:
+        # a local Ollama provider must NOT claim "ready" if 11434 is unreachable.
+        health = self._health()
+        try:
+            if provider and provider.get("local"):
+                reachable = bool(health.get("ollama", {}).get("reachable"))
+                provider = {**provider, "reachable": reachable}
+                if not reachable:
+                    provider["error"] = "Ollama not reachable on 11434 — local model offline"
+        except Exception:
+            pass
+
         return {
             "provider": provider,
+            "health": health,
             "mode": self.mode_switcher.current_mode,
             "agent_mode": self.agent_mode,
             "voice_enabled": self.voice_enabled,
@@ -485,6 +499,14 @@ class HeadlessJarvisRuntime(JarvisRuntime):
         except Exception:
             return {"state": "idle", "active_agent": None, "label": None,
                     "tool": None, "run_id": None, "since": None, "error": None}
+
+    def _health(self) -> dict[str, Any]:
+        """Truthful subsystem health via live probes (see core/health)."""
+        try:
+            from core.health import probe_all
+            return probe_all()
+        except Exception as exc:
+            return {"error": str(exc)[:120]}
 
     def history(self, limit: int = 120) -> list[dict[str, Any]]:
         return self.chat.snapshot()[-max(1, int(limit)):]

@@ -25,8 +25,8 @@ def team_enabled() -> bool:
 
 _CREW = (
     "[YOUR CREW — you are JARVIS, orchestrator of a local multi-agent team. "
-    "When asked which agents / specialists you have, name THESE and no others "
-    "(never invent 'coder/researcher/writer' agents):\n"
+    "When asked which agents / specialists you have, name ONLY these four; you "
+    "have no other agents:\n"
     "- ULTRON: cybersecurity analyst (Foundation-Sec-8B) — vuln analysis, exact "
     "CWE, CVSS, Bandit code scans.\n"
     "- FRIDAY: code & dev (qwen2.5-coder) — code review, fixes, the Code Oracle.\n"
@@ -39,9 +39,11 @@ _CREW = (
 
 
 def crew_context() -> str:
-    """JARVIS's accurate self-knowledge of its crew — so it stops confabulating
-    old agent names. Empty when the flag is off."""
-    return _CREW if team_enabled() else ""
+    """JARVIS's accurate self-knowledge of its crew — so it never confabulates
+    old agent names (coder/researcher/...). Always on: the crew EXISTS (reachable
+    via /api/team/route) even when auto-dispatch is off, so naming them is honest.
+    The JARVIS_TEAM flag only controls automatic dispatch, not self-knowledge."""
+    return _CREW
 
 
 def recall_context(text: str, k: int = 2) -> str:

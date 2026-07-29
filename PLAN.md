@@ -73,6 +73,39 @@ thinking=amber spin · tool_running=per-agent color (ULTRON red / FRIDAY cyan /
 VISION violet / EDITH green) + show `label` · speaking=bright amber waveform ·
 error=red + show `error`. Use `run_id` to animate transitions.
 
+## Health + chat contract (truthfulness — Codex, wire the pills to THIS)
+
+`GET /api/status` now also returns real service health from live probes (cached
+~8 s). Use it to show honest pills — never a hard-coded "READY".
+
+```jsonc
+"provider": { ..., "reachable": true|false, "error": "…"|absent },  // false ⇒ LOCAL BRAIN OFFLINE
+"health": {
+  "ollama":          { "reachable": bool, "active_model": str|null, "models": int, "error": str|null },
+  "gemini_live":     { "configured": bool, "connected": null, "error": null },   // connected is YOURS (renderer WS)
+  "vision":          { "available": bool, "active_model": "moondream"|null, "ocr": bool, "active_source": null, "error": str|null },
+  "memory_embedder": { "available": bool, "healthy": bool|null, "model": "nomic-embed-text", "error": str|null }, // healthy=null ⇒ warming
+  "stt":             { "available": bool, "engine": "faster-whisper", "healthy": bool, "error": str|null },
+  "tts":             { "available": bool, "engine": "piper"|"pyttsx3"|null, "healthy": bool, "error": str|null },
+  "gesture":         { "available": null, "kind": "external process (py3.11 + mediapipe)", "healthy": null } // backend can't see it
+}
+```
+Rules: `provider.reachable=false` ⇒ show **LOCAL BRAIN OFFLINE** (don't show a
+model as ready). `gemini_live.connected` is **null from the backend** — YOU set
+it from the renderer's real WS state; show **GEMINI CONFIGURED** (not "READY")
+until your WS connects, and **VOICE DISCONNECTED** on drop. `vision.available=false`
+⇒ **VISION UNAVAILABLE**. `healthy=null` on the embedder means "warming", not a
+failure — don't flash red. Verified live: probes correctly reported Ollama
+**offline** during an outage, then flipped healthy when it came back.
+
+**Chat contract (`POST /api/chat`) — no more double replies.** Each response now
+carries a `kind`:
+- `kind:"ok"` — `reply` is the real answer (render it).
+- `kind:"timeout"` — `reply:""`, `still_working:true`. Do **not** render a bubble;
+  show a "still working…" state and let the real reply arrive once via
+  `/api/history`. (The old bug: a generic answer then a late real one.)
+- `kind:"empty"` — a rare honest "couldn't produce a response; rephrase?".
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -138,6 +171,13 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   Codex has the war stories (python 3.11-vs-3.13 backend launch, 8GB VRAM OOM +
   slow ULTRON, no hot-reload, single-camera-owner, cp1252, the honesty bugs, and
   why "bigger model" is a dead end). Read it before running/testing the backend.
+- `2026-07-27 · Claude` — **Truthfulness/stability pass done** (my 6 backend
+  items). `/api/status` now has real `health` + a truthful `provider.reachable`;
+  `/api/chat` returns one terminal result with `kind` (no fake-then-late reply);
+  crew self-knowledge always names the real 5; embedder health repaired to not
+  false-red on cold load. `core/health.py` new. Tests: `training/
+  test_backend_truthfulness.py` 5/5. Contract documented above. **Codex: wire the
+  status pills + transcript to it (see the contract section).**
 - `2026-07-28 · Codex` — Wired the truthful `/api/status.activity` contract into
   the Electron dashboard. The existing orb now uses backend agent/state colours,
   a lightweight scan-ring/wireframe upgrade, and real renderer mic/playback

@@ -85,6 +85,7 @@ _PROTECTED_PREFIXES = (
     "/api/terminal",
     "/api/edith/",       # can write to the vault when apply=true
     "/api/escalate",     # can reach the cloud rung (opt-in)
+    "/api/desktop/",     # can drive the real keyboard/mouse (gated, scoped)
 )
 
 
@@ -234,6 +235,83 @@ def api_edith_propose_code(payload: EdithProposeCodeRequest):
     error instead of queuing. Token-guarded (writes to the vault/sandbox)."""
     from core.live_integration import edith_propose_code
     return edith_propose_code(payload.file, payload.instruction)
+
+
+# ═══════════════════════════════════════════
+# Desktop control — gated, app-scoped keyboard/mouse (highest blast radius)
+# OFF by default. Enable → start a scoped session → step through actions.
+# ═══════════════════════════════════════════
+class DesktopEnableRequest(BaseModel):
+    on: bool
+
+
+class DesktopSessionRequest(BaseModel):
+    task: str = Field(min_length=1)          # what you're approving
+    app_scope: str = Field(min_length=1)     # bind to ONE app (e.g. "notepad")
+    ttl: int = 120                           # seconds; auto-expires
+
+
+class DesktopPlanRequest(BaseModel):
+    task: str = Field(min_length=1)
+
+
+class DesktopStepRequest(BaseModel):
+    action: dict                             # one typed atomic action
+
+
+@app.get("/api/desktop/status")
+def api_desktop_status():
+    """Whether desktop control is available/enabled, the active scoped session
+    (if any), and the last few actions. Read-only — safe to poll for the UI."""
+    from core.desktop_control import get_controller
+    return get_controller().status()
+
+
+@app.post("/api/desktop/enable")
+def api_desktop_enable(payload: DesktopEnableRequest):
+    """The APPROVE DESKTOP toggle. Off by default; disabling also ends any session."""
+    from core.desktop_control import get_controller
+    return get_controller().enable(payload.on)
+
+
+@app.post("/api/desktop/session/start")
+def api_desktop_session_start(payload: DesktopSessionRequest):
+    """Approve a task bound to ONE app, with a TTL. Actions outside that app are
+    refused; the session auto-expires. Requires desktop control to be enabled."""
+    from core.desktop_control import get_controller
+    return get_controller().start_session(payload.task, payload.app_scope, payload.ttl)
+
+
+@app.post("/api/desktop/session/stop")
+def api_desktop_session_stop():
+    """The Stop button — ends control immediately."""
+    from core.desktop_control import get_controller
+    return get_controller().stop()
+
+
+@app.post("/api/desktop/plan")
+def api_desktop_plan(payload: DesktopPlanRequest):
+    """Propose typed actions for a task (deterministic; nothing runs). The UI
+    shows these for per-step approval."""
+    from core.desktop_control import get_controller
+    return get_controller().propose(payload.task)
+
+
+@app.post("/api/desktop/observe")
+def api_desktop_observe():
+    """Read-only: the active window + scoped control labels. Never used to decide
+    the next action (screen content is data, not commands)."""
+    from core.desktop_control import get_controller
+    return get_controller().observe()
+
+
+@app.post("/api/desktop/step")
+def api_desktop_step(payload: DesktopStepRequest):
+    """Execute ONE approved atomic action inside the active session — safety-gated
+    (blocks credentials/financial/CAPTCHA, fails closed outside the app scope),
+    verified against the window state, and audited."""
+    from core.desktop_control import get_controller
+    return get_controller().execute(payload.action)
 
 
 class EscalateRequest(BaseModel):

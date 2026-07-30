@@ -163,6 +163,36 @@ sandbox proves "won't crash", not "is good". So the diff review is not optional
 chrome; it's the whole point. Default the digest to **review-then-decide**, never
 a blind "approve all" for code items.
 
+## Desktop control — gated keyboard/mouse (Codex, build the control card on THIS)
+
+The highest-blast-radius capability in the project, so it's **off by default** and
+every safety rail lives in the backend. Your UI drives it; it can't act without an
+enabled + scoped + unexpired session, and each step is safety-gated server-side.
+
+Endpoints (all POSTs token-guarded under `/api/desktop/`; status GET is open):
+```
+GET  /api/desktop/status          → { available, enabled, session|null, recent:[…] }
+POST /api/desktop/enable  {on}     → the APPROVE DESKTOP toggle (off ends any session)
+POST /api/desktop/session/start {task, app_scope, ttl} → approve a task bound to ONE app
+POST /api/desktop/session/stop     → the Stop button (ends control immediately)
+POST /api/desktop/plan    {task}   → deterministic proposed actions (NOTHING runs)
+POST /api/desktop/observe          → read-only active window + scoped control labels
+POST /api/desktop/step    {action} → execute ONE approved atomic action (gated+verified)
+```
+`action` is one typed atomic step: `{action:"open_app"|"focus"|"click"|"type_text"|
+"press"|"hotkey", …}` (e.g. `{"action":"type_text","text":"hi"}`). `step` returns
+`{ok:true, result, verify:{before_window,after_window}}` or a refusal:
+`{blocked:"…"}` (credential/financial/CAPTCHA — refused even if approved),
+`{refused:"…"}` (disabled / no session / outside app scope / unknown action).
+
+UI to build: an **APPROVE DESKTOP** toggle → a **session card** (task + app scope +
+countdown) → call `plan`, show the proposed steps, and let the user **approve each
+step** (→ `step`) with the target window shown → a big **STOP** (→ session/stop).
+Show `verify` after each step. Rules to honour in the copy: control is **scoped to
+one app** and **expires**; credentials/financial/CAPTCHA are **hard-blocked** (tell
+the user to do those themselves); typing **fails closed** if the active window
+isn't the approved app. Screen content is never used to pick actions.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -279,3 +309,18 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   is sent without an explicit click. Verified live against `:8765` (empty queue
   plus the real rejected code audit), and `npm run typecheck` + `npm run build`
   pass. Desktop files only.
+- `2026-07-30 · Claude` — **Gated desktop control (keyboard/mouse) — backend.**
+  Answer to "JARVIS can't use the mouse/keyboard like you": the primitives already
+  existed (precise_click pywinauto→OCR, screen_interact vision, pyautogui) but were
+  scattered with only a tkinter popup gate. New `core/desktop_control.py` unifies
+  them behind a real safety model: OFF by default (`JARVIS_DESKTOP` / `/enable`),
+  scoped+expiring sessions bound to ONE app, propose→approve→execute→verify→log per
+  atomic action, hard-blocks on credentials/financial/CAPTCHA (refused even if
+  approved), FAIL-CLOSED typing outside the app scope, deterministic planning (no
+  model in the loop → screen can't inject steps), append-only audit. Seven
+  `/api/desktop/*` endpoints (contract above). Tests `training/
+  test_desktop_control.py` **9/9** (never move the real mouse). Verified live SAFE
+  paths on 8765 (status off-by-default, 403 guard, deterministic plan, disabled
+  refusal). **I did NOT run a live desktop action — that needs Devansh present +
+  APPROVE DESKTOP.** **Codex: build the control card (toggle → session → per-step
+  approve with target window → STOP) on the contract above.**

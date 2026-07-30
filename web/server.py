@@ -247,7 +247,8 @@ class DesktopEnableRequest(BaseModel):
 
 class DesktopSessionRequest(BaseModel):
     task: str = Field(min_length=1)          # what you're approving
-    app_scope: str = Field(min_length=1)     # bind to ONE app (e.g. "notepad")
+    app_scope: str = ""                      # bind to ONE native app (e.g. "notepad")
+    origins: list[str] = []                  # and/or a browser-origin allowlist
     ttl: int = 120                           # seconds; auto-expires
 
 
@@ -279,7 +280,8 @@ def api_desktop_session_start(payload: DesktopSessionRequest):
     """Approve a task bound to ONE app, with a TTL. Actions outside that app are
     refused; the session auto-expires. Requires desktop control to be enabled."""
     from core.desktop_control import get_controller
-    return get_controller().start_session(payload.task, payload.app_scope, payload.ttl)
+    return get_controller().start_session(payload.task, payload.app_scope,
+                                          payload.ttl, payload.origins)
 
 
 @app.post("/api/desktop/session/stop")

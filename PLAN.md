@@ -193,6 +193,34 @@ one app** and **expires**; credentials/financial/CAPTCHA are **hard-blocked** (t
 the user to do those themselves); typing **fails closed** if the active window
 isn't the approved app. Screen content is never used to pick actions.
 
+**Browser control (same session, same gate).** A session can also carry a
+`origins` allowlist, and then these **browser actions** run through the same
+`/api/desktop/step` (Playwright, real local Chromium):
+```
+navigate {url}   — refused unless url's origin ∈ allowlist (every action re-checks live origin)
+extract          — read-only: {url,title,elements:[{tag,type,name,text}]} for YOU to choose from
+click_dom {selector}
+fill {selector,text}     — a password/credential field is refused at the DOM level
+select {selector,value}
+upload {selector,path}   — an approved local file
+browser_shot             — screenshot (b64)
+browser_close
+```
+`POST /api/desktop/session/start` now takes `{task, app_scope?, origins?, ttl}` —
+bind to a native app, a browser allowlist, or both (at least one). A **submission
+in your name** (`submit`/`send`/`post`/`apply`, or an action with `submit:true`)
+is **refused unless the action carries `confirm:true`** — that's your final
+review gate; money actions stay hard-blocked entirely. Verify shape for browser
+steps is `{before_url, after_url}`. Codex: the operator console shows the live
+URL + extracted elements, per-step approve, and a distinct **Confirm submission**
+control that sends `confirm:true`.
+
+**Raw-input hole closed.** The legacy `executor` input tools (`mouse_click`,
+`type_text`, `screen_click`, …) no longer auto-approve under a Gemini-Live voice
+session or a passed `approve_desktop`; they now require an armed
+`DesktopController` session (`raw_input_allowed()`). The scoped session is the one
+switch that arms real keyboard/mouse — chat/voice can't.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -340,6 +368,23 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   live voice session). The desktop renderer no longer opts into it, but to make
   the gated controller the true sole path, route raw input through
   `DesktopController` or hard-disable that legacy raw-input path in `core/`.
+- `2026-07-30 · Claude` — **Computer Use milestone — core delivered.** (1) Closed
+  the raw-input hole: `executor` actuating tools (`mouse_click`/`type_text`/
+  `screen_click`/…) now require `DesktopController.raw_input_allowed()` — no more
+  auto-approve under a voice session or `approve_desktop`. (2) New
+  `core/browser_control.py`: real local-Chromium Playwright driver on its own
+  thread, origin-allowlisted, with DOM-level password-field refusal and read-only
+  `extract`. (3) Unified into the ONE session coordinator (`core/desktop_control.py`):
+  a session binds to `app_scope` and/or a browser `origins` allowlist; browser
+  actions (`navigate/extract/click_dom/fill/select/upload/browser_*`) run through
+  the same gated `/step`; submissions in your name need `confirm:true`; money/
+  creds/CAPTCHA stay hard-blocked. Contract above. Tests: `test_desktop_control.py`
+  **15/15** + `test_browser_control.py` **5/5** (real headless Chromium vs a LOCAL
+  fixture — password refusal + allowlist proven); edith 11/11 + truthfulness 5/5
+  still green. **Deferred:** "Job Application Mode" workflow (find→rank→draft→fill→
+  you confirm Submit) — the primitives are ready for it. **Codex: build the unified
+  operator console on the extended contract (browser URL/elements, per-step approve,
+  Confirm-submission control, STOP).**
 
 ## Next milestone — unified Computer Use (Claude core + Codex desktop)
 

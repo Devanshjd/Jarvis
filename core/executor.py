@@ -1021,19 +1021,44 @@ class Executor:
         "get_fact", "get_nasa", "get_ip_info", "get_wiki", "get_definition",
     })
 
+    # Actuating input tools — real keyboard/mouse. These must NOT auto-approve
+    # under a voice session or a passed approve_desktop flag anymore; they are
+    # gated on the scoped DesktopController session (the closed raw-input hole).
+    _DESKTOP_ACTUATION_TOOLS = frozenset({
+        "mouse_click", "mouse_move", "mouse_scroll", "key_press", "key_combo",
+        "type_text", "screen_click", "screen_type",
+    })
+
     def _ask_permission(self, message: str, tool_name: str = "") -> bool:
         """
         Ask user for permission — Electron-native, no tkinter.
 
         Priority order:
-          0. Caller explicitly passed approve_desktop=true (agent/API)
-          1. Gemini Live voice active → auto-approve (user is watching)
-          2. Voice plugin active → verbal confirm ("Should I proceed?")
-          3. Electron UI connected → send WebSocket request, show React modal
-          4. No UI + low-risk tool → auto-approve
-          5. No UI + high-risk tool → deny (queue for when UI reconnects)
+          0. Actuating input tool → require a live, scoped DesktopController
+             session (the ONLY thing that arms raw keyboard/mouse). No voice /
+             approve_desktop shortcut for these.
+          1. Caller explicitly passed approve_desktop=true (agent/API)
+          2. Gemini Live voice active → auto-approve (user is watching)
+          3. Voice plugin active → verbal confirm ("Should I proceed?")
+          4. Electron UI connected → send WebSocket request, show React modal
+          5. No UI + low-risk tool → auto-approve
+          6. No UI + high-risk tool → deny (queue for when UI reconnects)
         """
-        # 0. Explicit caller approval — the universal agent and the /api/chat
+        # 0. Raw keyboard/mouse is gated on the scoped desktop session ONLY —
+        # this closes the hole where a voice session auto-approved raw input.
+        if tool_name in self._DESKTOP_ACTUATION_TOOLS:
+            try:
+                from core.desktop_control import get_controller
+                if not get_controller().raw_input_allowed():
+                    logging.getLogger("jarvis.executor").warning(
+                        "Blocked raw-input tool '%s': no armed desktop session "
+                        "(use the gated /api/desktop flow)", tool_name)
+                    return False
+            except Exception:
+                return False
+            return True
+
+        # 1. Explicit caller approval — the universal agent and the /api/chat
         # endpoint both set this. If approve_desktop=true was passed, the
         # user has already consented to desktop control for this request.
         request_options = getattr(self.jarvis, "_request_options", None) or {}

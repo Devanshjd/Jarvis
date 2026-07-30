@@ -123,6 +123,90 @@ def test_stop_ends_session() -> None:
             "after Stop, actions must be refused"
 
 
+def test_raw_input_gate_closes_the_hole() -> None:
+    # The legacy executor input tools now defer to THIS: no armed session ⇒ no
+    # raw keyboard/mouse, regardless of any voice session.
+    with tempfile.TemporaryDirectory() as d:
+        dc._AUDIT = Path(d) / "audit.jsonl"
+        c = DesktopController()
+        c._enabled = False
+        assert c.raw_input_allowed() is False, "disabled ⇒ no raw input"
+        c._enabled = True
+        assert c.raw_input_allowed() is False, "enabled but no session ⇒ still no raw input"
+        c.start_session("type a note", "notepad", ttl=120)
+        assert c.raw_input_allowed() is True, "armed scoped session ⇒ raw input allowed"
+
+
+# ── browser coordinator gates (fake driver — no real Chromium) ────────────
+class _FakeBrowser:
+    def __init__(self) -> None:
+        self.url = "https://jobs.example.com/"
+        self.calls: list = []
+
+    def current(self): return {"url": self.url, "title": "Example"}
+    def navigate(self, url): self.url = url; self.calls.append(("navigate", url)); return {"url": url}
+    def extract(self): self.calls.append(("extract",)); return {"url": self.url, "elements": []}
+    def click(self, sel): self.calls.append(("click", sel)); return {"clicked": sel}
+    def fill(self, sel, text): self.calls.append(("fill", sel, text)); return {"filled": sel}
+    def select(self, sel, val): return {"selected": val}
+    def upload(self, sel, path): return {"uploaded": path}
+    def screenshot(self): return {"b64": "x"}
+    def close(self): self.calls.append(("close",))
+
+
+def _browser_controller(tmp: Path, origins=("https://jobs.example.com",)) -> DesktopController:
+    dc._AUDIT = tmp / "audit.jsonl"
+    c = DesktopController()
+    c._enabled = True
+    c.start_session("apply to jobs", app_scope="", ttl=120, origins=list(origins))
+    c._browser = _FakeBrowser()          # inject so no real Chromium launches
+    return c
+
+
+def test_browser_navigate_enforces_allowlist() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = _browser_controller(Path(d))
+        off = c.execute({"action": "navigate", "url": "https://evil.example.net/x"})
+        assert off.get("refused"), off
+        assert c._browser.calls == [], "an off-allowlist origin must never reach the driver"
+        ok = c.execute({"action": "navigate", "url": "https://jobs.example.com/search"})
+        assert ok["ok"] is True, ok
+
+
+def test_browser_extract_is_read_only_and_allowed() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = _browser_controller(Path(d))
+        r = c.execute({"action": "extract"})
+        assert r["ok"] and "elements" in r["result"], r
+
+
+def test_browser_submission_needs_explicit_confirm() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = _browser_controller(Path(d))
+        blocked = c.execute({"action": "click_dom", "selector": "button#submit", "submit": True})
+        assert blocked.get("blocked"), "a submission must be refused without confirm"
+        ok = c.execute({"action": "click_dom", "selector": "button#submit",
+                        "submit": True, "confirm": True})
+        assert ok["ok"] is True, ok
+
+
+def test_browser_credential_text_blocked() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = _browser_controller(Path(d))
+        r = c.execute({"action": "fill", "selector": "#pw", "text": "my password is x"})
+        assert r.get("blocked"), r
+
+
+def test_browser_actions_need_a_session_allowlist() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        dc._AUDIT = Path(d) / "audit.jsonl"
+        c = DesktopController()
+        c._enabled = True
+        c.start_session("type notes", "notepad", ttl=120)      # native-only, no origins
+        r = c.execute({"action": "navigate", "url": "https://jobs.example.com"})
+        assert r.get("refused"), "a native-only session can't drive the browser"
+
+
 def main() -> None:
     tests = [
         ("off by default refuses", test_off_by_default_refuses),
@@ -134,6 +218,12 @@ def main() -> None:
         ("allowed action runs + audited", test_allowed_action_runs_and_is_audited),
         ("unknown action refused", test_unknown_action_refused),
         ("stop ends session", test_stop_ends_session),
+        ("raw-input gate closes the hole", test_raw_input_gate_closes_the_hole),
+        ("browser navigate enforces allowlist", test_browser_navigate_enforces_allowlist),
+        ("browser extract read-only allowed", test_browser_extract_is_read_only_and_allowed),
+        ("browser submission needs confirm", test_browser_submission_needs_explicit_confirm),
+        ("browser credential text blocked", test_browser_credential_text_blocked),
+        ("browser needs session allowlist", test_browser_actions_need_a_session_allowlist),
     ]
     print("=" * 64)
     print(" DESKTOP-CONTROL SAFETY TESTS")

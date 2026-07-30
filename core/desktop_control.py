@@ -40,7 +40,7 @@ import subprocess
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -65,9 +65,17 @@ _FINANCIAL_RE = re.compile(
     r"\b(buy|sell|trade|transfer|wire|withdraw|deposit|send\s*money|"
     r"pay(ment)?|purchase|checkout|place\s*(the\s*)?order|confirm\s*order)\b", re.I)
 _CAPTCHA_RE = re.compile(r"\b(captcha|recaptcha|hcaptcha|i'?m\s*not\s*a\s*robot)\b", re.I)
+# Non-financial submissions IN YOUR NAME — allowed only with explicit confirm
+# (the final review gate). Money actions are hard-blocked above, not here.
+_SUBMIT_RE = re.compile(r"\b(submit|send|post|publish|apply)\b", re.I)
 
-# Atomic actions the controller understands. Anything else is refused.
-ACTIONS = ("observe", "open_app", "focus", "click", "type_text", "press", "hotkey")
+# Native atomic actions (real keyboard/mouse / windows).
+NATIVE_ACTIONS = ("observe", "open_app", "focus", "click", "type_text", "press", "hotkey")
+# Browser atomic actions (Playwright, origin-allowlisted).
+BROWSER_ACTIONS = ("navigate", "extract", "click_dom", "fill", "select", "upload",
+                   "browser_shot", "browser_close")
+# Everything the controller will execute. Anything else is refused.
+ACTIONS = NATIVE_ACTIONS + BROWSER_ACTIONS
 
 # App name must be a bare, safe token — no path separators / shell metacharacters.
 _SAFE_APP_RE = re.compile(r"^[\w .+-]{1,60}$")
@@ -84,12 +92,14 @@ class Session:
     app_scope: str
     created_at: float
     expires_at: float
+    origins: list = field(default_factory=list)   # browser-origin allowlist
 
     def active(self) -> bool:
         return time.time() < self.expires_at
 
     def public(self) -> dict:
         return {"id": self.id, "task": self.task, "app_scope": self.app_scope,
+                "origins": list(self.origins),
                 "expires_in": max(0, round(self.expires_at - time.time())),
                 "active": self.active()}
 
@@ -101,12 +111,14 @@ class DesktopController:
         self._enabled = os.environ.get("JARVIS_DESKTOP", "").strip().lower() in (
             "1", "true", "yes", "on")
         self._recent: list[dict] = []
+        self._browser = None          # lazy BrowserDriver (see _get_browser)
 
     # ── enable / status ──────────────────────────────────────────────────
     def enable(self, on: bool) -> dict:
         with self._lock:
             self._enabled = bool(on)
             if not on:
+                self._close_browser()
                 self._session = None          # disabling also ends any session
         self._audit("enable", {"on": bool(on)})
         return self.status()
@@ -119,34 +131,67 @@ class DesktopController:
                     "recent": self._recent[-10:]}
 
     # ── session lifecycle ────────────────────────────────────────────────
-    def start_session(self, task: str, app_scope: str, ttl: int = 120) -> dict:
-        if not HAS_GUI:
-            return {"error": "desktop automation unavailable (pyautogui not importable)"}
+    def start_session(self, task: str, app_scope: str = "", ttl: int = 120,
+                      origins: Optional[list] = None) -> dict:
         if not self._enabled:
             return {"error": "desktop control is disabled — enable it first (APPROVE DESKTOP)"}
         task = (task or "").strip()
         app_scope = (app_scope or "").strip()
+        origins = [o.strip() for o in (origins or []) if o and o.strip()]
         if not task:
             return {"error": "a task description is required"}
-        if not app_scope:
-            return {"error": "an app scope is required — bind this session to one app "
-                              "(e.g. 'notepad'); control is never unscoped"}
+        # A session must bind to SOMETHING: one native app, or a browser allowlist.
+        if not app_scope and not origins:
+            return {"error": "bind this session to a scope — an app (e.g. 'notepad') "
+                              "and/or a browser-origin allowlist; control is never unscoped"}
+        if app_scope and not HAS_GUI:
+            return {"error": "native app control unavailable (pyautogui not importable)"}
+        # Normalise browser origins to scheme://host[:port].
+        norm: list[str] = []
+        try:
+            from core.browser_control import origin_of
+            for o in origins:
+                oo = origin_of(o)
+                if oo:
+                    norm.append(oo)
+        except Exception:
+            norm = origins
         ttl = max(15, min(int(ttl or 120), 600))
         with self._lock:
+            self._close_browser()
             self._session = Session(uuid.uuid4().hex[:8], task[:200], app_scope[:80],
-                                    time.time(), time.time() + ttl)
+                                    time.time(), time.time() + ttl, list(dict.fromkeys(norm)))
             self._audit("session_start",
-                        {"task": task[:200], "app_scope": app_scope[:80], "ttl": ttl})
+                        {"task": task[:200], "app_scope": app_scope[:80],
+                         "origins": norm, "ttl": ttl})
             return {"session": self._session.public()}
 
     def stop(self) -> dict:
-        """The Stop button — ends control immediately."""
+        """The Stop button — ends control immediately (and closes the browser)."""
         with self._lock:
             had = self._session is not None
             if self._session:
                 self._audit("session_stop", {"id": self._session.id})
+            self._close_browser()
             self._session = None
             return {"stopped": had}
+
+    def _close_browser(self) -> None:
+        if self._browser is not None:
+            try:
+                self._browser.close()
+            except Exception:
+                pass
+            self._browser = None
+
+    def _get_browser(self):
+        """Lazy Chromium bound to the session's origin allowlist."""
+        if self._browser is None:
+            from core.browser_control import BrowserDriver
+            headless = os.environ.get("JARVIS_BROWSER_HEADLESS", "").lower() in (
+                "1", "true", "yes", "on")
+            self._browser = BrowserDriver(self._session.origins, headless=headless)
+        return self._browser
 
     def _require(self) -> Optional[str]:
         if not self._enabled:
@@ -157,6 +202,15 @@ class DesktopController:
         if not s or not s.active():
             return "no active desktop session — start one scoped to a task + app"
         return None
+
+    def raw_input_allowed(self) -> bool:
+        """Is real keyboard/mouse actuation permitted RIGHT NOW? True only when
+        control is explicitly enabled AND a scoped session is live. The legacy
+        executor input tools call this so they can no longer auto-approve raw
+        input just because a voice session is open (the closed hole)."""
+        with self._lock:
+            s = self._session
+            return bool(self._enabled and s and s.active())
 
     # ── propose (deterministic — no model, so nothing can inject steps) ───
     def propose(self, task: str) -> dict:
@@ -208,6 +262,8 @@ class DesktopController:
             if blocked:
                 self._audit("blocked", {"action": action, "reason": blocked})
                 return {"ok": False, "blocked": blocked}
+            if kind in BROWSER_ACTIONS:
+                return self._execute_browser(action)
             # Fail CLOSED on the dangerous primitives: never type/press into a
             # window we can't confirm is the approved app.
             if kind in ("type_text", "press", "hotkey"):
@@ -226,6 +282,80 @@ class DesktopController:
             self._recent.append(rec)
             self._audit("execute", rec)
             return {"ok": True, "result": result, "verify": verify}
+
+    # ── browser execute (origin-allowlisted; submissions confirm-gated) ──
+    def _execute_browser(self, action: dict) -> dict:
+        scope = self._browser_scope_ok(action)
+        if scope is not True:
+            self._audit("scope_refused", {"action": action, "reason": scope})
+            return {"ok": False, "refused": scope}
+        sub = self._submission_blocked(action)
+        if sub:
+            self._audit("blocked", {"action": action, "reason": sub})
+            return {"ok": False, "blocked": sub}
+        before = self._browser_url()
+        try:
+            result = self._do_browser(action)
+        except Exception as exc:
+            self._audit("error", {"action": action, "error": str(exc)[:200]})
+            return {"ok": False, "error": str(exc)[:200]}
+        verify = {"before_url": before, "after_url": self._browser_url()}
+        rec = {"ts": _now(), "action": action, "result": result, "verify": verify}
+        self._recent.append(rec)
+        self._audit("execute", rec)
+        return {"ok": True, "result": result, "verify": verify}
+
+    def _browser_scope_ok(self, action: dict):
+        s = self._session
+        if not s or not s.origins:
+            return "this session has no browser allowlist — start one with `origins`"
+        if action.get("action") == "navigate":
+            from core.browser_control import origin_of
+            o = origin_of(action.get("url", ""))
+            if o not in s.origins:
+                return f"origin {o!r} is not in this session's allowlist ({s.origins})"
+        return True
+
+    def _submission_blocked(self, action: dict):
+        """Anything that submits in your name needs explicit confirmation — the UI's
+        review gate sets confirm:true. (Money actions are already hard-blocked.)"""
+        if action.get("confirm") is True:
+            return None
+        blob = " ".join(str(action.get(k, "")) for k in ("selector", "text", "value"))
+        if action.get("submit") or _SUBMIT_RE.search(blob):
+            return ("this looks like a submission in your name — refused without your "
+                    "explicit confirmation (review it, then resend with confirm:true)")
+        return None
+
+    def _browser_url(self) -> str:
+        if self._browser is None:
+            return ""
+        try:
+            return self._browser.current().get("url", "")
+        except Exception:
+            return ""
+
+    def _do_browser(self, action: dict) -> dict:
+        kind = action["action"]
+        if kind == "browser_close":
+            self._close_browser()
+            return {"closed": True}
+        b = self._get_browser()
+        if kind == "navigate":
+            return b.navigate(action.get("url", ""))
+        if kind == "extract":
+            return b.extract()
+        if kind == "click_dom":
+            return b.click(action.get("selector", ""))
+        if kind == "fill":
+            return b.fill(action.get("selector", ""), str(action.get("text", "")))
+        if kind == "select":
+            return b.select(action.get("selector", ""), str(action.get("value", "")))
+        if kind == "upload":
+            return b.upload(action.get("selector", ""), action.get("path", ""))
+        if kind == "browser_shot":
+            return b.screenshot()
+        return {"noop": True}
 
     # ── observe (read-only; NEVER drives the next action) ────────────────
     def observe(self) -> dict:

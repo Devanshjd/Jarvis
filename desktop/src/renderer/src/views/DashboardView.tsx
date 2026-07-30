@@ -36,8 +36,6 @@ export interface DashboardViewProps {
   messages: ChatMessage[]
   prompt: string
   setPrompt: (v: string) => void
-  approveDesktop: boolean
-  setApproveDesktop: (v: boolean) => void
   busy: boolean
   visionSource: VisionSource
   dashboardVisionSource: 'none' | 'camera' | 'screen'
@@ -59,7 +57,7 @@ export interface DashboardViewProps {
 export default function DashboardView(props: DashboardViewProps) {
   const {
     status, voice, backendState, messages, prompt, setPrompt,
-    approveDesktop, setApproveDesktop, busy, visionSource,
+    busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     activity, stillWorking,
     onSend, onToggleVision, onToggleVoice, onToggleMic,
@@ -440,15 +438,7 @@ export default function DashboardView(props: DashboardViewProps) {
               className="scrollbar-small h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/40"
             />
             <div className="flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-[11px] font-mono tracking-[0.12em] text-zinc-500">
-                <input
-                  type="checkbox"
-                  checked={approveDesktop}
-                  onChange={(e) => setApproveDesktop(e.target.checked)}
-                  className="h-4 w-4 rounded border-white/10 bg-black"
-                />
-                APPROVE DESKTOP
-              </label>
+              <span className="text-[10px] font-mono tracking-[0.12em] text-zinc-600">DESKTOP ACTIONS REQUIRE THE CONTROL GATE</span>
               <button
                 data-testid="dashboard-send-button"
                 type="button"

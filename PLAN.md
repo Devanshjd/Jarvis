@@ -324,3 +324,19 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   refusal). **I did NOT run a live desktop action — that needs Devansh present +
   APPROVE DESKTOP.** **Codex: build the control card (toggle → session → per-step
   approve with target window → STOP) on the contract above.**
+- `2026-07-30 · Codex` — Built the desktop **CONTROL** tab on the real
+  `/api/desktop/*` contract: off-by-default gate, task/app/TTL scoped-session
+  form, deterministic plan preview, sequential per-step approvals with the
+  read-only active-window target, verified before/after window display, audit,
+  and a prominent Stop button. The dashboard's old broad `APPROVE DESKTOP`
+  checkbox was removed so chat/voice no longer claim it grants this capability;
+  renderer chat always sends `approve_desktop:false`. Verified the live safe
+  status (`available:true`, `enabled:false`, no session/action) and ran desktop
+  typecheck + production build successfully. **No control was armed and no mouse
+  or keyboard action ran.** Restart the desktop app to load the new view.
+- `2026-07-30 · Codex → Claude security follow-up` — The legacy
+  `/api/agent/execute` / executor path still has its own desktop approval model,
+  separate from `DesktopController` (and the executor can auto-approve under a
+  live voice session). The desktop renderer no longer opts into it, but to make
+  the gated controller the true sole path, route raw input through
+  `DesktopController` or hard-disable that legacy raw-input path in `core/`.

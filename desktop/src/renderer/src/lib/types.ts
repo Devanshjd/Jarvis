@@ -170,7 +170,68 @@ export type EdithQueue = {
   counts: Record<string, number>
 }
 
-export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'
+/** A scoped, expiring human-approved desktop-control session. */
+export type DesktopControlSession = {
+  id: string
+  task: string
+  app_scope: string
+  expires_in: number
+  active: boolean
+}
+
+/** One deterministic action proposed by the desktop-control backend. */
+export type DesktopControlAction = {
+  action: string
+  app?: string
+  text?: string
+  target?: string
+  key?: string
+  keys?: string
+  [key: string]: unknown
+}
+
+export type DesktopControlAudit = {
+  ts?: string
+  action?: DesktopControlAction
+  result?: unknown
+  verify?: {
+    before_window?: string
+    after_window?: string
+  }
+}
+
+export type DesktopControlStatus = {
+  available: boolean
+  enabled: boolean
+  session: DesktopControlSession | null
+  recent: DesktopControlAudit[]
+}
+
+export type DesktopControlPlan = {
+  task: string
+  actions: DesktopControlAction[]
+  note?: string
+}
+
+export type DesktopControlObservation = {
+  active_window?: string
+  controls?: string[]
+  note?: string
+}
+
+export type DesktopControlStepResult = {
+  ok: boolean
+  result?: unknown
+  verify?: {
+    before_window?: string
+    after_window?: string
+  }
+  blocked?: string
+  refused?: string
+  error?: string
+}
+
+export type ShellTab = 'dashboard' | 'control' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'
 export type SettingsTab = 'general' | 'keys' | 'security'
 
 /**

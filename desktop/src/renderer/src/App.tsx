@@ -50,6 +50,7 @@ import { blobToWavBase64 } from './services/audioUtils'
 
 // ─── Views (Dashboard loads eagerly, others lazy for faster boot) ───
 import DashboardView from './views/DashboardView'
+const DesktopControlView = lazy(() => import('./views/DesktopControlView'))
 const MacrosView = lazy(() => import('./views/MacrosView'))
 const NotesView = lazy(() => import('./views/NotesView'))
 const GalleryView = lazy(() => import('./views/GalleryView'))
@@ -71,7 +72,6 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
   const [prompt, setPrompt] = useState('')
-  const [approveDesktop, setApproveDesktop] = useState(false)
   const [busy, setBusy] = useState(false)
   const [stillWorking, setStillWorking] = useState(false)
   const [localVoiceState, setLocalVoiceState] = useState<'idle' | 'recording' | 'thinking'>('idle')
@@ -91,7 +91,6 @@ export default function App() {
   const [edithPendingCount, setEdithPendingCount] = useState(0)
 
   const voiceBridgeRef = useRef<JarvisGeminiLive | null>(null)
-  const approveDesktopRef = useRef(approveDesktop)
   const snapshotRef = useRef<JarvisShellSnapshot | null>(null)
   const statusRef = useRef<RuntimeStatus | null>(null)
   const backendStateRef = useRef('OFFLINE')
@@ -157,7 +156,10 @@ export default function App() {
         setVoiceStatus({ ...nextState, source: 'renderer' })
       },
       onBackendTurn: () => refreshAll(false),
-      getApproveDesktop: () => approveDesktopRef.current,
+      // Broad chat approval is intentionally never treated as a real desktop
+      // control grant. The scoped, expiring, step-by-step CONTROL workflow owns
+      // that capability.
+      getApproveDesktop: () => false,
       getRealtimeContext: async () => {
         const runningApps = await window.desktopApi?.listRunningApps?.() ?? { apps: [] }
         const cs = snapshotRef.current
@@ -225,7 +227,6 @@ export default function App() {
     }
   }, [refreshAll])
 
-  useEffect(() => { approveDesktopRef.current = approveDesktop }, [approveDesktop])
   useEffect(() => { snapshotRef.current = snapshot }, [snapshot])
   useEffect(() => { statusRef.current = status }, [status])
   useEffect(() => { backendStateRef.current = backendState }, [backendState])
@@ -422,7 +423,7 @@ export default function App() {
   //   peace     → switch to the next view
   // (Backend already speaks a confirmation; this adds the actual control.)
   useEffect(() => {
-    const TAB_ORDER: ShellTab[] = ['dashboard', 'macros', 'notes', 'gallery', 'oracle', 'edith', 'phone', 'settings']
+    const TAB_ORDER: ShellTab[] = ['dashboard', 'control', 'macros', 'notes', 'gallery', 'oracle', 'edith', 'phone', 'settings']
     const iv = setInterval(async () => {
       try {
         const r = await fetchJson<{ gesture: string | null; ts: number }>(`${API_BASE}/api/gesture/last`)
@@ -549,7 +550,7 @@ export default function App() {
       const result = await fetchJson<ChatResponse>(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, approve_desktop: approveDesktop })
+        body: JSON.stringify({ text, approve_desktop: false })
       })
       setStatus(result.status ?? status)
       setActivity(result.status?.activity ?? activity)
@@ -689,6 +690,7 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'DASHBOARD', icon: RiLayoutGridLine },
+    { id: 'control', label: 'CONTROL', icon: RiComputerLine },
     { id: 'macros', label: 'MACROS', icon: RiCommandLine },
     { id: 'notes', label: 'NOTES', icon: RiStickyNoteLine },
     { id: 'gallery', label: 'GALLERY', icon: RiFolderImageLine },
@@ -785,7 +787,6 @@ export default function App() {
                 <DashboardView
                   status={status} voice={voiceStatus} backendState={backendState}
                   messages={messages} prompt={prompt} setPrompt={setPrompt}
-                  approveDesktop={approveDesktop} setApproveDesktop={setApproveDesktop}
                   busy={busy} visionSource={visionSource}
                   dashboardVisionSource={dashboardVisionSource}
                   systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
@@ -801,6 +802,9 @@ export default function App() {
               </motion.div>
             ) : null}
             <Suspense fallback={<ViewSkeleton />}>
+              {activeTab === 'control' ? (
+                <motion.div key="control" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><DesktopControlView /></motion.div>
+              ) : null}
               {activeTab === 'macros' ? (
                 <motion.div key="macros" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><MacrosView /></motion.div>
               ) : null}

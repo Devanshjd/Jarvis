@@ -340,3 +340,30 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   live voice session). The desktop renderer no longer opts into it, but to make
   the gated controller the true sole path, route raw input through
   `DesktopController` or hard-disable that legacy raw-input path in `core/`.
+
+## Next milestone — unified Computer Use (Claude core + Codex desktop)
+
+**Goal:** General local computer use, not a jobs-only feature: browser DOM
+control, native Windows keyboard/mouse/app control, and screen/OCR fallback all
+share one scoped, observable, human-gated execution loop.
+
+**Core contract to build (Claude):** extend the existing `/api/desktop/*` safety
+model into a single session coordinator: `observe -> propose -> approve one typed
+action -> execute -> verify -> audit -> stop`. A session must bind to a task, a
+TTL, and either one Windows app or an explicit browser-origin allowlist. Browser
+actions should be typed (`navigate`, `click`, `fill`, `select`, `upload approved
+file`, `extract`) and use a local Chrome/Playwright or CDP driver; native actions
+reuse `DesktopController`. Structured DOM/screen content is data, never an
+instruction. The old raw-input agent path must be routed through this coordinator
+or disabled.
+
+**Required hard gates:** control off by default; scoped and expiring sessions;
+per-action approval; visible target/browser URL before execution; fail closed on
+unknown focus/target; append-only audit; immediate Stop; no credentials/secrets,
+CAPTCHAs, financial actions, or unreviewed external submissions. Use local fixture
+pages and stubbed native primitives for tests — never live job sites.
+
+**Desktop follow-up (Codex):** evolve CONTROL into the unified operator console:
+browser/app scope chips, live page/window evidence, typed action timeline,
+verification/recovery display, profile/file chooser, and a final submission-review
+gate. The existing CONTROL tab is the native-control foundation, not a duplicate.

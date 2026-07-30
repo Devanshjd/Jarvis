@@ -133,7 +133,44 @@ export type ChatResponse = {
   status?: RuntimeStatus
 }
 
-export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle'
+/**
+ * A human-reviewable proposal from EDITH.  RED proposals remain pending until
+ * an operator decides; GREEN proposals are normally applied server-side and
+ * appear in the recent audit trail instead.
+ */
+export type EdithQueueItem = {
+  id: string
+  created_at?: string
+  status: 'pending' | 'applied' | 'rejected' | 'rolled_back' | 'failed' | string
+  tier?: 'green' | 'red' | string
+  kind?: 'code' | 'lesson' | 'prompt' | 'routing' | 'config' | string
+  target?: string
+  title?: string
+  body?: string
+  preview?: string
+  reason?: string
+  proof?: {
+    passed?: boolean
+    before?: number
+    after?: number
+    note?: string
+  }
+  source?: string
+  applied_to?: string
+  decided_at?: string
+  backup?: string | null
+  error?: string
+  /** Code proposals with a payload patch a real file only after approval. */
+  has_payload?: boolean
+}
+
+export type EdithQueue = {
+  pending: EdithQueueItem[]
+  recent: EdithQueueItem[]
+  counts: Record<string, number>
+}
+
+export type ShellTab = 'dashboard' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'
 export type SettingsTab = 'general' | 'keys' | 'security'
 
 /**

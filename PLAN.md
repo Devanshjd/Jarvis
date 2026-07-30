@@ -271,3 +271,11 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   sandbox checks in ~30 s, queued — and it had made the docstring *worse*, so I
   rejected it (the gate earning its keep). Contract above updated; the code-diff
   is the item the digest UI must show for review.
+- `2026-07-30 · Codex` — Built the desktop **EDITH Improvement Digest**. The new
+  EDITH nav badge polls the read-only queue; the view renders pending gated
+  proposals with evidence, full code diffs, a required diff-review acknowledgement
+  before patch approval, per-item reject, audit history, and Undo for applied
+  backed-up items. Batch approval is disabled whenever code is pending; no action
+  is sent without an explicit click. Verified live against `:8765` (empty queue
+  plus the real rejected code audit), and `npm run typecheck` + `npm run build`
+  pass. Desktop files only.

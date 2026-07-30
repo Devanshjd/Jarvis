@@ -11,6 +11,7 @@ import {
   RiPhoneFill,
   RiPhoneLine,
   RiSettings4Line,
+  RiShieldCheckLine,
   RiShieldKeyholeLine,
   RiStickyNoteLine,
   RiWifiLine
@@ -26,6 +27,7 @@ import type {
   ActivityStatus,
   ChatMessage,
   ChatResponse,
+  EdithQueue,
   JarvisShellSnapshot,
   RuntimeStatus,
   ShellTab,
@@ -52,6 +54,7 @@ const MacrosView = lazy(() => import('./views/MacrosView'))
 const NotesView = lazy(() => import('./views/NotesView'))
 const GalleryView = lazy(() => import('./views/GalleryView'))
 const OracleView = lazy(() => import('./views/OracleView'))
+const EdithReviewView = lazy(() => import('./views/EdithReviewView'))
 const PhoneView = lazy(() => import('./views/PhoneView'))
 const SettingsView = lazy(() => import('./views/SettingsView'))
 
@@ -85,6 +88,7 @@ export default function App() {
   const [overlayMode, setOverlayMode] = useState(false)
   const [audioLevel, setAudioLevel] = useState(0)
   const [systemStats, setSystemStats] = useState<SystemStatsResult | null>(null)
+  const [edithPendingCount, setEdithPendingCount] = useState(0)
 
   const voiceBridgeRef = useRef<JarvisGeminiLive | null>(null)
   const approveDesktopRef = useRef(approveDesktop)
@@ -392,6 +396,23 @@ export default function App() {
     window.desktopApi.getApiToken?.().then((t) => setApiToken(t || '')).catch(() => {})
   }, [])
 
+  // Keep the EDITH navigation badge truthful even while the review view is
+  // closed. GET is intentionally read-only; action buttons remain token-gated.
+  useEffect(() => {
+    let alive = true
+    const refreshEdithBadge = async () => {
+      try {
+        const digest = await fetchJson<EdithQueue>(`${API_BASE}/api/edith/queue?limit=1`)
+        if (alive) setEdithPendingCount(Array.isArray(digest.pending) ? digest.pending.length : 0)
+      } catch {
+        // The backend can be restarting; retain the last honest successful count.
+      }
+    }
+    void refreshEdithBadge()
+    const interval = window.setInterval(() => void refreshEdithBadge(), 8000)
+    return () => { alive = false; window.clearInterval(interval) }
+  }, [])
+
   // Keep refs current for the gesture poller.
   useEffect(() => { activeTabRef.current = activeTab }, [activeTab])
   useEffect(() => { voiceActiveRef.current = Boolean(voiceStatus?.active || voiceStatus?.connecting) }, [voiceStatus])
@@ -401,7 +422,7 @@ export default function App() {
   //   peace     → switch to the next view
   // (Backend already speaks a confirmation; this adds the actual control.)
   useEffect(() => {
-    const TAB_ORDER: ShellTab[] = ['dashboard', 'macros', 'notes', 'gallery', 'oracle', 'phone', 'settings']
+    const TAB_ORDER: ShellTab[] = ['dashboard', 'macros', 'notes', 'gallery', 'oracle', 'edith', 'phone', 'settings']
     const iv = setInterval(async () => {
       try {
         const r = await fetchJson<{ gesture: string | null; ts: number }>(`${API_BASE}/api/gesture/last`)
@@ -672,9 +693,10 @@ export default function App() {
     { id: 'notes', label: 'NOTES', icon: RiStickyNoteLine },
     { id: 'gallery', label: 'GALLERY', icon: RiFolderImageLine },
     { id: 'oracle', label: 'ORACLE', icon: RiCodeSSlashLine },
+    { id: 'edith', label: 'EDITH', icon: RiShieldCheckLine, badge: edithPendingCount },
     { id: 'phone', label: 'PHONE', icon: RiPhoneLine },
     { id: 'settings', label: 'SETTINGS', icon: RiSettings4Line }
-  ] as const satisfies Array<{ id: ShellTab; label: string; icon: typeof RiLayoutGridLine }>
+  ] as const satisfies Array<{ id: ShellTab; label: string; icon: typeof RiLayoutGridLine; badge?: number }>
 
   const currentTask = snapshot?.tasks?.[0] ? extractTaskSummary(snapshot.tasks[0]) : 'NONE'
   const lastTranscript = voiceStatus?.last_output || voiceStatus?.last_input || ''
@@ -734,6 +756,7 @@ export default function App() {
                 <span className={`absolute left-0 top-1/2 h-9 w-[3px] -translate-y-1/2 rounded-r-full transition-all ${active ? 'bg-amber-400 shadow-[0_0_12px_rgba(255,176,32,0.6)]' : 'bg-transparent'}`} />
                 <span className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all ${active ? 'border border-amber-500/25 bg-amber-500/15 shadow-[0_0_15px_rgba(255,176,32,0.1)]' : 'group-hover:bg-white/5'}`}>
                   <Icon size={19} />
+                  {'badge' in item && item.badge > 0 ? <span data-testid="edith-review-badge" className="absolute ml-7 -mt-7 flex h-4 min-w-4 items-center justify-center rounded-full border border-black bg-red-500 px-1 text-[8px] font-black text-white">{item.badge > 9 ? '9+' : item.badge}</span> : null}
                 </span>
                 <span className="text-[8px] font-bold tracking-[0.1em]">{item.label}</span>
               </button>
@@ -789,6 +812,9 @@ export default function App() {
               ) : null}
               {activeTab === 'oracle' ? (
                 <motion.div key="oracle" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><OracleView /></motion.div>
+              ) : null}
+              {activeTab === 'edith' ? (
+                <motion.div key="edith" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><EdithReviewView onPendingCountChange={setEdithPendingCount} /></motion.div>
               ) : null}
               {activeTab === 'phone' ? (
                 <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} /></motion.div>

@@ -118,12 +118,16 @@ Endpoints (POSTs are token-guarded like the other `/api/edith/*`; the GET is ope
 so the desktop can poll it for a review badge):
 
 ```
-GET  /api/edith/queue?limit=50  → { pending:[item], recent:[item], counts:{status:int} }
-POST /api/edith/approve      {id} → applies it (reversibly); returns the item
-POST /api/edith/reject       {id}
-POST /api/edith/approve_all       → { count, results:[item] }   ← the digest button
+GET  /api/edith/queue?limit=50   → { pending:[item], recent:[item], counts:{status:int} }
+POST /api/edith/approve       {id} → applies it (reversibly); returns the item
+POST /api/edith/reject        {id}
+POST /api/edith/approve_all        → { count, results:[item] }   ← the digest button
 POST /api/edith/reject_all
-POST /api/edith/rollback     {id} → undo an applied item (restore file / delete new note)
+POST /api/edith/rollback      {id} → undo an applied item (restore file / delete new note)
+POST /api/edith/propose_code {file,instruction} → EDITH DRAFTS real code (qwen) →
+     sandbox-tests it → parks a passing draft in the queue. SLOW (30–130 s on the
+     coder model); returns {status:"queued",queued_id} or {status:"failed",report}
+     with the honest sandbox error. Nothing is applied.
 ```
 
 `item` shape:
@@ -143,10 +147,21 @@ only appear after a real applying pass (`POST /api/edith/run?apply=true`), and
 not until a red-tier proposer exists (today the default proposer makes green
 lessons only), so don't treat empty as an error.
 
-Honesty note baked into the backend: approving a `code` item does NOT auto-patch
-source — it records an approved proposal in the vault (`Proposals/`) for the
-human/self-modify path to implement. So "Approve" on code = "I sign off on this",
-not "the agent just rewrote itself". Reflect that in the copy.
+What "Approve" does, by item kind (reflect in the copy):
+- **`code` with a drafted body** (from `propose_code`, `has_payload:true`) →
+  Approve **patches the real file** (backup taken; `rollback` restores it).
+  It already passed the sandbox and your click is the gate. Takes effect on the
+  **next backend restart** (no hot-reload) — say so in the UI. Show the `body`
+  diff prominently; this is the one the human must actually read.
+- **`code` without a body** (generic gating, `has_payload:false`) → Approve only
+  records an approved proposal note in the vault; nothing is patched.
+- **lesson / prompt / config** → Approve writes a durable vault note.
+
+Real-world reminder from the first live run: a qwen draft PASSED the sandbox but
+had made the docstring *worse* — a quality regression only a human catches. The
+sandbox proves "won't crash", not "is good". So the diff review is not optional
+chrome; it's the whole point. Default the digest to **review-then-decide**, never
+a blind "approve all" for code items.
 
 ## Issues & pain points we hit (read this to save yourself hours)
 
@@ -244,3 +259,15 @@ not size — so the roadmap is polish/trust, not more/bigger models.
   queued. Tests `training/test_edith_queue.py` **7/7**; decision matrix + backend
   truthfulness still green; verified live on 8765 (queue shape, token guard 403,
   graceful bad-id). **Codex: build the batch-approve digest UI on the contract above.**
+- `2026-07-30 · Claude` — **Code-drafting path wired into EDITH.** `propose_code`
+  (new `POST /api/edith/propose_code`) has EDITH draft REAL code via the local
+  coder model (qwen2.5-coder), sandbox-test it (syntax + N load-sims), and park a
+  passing draft in the queue carrying the full content. **Approving a drafted code
+  item now PATCHES the real file** (backup + rollback; effective next restart) —
+  approval is the gate. Guarded twice (proposer `can_modify` + EDITH `_FORBIDDEN`).
+  Also a `run_once(code_targets=...)` curated hook (EDITH never guesses a file).
+  Tests `training/test_edith_queue.py` now **11/11**. **Verified live end-to-end
+  with the real model**: drafted a change to `core/activity_state.py`, passed 4/4
+  sandbox checks in ~30 s, queued — and it had made the docstring *worse*, so I
+  rejected it (the gate earning its keep). Contract above updated; the code-diff
+  is the item the digest UI must show for review.

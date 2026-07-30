@@ -142,6 +142,82 @@ def test_enqueue_is_idempotent() -> None:
         assert len(q.pending()) == 1
 
 
+# ── code-drafting path (proposer wired in) — stubbed, no Ollama ───────────
+class _FakeCoder:
+    """Stands in for SelfImprovementProposer: deterministic, no model calls."""
+    def __init__(self, content="x = 2\n# improved\n", ready=True, can=True):
+        self._content, self._ready, self._can = content, ready, can
+        self._pending = None
+        self._engine = None      # → EDITH's direct write-with-backup path
+
+    def _can_modify(self, _file):
+        return (self._can, "ok" if self._can else "outside core/ or plugins/")
+
+    def propose_and_test(self, file, instruction, simulations=3):
+        if not self._ready:
+            return {"ready_to_apply": False, "status": "failed", "diff": "",
+                    "error": "SyntaxError: bad token", "why": "the draft did not compile"}
+        self._pending = {"file": file, "content": self._content, "instruction": instruction}
+        return {"ready_to_apply": True, "status": "ready", "why": "passed all 4 checks",
+                "diff": "--- a\n+++ b\n+improved", "simulations": []}
+
+
+def _edith_with_coder(tmp: Path, coder: _FakeCoder) -> Edith:
+    return Edith(vault=Vault(root=tmp), proposer=coder)
+
+
+def test_propose_code_queues_passing_draft() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        target = tmp / "target.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+        e = _edith_with_coder(tmp, _FakeCoder())
+        res = e.propose_code(str(target), "bump x to 2")
+        assert res["status"] == "queued", res
+        pend = e.pending()
+        assert len(pend) == 1 and pend[0]["kind"] == "code"
+        assert pend[0]["tier"] == "red" and pend[0]["has_payload"] is True
+
+
+def test_approve_code_patches_file_then_rollback_restores() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        target = tmp / "target.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+        e = _edith_with_coder(tmp, _FakeCoder("x = 2\n# improved\n"))
+        iid = e.propose_code(str(target), "bump x")["queued_id"]
+
+        approved = e.approve(iid)
+        assert approved["status"] == APPLIED, approved
+        assert target.read_text(encoding="utf-8") == "x = 2\n# improved\n", \
+            "approving a code item must patch the real file"
+
+        rolled = e.rollback(iid)
+        assert rolled["status"] == ROLLED_BACK, rolled
+        assert target.read_text(encoding="utf-8") == "x = 1\n", \
+            "rollback must restore the original source"
+
+
+def test_propose_code_forbidden_target_never_drafts() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        e = _edith_with_coder(Path(d), _FakeCoder())
+        for bad in ("core/edith.py", "training/security_harness.py", "core/safety.py"):
+            res = e.propose_code(bad, "loosen it")
+            assert res["status"] == "rejected", (bad, res)
+        assert e.pending() == [], "the un-gameable rule must hold before any drafting"
+
+
+def test_propose_code_failed_sandbox_not_queued() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        target = tmp / "target.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+        e = _edith_with_coder(tmp, _FakeCoder(ready=False))
+        res = e.propose_code(str(target), "bump x")
+        assert res["status"] == "failed", res
+        assert e.pending() == [], "a draft that fails the sandbox must never be queued"
+
+
 def main() -> None:
     tests = [
         ("red pass is queued, not applied", test_red_pass_is_queued_not_applied),
@@ -151,6 +227,11 @@ def main() -> None:
         ("un-gameable change never queued", test_ungameable_change_never_queued),
         ("dry run queues nothing", test_dry_run_queues_nothing),
         ("enqueue is idempotent", test_enqueue_is_idempotent),
+        ("propose_code queues a passing draft", test_propose_code_queues_passing_draft),
+        ("approve code patches file, rollback restores",
+         test_approve_code_patches_file_then_rollback_restores),
+        ("propose_code forbidden target never drafts", test_propose_code_forbidden_target_never_drafts),
+        ("propose_code failed sandbox not queued", test_propose_code_failed_sandbox_not_queued),
     ]
     print("=" * 64)
     print(" EDITH APPROVAL-QUEUE TESTS")

@@ -125,6 +125,18 @@ def edith_rollback(item_id: str) -> dict:
         return {"error": str(exc)}
 
 
+def edith_propose_code(file: str, instruction: str) -> dict:
+    """EDITH drafts a real code change to `file` (local coder model), sandbox-
+    tests it, and — only if it passes — parks it in the approval queue for your
+    review. Applies nothing; a failed draft returns the honest error, not a queue
+    item. Approving later patches the file (with rollback)."""
+    try:
+        from core.edith import Edith
+        return Edith().propose_code(file, instruction)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
 def escalate(problem: str, context: str = "", allow_cloud: bool = False) -> dict:
     """Run a problem up the escalation ladder. Web-search rung is backed by the
     local research tool when available; cloud rung stays opt-in + scrubbed."""

@@ -59,10 +59,16 @@ class QueueItem:
     applied_to: str = ""
     backup: Optional[dict] = None
     error: str = ""
+    # Machine payload for applying a code item (the full proposed file content
+    # + target). Kept out of the public view — the UI shows the diff (body).
+    payload: Optional[dict] = None
 
     def public(self) -> dict:
-        """Serialisable view for the API/UI, plus a short one-line preview."""
+        """Serialisable view for the API/UI, plus a short one-line preview.
+        Drops the raw payload (can be a whole file) — the UI renders `body`."""
         d = asdict(self)
+        d.pop("payload", None)
+        d["has_payload"] = bool(self.payload)
         d["preview"] = " ".join((self.body or "").split())[:160]
         return d
 
@@ -124,7 +130,7 @@ class ApprovalQueue:
     # ── enqueue ──────────────────────────────────────────────────────────
     def enqueue(self, *, tier: str, kind: str, target: str, title: str, body: str,
                 reason: str = "", proof: Optional[dict] = None,
-                source: str = "EDITH") -> str:
+                source: str = "EDITH", payload: Optional[dict] = None) -> str:
         """Park a gated change. Idempotent: an identical still-pending item is not
         queued twice (repeated improvement passes don't pile duplicates)."""
         with self._lock:
@@ -137,7 +143,7 @@ class ApprovalQueue:
             it = asdict(QueueItem(id=iid, created_at=_now(), status=PENDING,
                                   tier=str(tier), kind=kind, target=target,
                                   title=title, body=body, reason=reason,
-                                  proof=proof or {}, source=source))
+                                  proof=proof or {}, source=source, payload=payload))
             items.append(it)
             self._save(items)
             self._audit("enqueue", it)

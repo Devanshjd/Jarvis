@@ -106,11 +106,26 @@ ProveFn = Callable[["Edith", Change], Proof]
 class Edith:
     def __init__(self, vault: Optional[Vault] = None,
                  propose_fn: Optional[ProposeFn] = None,
-                 prove_fn: Optional[ProveFn] = None) -> None:
+                 prove_fn: Optional[ProveFn] = None,
+                 proposer=None) -> None:
         self.vault = vault or Vault()
         self._propose_fn = propose_fn
         self._prove_fn = prove_fn
-        self._queue = None    # lazy ApprovalQueue (see _q)
+        self._proposer = proposer   # code-drafting engine (lazy via _coder)
+        self._queue = None          # lazy ApprovalQueue (see _q)
+
+    def _coder(self):
+        """The self-improvement proposer (drafts real code + sandbox-tests it).
+        Injectable for tests; lazily grabs the real one otherwise."""
+        if self._proposer is None:
+            from core.self_improve_proposer import get_proposer
+            self._proposer = get_proposer()
+        return self._proposer
+
+    @staticmethod
+    def _abs(file: str) -> Path:
+        p = Path(file)
+        return p if p.is_absolute() else (ROOT / p)
 
     def _q(self):
         """The human-approval queue where red-tier passes wait for your eyes.
@@ -234,20 +249,63 @@ class Edith:
     def rollback(self, item_id: str) -> dict:
         return self._q().rollback(item_id, self._rollback_item)
 
+    def propose_code(self, file: str, instruction: str, simulations: int = 3) -> dict:
+        """The real code-drafting path: draft a change to `file` for `instruction`
+        with the local coder model, PROVE it in the sandbox (syntax + N load
+        simulations), and — only if every check passes — PARK it in the approval
+        queue as a red-tier item carrying the full proposed content. It never
+        applies anything here; your approval is the gate. A draft that fails the
+        sandbox is reported honestly and NOT queued (no drift you can't measure).
+
+        Guarded twice over: the proposer's own `can_modify` (core/ + plugins/
+        only) AND EDITH's un-gameable `_FORBIDDEN` list (can't target the grader,
+        a safety file, or EDITH itself)."""
+        target = file.lower()
+        if any(f in target for f in _FORBIDDEN):
+            return {"status": "rejected",
+                    "why": "forbidden target (grader / safety surface / EDITH itself)"}
+        coder = self._coder()
+        ok, why = coder._can_modify(file)
+        if not ok:
+            return {"status": "blocked", "why": why}
+
+        report = coder.propose_and_test(file, instruction, simulations=simulations)
+        if not report.get("ready_to_apply"):
+            # Honest failure — surface the exact error, queue nothing.
+            return {"status": "failed", "report": report}
+
+        content = (getattr(coder, "_pending", None) or {}).get("content", "")
+        if not content:
+            return {"status": "failed", "report": report,
+                    "why": "draft passed but no content was captured to apply"}
+        qid = self._q().enqueue(
+            tier="red", kind="code", target=file,
+            title=f"Code: {instruction[:70]}",
+            body=report.get("diff", "")[:8000],
+            reason="EDITH-drafted code change — passed the sandbox, needs your review",
+            proof={"passed": True, "note": report.get("why", "")},
+            payload={"file": file, "content": content, "instruction": instruction})
+        return {"status": "queued", "queued_id": qid, "report": report}
+
     def _apply_item(self, item):
-        """Apply an approved queued change — reversibly. IMPORTANT: a `code`
-        change is NOT auto-patched into source (highest blast radius, and it
-        would need a fresh sandbox run on the *approved* form). Approving code
-        records it as an approved proposal in the vault for you (or the existing
-        self-modify path) to implement. Everything else is captured as a durable,
-        reversible vault note. Either way a backup is taken so it can roll back."""
+        """Apply an approved queued change — reversibly (a backup is taken first,
+        so `rollback` can undo it).
+
+        · A `code` item that carries proposed content (from propose_code) is
+          PATCHED into the real file — your approval was the gate, and the change
+          already passed the sandbox. Re-guarded at apply time; effective on the
+          next backend restart (no hot-reload).
+        · A `code` item WITHOUT content is only recorded as an approved proposal
+          note (the generic-gating path — nothing to patch).
+        · Anything else is captured as a durable vault note."""
         from core.approval_queue import ApplyResult
+        if item.kind == "code" and (item.payload or {}).get("content"):
+            return self._apply_code(item)
         if item.kind == "code":
             folder = "Proposals"
             title = f"APPROVED - {item.title}"
-            body = (f"> Approved code proposal for `{item.target}`. EDITH does not "
-                    f"auto-patch source; implement via the self-modify path.\n\n"
-                    + item.body)
+            body = (f"> Approved code proposal for `{item.target}`. No draft content "
+                    f"was attached; implement via the self-modify path.\n\n" + item.body)
         else:
             folder = _FOLDER_FOR.get(item.kind, "Lessons")
             title, body = item.title, item.body
@@ -256,6 +314,28 @@ class Edith:
         path = self.vault.write(folder, title, body,
                                 tags=["edith", "approved", item.tier], type=item.kind)
         return ApplyResult(applied_to=str(path), backup=backup)
+
+    def _apply_code(self, item):
+        """Patch real source from an approved, sandbox-passed code proposal."""
+        from core.approval_queue import ApplyResult
+        file = item.payload["file"]
+        content = item.payload["content"]
+        if any(f in file.lower() for f in _FORBIDDEN):
+            raise RuntimeError("forbidden target — refused at apply time")
+        coder = self._coder()
+        ok, why = coder._can_modify(file)
+        if not ok:
+            raise RuntimeError(f"blocked by safety guard: {why}")
+        abs_path = self._abs(file)
+        backup = self._q().backup_file(item.id, abs_path)   # snapshot for rollback
+        engine = getattr(coder, "_engine", None)
+        if engine is not None and hasattr(engine, "write_file"):
+            engine.write_file(file, content,
+                              reason=f"EDITH approved: {item.payload.get('instruction', '')}")
+        else:
+            abs_path.parent.mkdir(parents=True, exist_ok=True)
+            abs_path.write_text(content, encoding="utf-8")
+        return ApplyResult(applied_to=str(abs_path), backup=backup)
 
     def _rollback_item(self, item) -> None:
         from core.approval_queue import ApprovalQueue
@@ -272,16 +352,35 @@ class Edith:
                          body, tags=["edith", "audit"], type="audit", mode="append")
 
     # ── the loop ─────────────────────────────────────────────────────────
-    def run_once(self, apply_green: bool = True) -> dict:
+    def run_once(self, apply_green: bool = True,
+                 code_targets: Optional[dict] = None) -> dict:
         # When apply_green is False this is a pure DRY RUN — it must not write
         # anything (no vault.ensure(), no audit log). Only an applying run
         # touches disk.
+        #
+        # code_targets (opt-in, default none): a curated {signature: (file,
+        # instruction)} map. For an observed weakness whose signature is in it,
+        # EDITH DRAFTS REAL CODE (via propose_code → sandbox → queue) instead of a
+        # lesson. It only ever touches files YOU listed — EDITH never guesses
+        # which file to rewrite (that's how you brick yourself). Green lessons
+        # remain the default for everything else.
         if apply_green:
             self.vault.ensure()
         weaknesses = self.observe()
         report = {"observed": len(weaknesses), "decisions": [], "applied": apply_green}
         log_entries = []
         for w in weaknesses:
+            if apply_green and code_targets and w.signature in code_targets:
+                file, instruction = code_targets[w.signature]
+                res = self.propose_code(file, instruction)
+                rec = {"sig": w.signature, "tier": "red", "kind": "code",
+                       "action": ("human_gate" if res.get("status") == "queued"
+                                  else res.get("status", "failed")),
+                       "reason": res.get("why") or (res.get("report", {}) or {}).get("why", ""),
+                       "applied_to": "", "queued_id": res.get("queued_id", "")}
+                report["decisions"].append(rec)
+                log_entries.append(rec)
+                continue
             change = self.propose(w)
             change.tier = self.tier(change)
             proof = self.prove(change)

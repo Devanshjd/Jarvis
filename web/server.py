@@ -221,6 +221,21 @@ def api_edith_rollback(payload: EdithItemRequest):
     return edith_rollback(payload.id)
 
 
+class EdithProposeCodeRequest(BaseModel):
+    file: str = Field(min_length=1)          # repo-relative, core/ or plugins/ only
+    instruction: str = Field(min_length=1)   # what to improve
+
+
+@app.post("/api/edith/propose_code")
+def api_edith_propose_code(payload: EdithProposeCodeRequest):
+    """EDITH drafts a real code change (local coder model) → sandbox-tests it →
+    parks a passing draft in the approval queue for review. Applies nothing; the
+    draft can take 30–130 s on the coder model. A failed draft returns the honest
+    error instead of queuing. Token-guarded (writes to the vault/sandbox)."""
+    from core.live_integration import edith_propose_code
+    return edith_propose_code(payload.file, payload.instruction)
+
+
 class EscalateRequest(BaseModel):
     problem: str = Field(min_length=1)
     context: str = ""

@@ -392,7 +392,7 @@ not size — so the roadmap is polish/trust, not more/bigger models.
 control, native Windows keyboard/mouse/app control, and screen/OCR fallback all
 share one scoped, observable, human-gated execution loop.
 
-**Core contract to build (Claude):** extend the existing `/api/desktop/*` safety
+**Core contract (Claude — delivered in `afa56b2`):** extends the existing `/api/desktop/*` safety
 model into a single session coordinator: `observe -> propose -> approve one typed
 action -> execute -> verify -> audit -> stop`. A session must bind to a task, a
 TTL, and either one Windows app or an explicit browser-origin allowlist. Browser
@@ -412,3 +412,26 @@ pages and stubbed native primitives for tests — never live job sites.
 browser/app scope chips, live page/window evidence, typed action timeline,
 verification/recovery display, profile/file chooser, and a final submission-review
 gate. The existing CONTROL tab is the native-control foundation, not a duplicate.
+
+**Security correction required (Claude):** Codex independently reproduced that
+`DesktopController._blocked()` only inspected native-style action fields
+(`text/app/target/keys`), so a browser `click_dom` action with a selector such as
+`button#buy-now` returned `None` instead of a financial hard block. The desktop
+console now defensively refuses to queue credential/CAPTCHA/financial-looking
+browser actions, but this is not sufficient: extend the backend matcher to cover
+`url/selector/value/path` for every browser action and add direct regression tests
+before calling the browser money/CAPTCHA guard complete.
+
+- `2026-07-30 · Codex` — Upgraded desktop **CONTROL** into the unified Computer
+  Use operator console. It now starts app and/or browser-origin scoped sessions;
+  displays live page URL/title and extracted DOM evidence; lets the operator queue
+  typed `navigate/extract/click/fill/select/upload/screenshot` browser actions;
+  requires sequential step approval; displays URL/window verification and a
+  combined audit; and gives submissions a separate review checkbox plus
+  `confirm:true` execution. Native control, Stop, and the browser screenshot
+  evidence remain in the same console. Browser action drafts are additionally
+  client-blocked for credential/CAPTCHA/financial-looking values until the core
+  matcher correction above lands. Verified `npm run typecheck` + `npm run build`,
+  `training/test_desktop_control.py` **15/15**, and real local-fixture headless
+  Chromium `training/test_browser_control.py` **5/5**. No session was enabled and
+  no browser/native action ran against a live target.

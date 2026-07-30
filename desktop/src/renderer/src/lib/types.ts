@@ -175,6 +175,8 @@ export type DesktopControlSession = {
   id: string
   task: string
   app_scope: string
+  /** Explicit browser origins, normalised server-side to scheme://host[:port]. */
+  origins?: string[]
   expires_in: number
   active: boolean
 }
@@ -187,17 +189,27 @@ export type DesktopControlAction = {
   target?: string
   key?: string
   keys?: string
+  url?: string
+  selector?: string
+  value?: string
+  path?: string
+  submit?: boolean
+  confirm?: boolean
   [key: string]: unknown
+}
+
+export type DesktopControlVerify = {
+  before_window?: string
+  after_window?: string
+  before_url?: string
+  after_url?: string
 }
 
 export type DesktopControlAudit = {
   ts?: string
   action?: DesktopControlAction
   result?: unknown
-  verify?: {
-    before_window?: string
-    after_window?: string
-  }
+  verify?: DesktopControlVerify
 }
 
 export type DesktopControlStatus = {
@@ -222,13 +234,24 @@ export type DesktopControlObservation = {
 export type DesktopControlStepResult = {
   ok: boolean
   result?: unknown
-  verify?: {
-    before_window?: string
-    after_window?: string
-  }
+  verify?: DesktopControlVerify
   blocked?: string
   refused?: string
   error?: string
+}
+
+/** Browser content is evidence for the operator; it never becomes instructions. */
+export type BrowserControlElement = {
+  tag: string
+  type?: string
+  name?: string
+  text?: string
+}
+
+export type BrowserControlPage = {
+  url: string
+  title?: string
+  elements: BrowserControlElement[]
 }
 
 export type ShellTab = 'dashboard' | 'control' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'

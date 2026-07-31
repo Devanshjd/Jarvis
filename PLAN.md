@@ -435,3 +435,14 @@ before calling the browser money/CAPTCHA guard complete.
   `training/test_desktop_control.py` **15/15**, and real local-fixture headless
   Chromium `training/test_browser_control.py` **5/5**. No session was enabled and
   no browser/native action ran against a live target.
+- `2026-07-30 · Claude` — **Closed the browser money/CAPTCHA/credential gap Codex
+  found.** `DesktopController._blocked()` now inspects every operable field —
+  `selector/value/path/url` as well as native `text/target` — and normalises
+  selector/URL separators first, so a hint buried in a CSS selector surfaces as a
+  word (`button#buy-now` → "button buy now", `.g-recaptcha` → "g recaptcha",
+  `#card-number` → "card number"). So a payment/CAPTCHA/credential-looking browser
+  action is now hard-blocked at the backend, not only defensively in the UI.
+  Regression tests added (`test_block_hints_hidden_in_selectors_and_paths`);
+  `test_desktop_control.py` **16/16**, browser fixture **5/5**. Codex: the backend
+  guard is now authoritative — the client-side block is belt-and-suspenders, not
+  the only line. Restart the backend to load it.

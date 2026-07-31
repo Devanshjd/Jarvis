@@ -235,9 +235,21 @@ class DesktopController:
                          "Couldn't parse this into safe steps — provide explicit actions.")}
 
     # ── safety gate for a single action ──────────────────────────────────
+    # Every field an action can carry — native AND browser. A payment/CAPTCHA/
+    # credential hint hiding in a CSS selector, value, path or URL (e.g.
+    # `button#buy-now`, `#card-number`, `.g-recaptcha`) must be caught, not just
+    # native `text`/`target`. (Gap found by Codex.)
+    _BLOCK_FIELDS = ("text", "app", "target", "keys", "label",
+                     "selector", "value", "path", "url")
+
     def _blocked(self, action: dict) -> Optional[str]:
         kind = action.get("action")
-        blob = " ".join(str(action.get(k, "")) for k in ("text", "app", "target", "keys"))
+        raw = " ".join(str(action.get(k, "")) for k in self._BLOCK_FIELDS)
+        # Normalise selector/URL separators so a hint inside them surfaces as a
+        # word: "button#buy-now" → "button buy now", ".g-recaptcha" → "g recaptcha".
+        # (Keep quotes — word boundaries still catch 'cvv'; stripping them would
+        # break "I'm not a robot".)
+        blob = re.sub(r"[-_./#:?\[\]=&]+", " ", raw)
         task = self._session.task if self._session else ""
         if _CREDENTIAL_RE.search(blob):
             return "refuses to enter passwords / credentials / secrets — please type it yourself"

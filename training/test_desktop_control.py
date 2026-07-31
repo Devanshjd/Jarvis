@@ -207,6 +207,28 @@ def test_browser_actions_need_a_session_allowlist() -> None:
         assert r.get("refused"), "a native-only session can't drive the browser"
 
 
+def test_block_hints_hidden_in_selectors_and_paths() -> None:
+    # The gap Codex found: money/CAPTCHA/credential hints buried in a CSS selector,
+    # value, path or URL must be hard-blocked, not just native text/target.
+    with tempfile.TemporaryDirectory() as d:
+        c = _browser_controller(Path(d))
+        cases = [
+            {"action": "click_dom", "selector": "button#buy-now"},          # financial
+            {"action": "click_dom", "selector": "a.proceed-to-checkout"},   # financial
+            {"action": "click_dom", "selector": "div.g-recaptcha"},         # CAPTCHA
+            {"action": "fill", "selector": "#card-number", "text": "4111"},  # credential
+            {"action": "fill", "selector": "input[name=cvv]", "text": "123"},  # credential
+            {"action": "upload", "selector": "#f", "path": "C:/secret-api-key.txt"},  # credential
+        ]
+        for a in cases:
+            r = c.execute(a)
+            assert r.get("blocked"), f"should be hard-blocked: {a} -> {r}"
+        assert c._browser.calls == [], "a blocked browser action must never reach the driver"
+        # ...but a benign browser action still goes through.
+        ok = c.execute({"action": "click_dom", "selector": "a.next-page"})
+        assert ok["ok"] is True, ok
+
+
 def main() -> None:
     tests = [
         ("off by default refuses", test_off_by_default_refuses),
@@ -224,6 +246,7 @@ def main() -> None:
         ("browser submission needs confirm", test_browser_submission_needs_explicit_confirm),
         ("browser credential text blocked", test_browser_credential_text_blocked),
         ("browser needs session allowlist", test_browser_actions_need_a_session_allowlist),
+        ("block hints hidden in selectors/paths", test_block_hints_hidden_in_selectors_and_paths),
     ]
     print("=" * 64)
     print(" DESKTOP-CONTROL SAFETY TESTS")

@@ -1517,6 +1517,16 @@ export class JarvisGeminiLive {
     })
   }
 
+  /** Halt only audio already scheduled in the renderer. The live session and any
+   * in-flight model generation remain active; that distinction stays visible to
+   * the operator instead of pretending a spoken "wait" cancelled the whole turn. */
+  interruptSpeech(): boolean {
+    const wasSpeaking = this.playbackSources.size > 0 || this.state.speaking
+    this.stopPlayback()
+    this.nextStartTime = 0
+    return wasSpeaking
+  }
+
   async stop(resetError = true) {
     if (this.socket?.readyState === WebSocket.OPEN) {
       try {

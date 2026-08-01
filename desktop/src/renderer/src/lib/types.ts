@@ -131,6 +131,17 @@ export type VoiceStatus = {
   source?: 'renderer' | 'backend'
 }
 
+/** Measured host/Piper playback state from GET /api/voice/timing. */
+export type VoiceTiming = {
+  speaking: boolean
+  last: {
+    chunks?: number
+    first_audio_ms?: number | null
+    total_ms?: number | null
+    cancelled?: boolean
+  } | null
+}
+
 export type ChatMessage = {
   id: number
   role: string

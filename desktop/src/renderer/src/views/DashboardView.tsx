@@ -7,6 +7,7 @@ import {
   RiMicLine,
   RiMicOffLine,
   RiPhoneFill,
+  RiStopCircleLine,
   RiTempColdLine,
   RiTerminalBoxLine,
   RiTimerLine,
@@ -20,6 +21,7 @@ import type {
   ChatMessage,
   RuntimeStatus,
   SystemStatsResult,
+  VoiceTiming,
   VoiceStatus
 } from '../lib/types'
 import { formatRole, shortTime } from '../lib/types'
@@ -43,11 +45,13 @@ export interface DashboardViewProps {
   audioLevel: number
   activity: ActivityStatus
   stillWorking: boolean
+  voiceTiming: VoiceTiming | null
   onSend: () => void
   onRefresh: () => void
   onToggleVision: () => void
   onToggleVoice: () => void
   onToggleMic: () => void
+  onStopSpeech: () => void
   onSetDashboardVision: (s: 'none' | 'camera' | 'screen') => void
   onCameraStreamReady?: (stream: MediaStream | null) => void
   onLocalVoice?: () => void
@@ -60,7 +64,7 @@ export default function DashboardView(props: DashboardViewProps) {
     busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     activity, stillWorking,
-    onSend, onToggleVision, onToggleVoice, onToggleMic,
+    voiceTiming, onSend, onToggleVision, onToggleVoice, onToggleMic, onStopSpeech,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
 
@@ -95,13 +99,24 @@ export default function DashboardView(props: DashboardViewProps) {
           : geminiConfigured === false
             ? 'GEMINI UNCONFIGURED'
             : 'VOICE STATUS UNKNOWN'
-  const voiceCoreText = voiceError
-    ? 'VOICE DISCONNECTED'
-    : voiceConnecting
-      ? 'VOICE CORE CONNECTING'
-      : voiceLive
-        ? (voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE')
-        : 'VOICE CORE STANDBY'
+  const backendSpeaking = Boolean(voiceTiming?.speaking)
+  const rendererSpeaking = Boolean(voice?.speaking)
+  const speechActive = backendSpeaking || rendererSpeaking
+  const voiceCoreText = backendSpeaking
+    ? 'PIPER SPEAKING'
+    : rendererSpeaking
+      ? 'GEMINI SPEAKING'
+      : voiceError
+        ? 'VOICE DISCONNECTED'
+        : voiceConnecting
+          ? 'VOICE CORE CONNECTING'
+          : voiceLive
+            ? (voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE')
+            : 'VOICE CORE STANDBY'
+  const timing = voiceTiming?.last
+  const timingText = timing?.first_audio_ms != null
+    ? `PIPER FIRST AUDIO ${timing.first_audio_ms}MS // ${timing.chunks ?? 0} CHUNK${timing.chunks === 1 ? '' : 'S'}${timing.cancelled ? ' // CANCELLED' : ''}`
+    : null
   const visionText = visionUnavailable
     ? 'VISION UNAVAILABLE'
     : activeVisionSource === 'screen'
@@ -310,9 +325,17 @@ export default function DashboardView(props: DashboardViewProps) {
               {voiceLive && !voiceMuted ? <RiMicLine size={20} /> : <RiMicOffLine size={20} />}
             </button>
             {/* Local (offline) voice — click to record, click to stop */}
+            {speechActive ? <button
+              data-testid="dashboard-stop-speech"
+              onClick={onStopSpeech}
+              title="Stop current speech. An in-flight response may continue generating."
+              className="flex items-center gap-2 rounded-full border border-red-500/45 bg-red-500/15 px-3 py-2 text-[9px] font-black tracking-[0.14em] text-red-200 transition-colors hover:bg-red-500/25"
+            >
+              <RiStopCircleLine size={16} /> WAIT
+            </button> : null}
             <button
               data-testid="dashboard-localvoice-button"
-              onClick={onLocalVoice}
+              onClick={backendSpeaking ? onStopSpeech : onLocalVoice}
               title="Local voice (offline) — click to talk, click to stop"
               className={`flex items-center gap-2 rounded-full px-3 py-2 text-[9px] font-bold tracking-[0.14em] transition-colors ${
                 localVoiceState === 'recording'
@@ -361,6 +384,7 @@ export default function DashboardView(props: DashboardViewProps) {
           )}
 
           {/* Messages */}
+          {timingText ? <div data-testid="voice-timing" className={`mb-3 rounded-xl border px-3 py-2 text-[9px] font-mono tracking-[0.12em] ${timing?.cancelled ? 'border-amber-500/25 bg-amber-500/5 text-amber-200' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-200'}`}>{timingText}</div> : null}
           <div ref={scrollRef} className="scrollbar-small min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-zinc-700">

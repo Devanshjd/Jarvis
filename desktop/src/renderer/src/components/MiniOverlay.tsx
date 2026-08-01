@@ -5,6 +5,7 @@ import {
   RiMicLine,
   RiMicOffLine,
   RiPhoneFill,
+  RiStopCircleLine,
   RiDragMove2Line,
   RiExpandUpDownLine,
   RiExpandLeftRightFill
@@ -14,11 +15,13 @@ type MiniOverlayProps = {
   voiceActive: boolean
   voiceConnecting: boolean
   micMuted: boolean
+  voiceSpeaking: boolean
   visionActive: boolean
   lastTranscript: string
   onToggleVoice: () => void
   onToggleMic: () => void
   onToggleVision: () => void
+  onStopSpeech: () => void
   onExpand: () => void
 }
 
@@ -26,11 +29,13 @@ export default function MiniOverlay({
   voiceActive,
   voiceConnecting,
   micMuted,
+  voiceSpeaking,
   visionActive,
   lastTranscript,
   onToggleVoice,
   onToggleMic,
   onToggleVision,
+  onStopSpeech,
   onExpand
 }: MiniOverlayProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -132,6 +137,15 @@ export default function MiniOverlay({
             <RiPhoneFill size={16} className={voiceConnecting ? 'animate-pulse' : ''} />
           </button>
 
+          {voiceSpeaking ? <button
+            data-testid="overlay-stop-speech"
+            onClick={onStopSpeech}
+            title="Stop current speech"
+            className="rounded-full bg-red-500/15 p-2 text-red-300 transition-colors hover:bg-red-500/25"
+          >
+            <RiStopCircleLine size={16} />
+          </button> : null}
+
           {/* Mic */}
           <button
             onClick={onToggleMic}
@@ -167,7 +181,7 @@ export default function MiniOverlay({
 
         {/* Status line */}
         <div className="text-[8px] font-mono tracking-[0.3em] text-zinc-600">
-          {voiceConnecting ? 'CONNECTING' : voiceActive ? (micMuted ? 'MUTED' : 'LIVE') : 'STANDBY'}
+          {voiceSpeaking ? 'SPEAKING' : voiceConnecting ? 'CONNECTING' : voiceActive ? (micMuted ? 'MUTED' : 'LIVE') : 'STANDBY'}
         </div>
       </div>
     </motion.div>

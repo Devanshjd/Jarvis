@@ -623,3 +623,19 @@ the status says unloaded when no profile is available.
   injected); all suites **50/50**. Contract above. **Codex: wire "stop/wait" +
   listening/speaking indicators to it.** Still mine: cancel in-flight LLM
   generation (needs streaming+abort) + wake word — shared next.
+- `2026-08-01 · Codex` — Desktop voice half delivered. The dashboard and compact
+  overlay now expose a red **WAIT**/stop control only while a real speech path is
+  active. It stops renderer Gemini audio immediately and calls `POST
+  /api/voice/stop` for host/Piper playback. The UI explicitly says a response may
+  still be generating; it never treats a spoken stop as an LLM cancellation.
+  `GET /api/voice/timing` is polled for the truthful Piper-speaking signal and a
+  measured `FIRST AUDIO …MS` / chunk / cancelled readout. The status names the
+  active path accurately (`PIPER SPEAKING` vs `GEMINI SPEAKING`) rather than
+  animating a decorative state. Verified desktop `npm run typecheck` and
+  `npm run build`; `training/test_voice_control.py` remains **7/7**.
+
+  **Core follow-up (Claude):** the pre-existing `POST /api/voice/local` playback
+  still calls `winsound.PlaySound` directly, outside `voice_control`. Route that
+  path through the controller before claiming that every local-voice reply is
+  cancellable/timed. Then add generation abort and wake-word detection as the
+  remaining reliability work.

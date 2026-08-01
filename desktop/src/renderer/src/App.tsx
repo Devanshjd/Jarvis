@@ -36,6 +36,7 @@ import type {
   RuntimeStatus,
   ShellTab,
   SystemStatsResult,
+  VoiceTiming,
   VoiceStatus
 } from './lib/types'
 import {
@@ -74,6 +75,7 @@ export default function App() {
   const [status, setStatus] = useState<RuntimeStatus | null>(null)
   const [activity, setActivity] = useState<ActivityStatus>(IDLE_ACTIVITY)
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null)
+  const [voiceTiming, setVoiceTiming] = useState<VoiceTiming | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -255,6 +257,28 @@ export default function App() {
         // Keep the last honest state when the backend is briefly restarting.
       } finally {
         inFlight = false
+      }
+    }
+    void poll()
+    const id = window.setInterval(() => void poll(), 500)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [])
+
+  // Piper playback happens on the backend host. Keep this separate from the
+  // Gemini renderer audio state so the UI can say exactly which speech path is
+  // active and expose measured latency without inventing a speaking state.
+  useEffect(() => {
+    let alive = true
+    const poll = async (): Promise<void> => {
+      try {
+        const next = await fetchJson<VoiceTiming>(`${API_BASE}/api/voice/timing`)
+        if (alive) setVoiceTiming({
+          speaking: Boolean(next.speaking),
+          last: next.last && typeof next.last === 'object' ? next.last : null
+        })
+      } catch {
+        // A backend restart should not turn an uncertain state into a fake
+        // speaking indicator. Keep the last successful timing snapshot.
       }
     }
     void poll()
@@ -640,6 +664,27 @@ export default function App() {
     }
   }
 
+  async function stopVoiceOutput() {
+    const rendererStopped = voiceBridgeRef.current?.interruptSpeech() ?? false
+    try {
+      const result = await fetchJson<{ stopped?: boolean; was_speaking?: boolean }>(`${API_BASE}/api/voice/stop`, {
+        method: 'POST'
+      })
+      const backendStopped = Boolean(result.was_speaking)
+      setVoiceTiming((current) => current ? {
+        ...current,
+        speaking: false,
+        last: current.last ? { ...current.last, cancelled: backendStopped || current.speaking || current.last.cancelled } : current.last
+      } : current)
+      if (rendererStopped || backendStopped) appendShellSystemMessage('Speech stopped. Any in-flight response may still finish generating.')
+      else appendShellSystemMessage('No controllable speech was playing.')
+      await refreshAll(false)
+    } catch (err) {
+      if (rendererStopped) appendShellSystemMessage('Renderer speech stopped. The backend stop request did not complete.')
+      else setError(`Speech stop failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   function toggleMic() {
     if (!voiceStatus?.active && !voiceStatus?.connecting) {
       appendShellSystemMessage('Voice core is offline. Start it first.')
@@ -713,6 +758,7 @@ export default function App() {
   const currentTask = snapshot?.tasks?.[0] ? extractTaskSummary(snapshot.tasks[0]) : 'NONE'
   const lastTranscript = voiceStatus?.last_output || voiceStatus?.last_input || ''
   const orbActivity = resolveOrbActivity(activity, voiceStatus, localVoiceState, busy)
+  const voiceSpeaking = Boolean(voiceStatus?.speaking || voiceTiming?.speaking)
 
   // ─── Page transition config ───
   const viewTransition = { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }
@@ -734,11 +780,13 @@ export default function App() {
           voiceActive={Boolean(voiceStatus?.active)}
           voiceConnecting={Boolean(voiceStatus?.connecting)}
           micMuted={Boolean(voiceStatus?.mic_muted)}
+          voiceSpeaking={voiceSpeaking}
           visionActive={visionSource !== 'none'}
           lastTranscript={lastTranscript}
           onToggleVoice={() => void toggleVoice()}
           onToggleMic={toggleMic}
           onToggleVision={() => void toggleVision()}
+          onStopSpeech={() => void stopVoiceOutput()}
           onExpand={() => setOverlayMode(false)}
         />
       </AnimatePresence>
@@ -800,10 +848,12 @@ export default function App() {
                   busy={busy} visionSource={visionSource}
                   dashboardVisionSource={dashboardVisionSource}
                   systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
+                  voiceTiming={voiceTiming}
                   onSend={() => void sendPrompt()} onRefresh={() => void refreshAll()}
                   onToggleVision={() => void toggleVision()}
                   onToggleVoice={() => void toggleVoice()}
                   onToggleMic={() => toggleMic()}
+                  onStopSpeech={() => void stopVoiceOutput()}
                   onSetDashboardVision={handleSetDashboardVision}
                   onCameraStreamReady={handleCameraStreamReady}
                   onLocalVoice={() => void handleLocalVoice()}

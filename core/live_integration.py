@@ -46,6 +46,17 @@ def crew_context() -> str:
     return _CREW
 
 
+def persona_context() -> str:
+    """JARVIS's one personality (calm/sharp/concise + honesty rule) plus the
+    facts it truly knows about the owner. Always on — tone and the never-pretend
+    rule apply to every turn, on text and voice alike. Empty on error."""
+    try:
+        from core.persona import persona_prompt
+        return persona_prompt()
+    except Exception:
+        return ""
+
+
 def recall_context(text: str, k: int = 2) -> str:
     """Pull relevant knowledge from the Obsidian vault to ground the answer.
     Returns a context block for the system prompt, or '' (flag off / no hits /

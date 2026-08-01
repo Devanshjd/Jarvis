@@ -489,7 +489,17 @@ class HeadlessJarvisRuntime(JarvisRuntime):
             "agent_loop": self.agent_loop.get_status(),
             "struggle": self.struggle_detector.get_status(),
             "activity": self._activity_snapshot(),
+            "persona": self._persona(),
         }
+
+    def _persona(self) -> dict[str, Any]:
+        """PII-free persona status (loaded + tone knobs) — never the free-text
+        instructions. Honest: unloaded when no profile is saved."""
+        try:
+            from core.persona import persona_status
+            return persona_status()
+        except Exception as exc:
+            return {"loaded": False, "error": str(exc)[:120]}
 
     def _activity_snapshot(self) -> dict[str, Any]:
         """Real-time 'what is JARVIS doing' for the orb UI (see core/activity_state)."""

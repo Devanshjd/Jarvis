@@ -2789,7 +2789,12 @@ class TaskOrchestrator:
         # confabulating old agent names) and grounds the answer in its durable
         # vault memory. No-op when the flag is off.
         try:
-            from core.live_integration import recall_context, crew_context
+            from core.live_integration import recall_context, crew_context, persona_context
+            # Persona first: one honest personality (tone + the never-pretend rule)
+            # for text and voice. Always on.
+            persona = persona_context()
+            if persona:
+                full_system += f"\n\n{persona}"
             crew = crew_context()
             if crew:
                 full_system += f"\n\n{crew}"

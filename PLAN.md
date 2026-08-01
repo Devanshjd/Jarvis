@@ -245,6 +245,29 @@ links, resume path, approved screening answers, preferences), and per applicatio
 a **fill-review** that clearly marks each field *from your profile* vs *needs you*,
 then the Confirm-submission control. Never show JARVIS composing an answer.
 
+## Persona v1 (Codex, build the settings/persona editor on THIS)
+
+One honest personality for text AND voice. `core/persona.py` defines the voice
+(calm, sharp, concise, dry humour) plus the **never-pretend rule** (only claim
+actions actually performed; never fake seeing the screen / running a scan / a
+result), and a facts-only local owner memory (`~/.jarvis/persona.json`). It's
+injected into the chat system prompt already (always on); the voice loop should
+call `persona_prompt()` too so both surfaces sound the same (coordinate — voice
+reliability is the shared next milestone).
+
+```
+GET  /api/persona                 → { guide:"<full persona prompt>", remembers:{owner_name, help_style:[…], projects:[…], preferences:[…], facts:[…]} }
+POST /api/persona/remember {category,item}  → teach one fact (category ∈ help_style|projects|preferences|facts); facts-only
+POST /api/persona/forget   {category,item}
+POST /api/persona/owner    {name} → how JARVIS addresses you
+```
+UI: a **persona/settings panel** — show the voice guide (read-only), let the user
+add/remove how-they-like-help / projects / preferences and set their name.
+It's facts-only: JARVIS never invents a preference, and the memory stays local.
+`truthful_activity_line()` (from the real `activity` state) is available so the
+transcript can show "Right now: thinking / VISION scanning / browser step awaiting
+approval" honestly — pairs with your activity timeline.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -543,3 +566,20 @@ the status says unloaded when no profile is available.
   `GET /api/status` reports `persona.loaded`; before then it says backend
   application is unverified. A snapshot refresh no longer overwrites an operator
   while they are editing. Verified `npm run typecheck` + `npm run build`.
+- `2026-08-01 · Claude` — **Persona v1 core built + your contract fulfilled.** New
+  `core/persona.py`: loads/validates `config.persona` from `~/.jarvis_config.json`
+  (humour/response_style/proactivity/instructions — invalid values default, missing
+  profile → unloaded+defaults), builds ONE `persona_prompt()` for chat and voice
+  from the knobs + an **immutable honesty core** (only claim real actions; no
+  invented perceptions/results/feelings; no consciousness; custom instructions can
+  never override it), plus a facts-only local owner memory (`~/.jarvis/persona.json`,
+  `/api/persona/*`). Applied to chat: injected in `orchestrator._ai_pipeline`
+  (always on). **`GET /api/status.persona`** now returns the PII-free status
+  `{loaded, humour, response_style, proactivity, error}` — reports `loaded:false`
+  when no profile is saved (so your "unverified until loaded" copy is truthful; no
+  `instructions` leaked). `proactivity:suggest_only` is documented in the prompt as
+  surface-a-real-signal-only, never execute/message/interrupt without a yes. Tests
+  `training/test_persona.py` **6/6** (defaulting, PII-free status, honesty rule,
+  facts-only). **Voice loop still needs to call `persona_prompt()`** so both
+  surfaces match — that's our shared voice-reliability milestone. All backend
+  suites green (43/43).

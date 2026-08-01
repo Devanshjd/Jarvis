@@ -87,6 +87,7 @@ _PROTECTED_PREFIXES = (
     "/api/escalate",     # can reach the cloud rung (opt-in)
     "/api/desktop/",     # can drive the real keyboard/mouse (gated, scoped)
     "/api/jobs/",        # holds/returns PII (job profile, fill plans)
+    "/api/persona/",     # writes the local persona/preferences store
 )
 
 
@@ -366,6 +367,55 @@ def api_jobs_rank(payload: JobRankRequest):
     from core.job_profile import JobProfile
     from core.job_apply import rank_listings
     return {"ranked": rank_listings(payload.listings, JobProfile())}
+
+
+# ═══════════════════════════════════════════
+# Persona v1 — one honest personality (text + voice) + facts-only owner memory
+# ═══════════════════════════════════════════
+class PersonaRememberRequest(BaseModel):
+    category: str = Field(min_length=1)      # help_style | projects | preferences | facts
+    item: str = Field(min_length=1)
+
+
+class PersonaOwnerRequest(BaseModel):
+    name: str = ""
+
+
+@app.get("/api/persona")
+def api_persona_get():
+    """The persona guide (how JARVIS speaks + the never-pretend rule) and the
+    facts-only things it remembers about you."""
+    from core.persona import Preferences, persona_prompt
+    return {"guide": persona_prompt(), "remembers": Preferences().summary()}
+
+
+@app.post("/api/persona/remember")
+def api_persona_remember(payload: PersonaRememberRequest):
+    """Teach JARVIS one fact about how you like help / what you're working on.
+    Facts-only, stored locally; unknown categories are rejected."""
+    from core.persona import Preferences
+    p = Preferences()
+    added = p.remember(payload.category, payload.item)
+    p.save()
+    return {"added": added, "remembers": p.summary()}
+
+
+@app.post("/api/persona/forget")
+def api_persona_forget(payload: PersonaRememberRequest):
+    from core.persona import Preferences
+    p = Preferences()
+    removed = p.forget(payload.category, payload.item)
+    p.save()
+    return {"removed": removed, "remembers": p.summary()}
+
+
+@app.post("/api/persona/owner")
+def api_persona_owner(payload: PersonaOwnerRequest):
+    """Set how JARVIS addresses you."""
+    from core.persona import Preferences
+    p = Preferences().set_owner(payload.name)
+    p.save()
+    return {"remembers": p.summary()}
 
 
 class EscalateRequest(BaseModel):

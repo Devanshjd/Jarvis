@@ -715,3 +715,20 @@ proactivity, must return no screenshot/OCR/window-title payload, and must be
 covered by tests for deduplication, opt-out, and no-action behavior. Health data
 and mobile/wearable collection are later, separately consented non-medical work;
 they are not part of this laptop slice.
+
+- `2026-08-02 · Claude` — **`GET /api/proactive/status` built to the contract.**
+  New `core/proactive_signals.py`: per-source consent store (default OFF,
+  `~/.jarvis/proactive.json`) + `collect()` that surfaces deterministic,
+  attributable, **content-free** signals — counts/summaries only, never a
+  screenshot/OCR/title. Sources: **battery** (real, via psutil — low+discharging),
+  **screen_errors** (content-free repeat COUNT from the screen monitor **if one is
+  active**; honest None headless — no monitor, no signal), calendar reserved.
+  Persona `proactivity:off` is a hard master gate. `POST /api/proactive/consent
+  {source,on}` (token-guarded) is the explicit per-source opt-in screen signals
+  require. **No action is ever taken — it only reports; suggestions are questions.**
+  Tests `training/test_proactive_signals.py` **9/9** (default-off, opt-out-not-
+  observed, content-free, dedup stable id, no-action, persona-off gate, battery
+  thresholds, severity). All suites **62/62**. Loads on next backend restart.
+  **Codex: wire a second "Ambient Signals" card + per-source toggles to
+  `/api/proactive/status` + `/api/proactive/consent` — same one-notification,
+  dedup, no-action treatment as the JARVIS-EXECUTION card.**

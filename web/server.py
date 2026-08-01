@@ -88,6 +88,7 @@ _PROTECTED_PREFIXES = (
     "/api/desktop/",     # can drive the real keyboard/mouse (gated, scoped)
     "/api/jobs/",        # holds/returns PII (job profile, fill plans)
     "/api/persona/",     # writes the local persona/preferences store
+    "/api/proactive/",   # writes the proactive-signal consent store
 )
 
 
@@ -416,6 +417,68 @@ def api_persona_owner(payload: PersonaOwnerRequest):
     p = Preferences().set_owner(payload.name)
     p.save()
     return {"remembers": p.summary()}
+
+
+# ═══════════════════════════════════════════
+# Ambient Assistance — opt-in user-context signals (deterministic, content-free)
+# Separate from /api/struggle/status (JARVIS's own execution struggle).
+# ═══════════════════════════════════════════
+class ProactiveConsentRequest(BaseModel):
+    source: str = Field(min_length=1)        # screen_errors | battery | calendar
+    on: bool
+
+
+def _battery_observation():
+    """Content-free battery reading, or None."""
+    try:
+        import psutil
+        b = psutil.sensors_battery()
+        if b is None:
+            return None
+        return {"percent": int(b.percent), "discharging": not bool(b.power_plugged)}
+    except Exception:
+        return None
+
+
+def _screen_errors_observation():
+    """A content-free COUNT of repeated on-screen errors from the screen monitor,
+    if one is active — NEVER a screenshot / OCR text / window title. None when no
+    monitor is available (honest: consented but nothing to observe)."""
+    try:
+        rt = get_runtime()
+        sm = getattr(rt, "screen_monitor", None) or getattr(
+            getattr(rt, "jarvis", None), "screen_monitor", None)
+        if sm is None:
+            return None
+        score = int(getattr(sm, "struggle_score", 0) or 0)   # a number, not content
+        return {"count": score // 10} if score >= 30 else None
+    except Exception:
+        return None
+
+
+@app.get("/api/proactive/status")
+def api_proactive_status():
+    """Opt-in user-context signals — DEFAULT OFF. Each item is deterministic +
+    attributable (never emotion/health), content-free (no screenshot/OCR/title),
+    and carries a suggestion only — no action is ever taken here. The Persona
+    `proactivity` switch is the master gate (`off` ⇒ nothing surfaces)."""
+    from core.proactive_signals import Consent, collect
+    from core.persona import load_persona_config
+    proactivity = load_persona_config().get("proactivity", "suggest_only")
+    providers = {"battery": _battery_observation,
+                 "screen_errors": _screen_errors_observation}
+    return collect(Consent(), providers, proactivity=proactivity)
+
+
+@app.post("/api/proactive/consent")
+def api_proactive_consent(payload: ProactiveConsentRequest):
+    """Opt a single signal source in/out (default OFF). This is the explicit
+    per-source setting screen signals require, beyond Persona proactivity."""
+    from core.proactive_signals import Consent
+    c = Consent()
+    ok = c.set(payload.source, payload.on)
+    c.save()
+    return {"ok": ok, "sources": c.summary()}
 
 
 class EscalateRequest(BaseModel):

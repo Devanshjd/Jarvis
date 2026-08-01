@@ -86,6 +86,7 @@ _PROTECTED_PREFIXES = (
     "/api/edith/",       # can write to the vault when apply=true
     "/api/escalate",     # can reach the cloud rung (opt-in)
     "/api/desktop/",     # can drive the real keyboard/mouse (gated, scoped)
+    "/api/jobs/",        # holds/returns PII (job profile, fill plans)
 )
 
 
@@ -314,6 +315,57 @@ def api_desktop_step(payload: DesktopStepRequest):
     verified against the window state, and audited."""
     from core.desktop_control import get_controller
     return get_controller().execute(payload.action)
+
+
+# ═══════════════════════════════════════════
+# Job Application Mode — plans on top of the gated browser (facts-only, no invent)
+# ═══════════════════════════════════════════
+class JobProfileSetRequest(BaseModel):
+    data: dict                               # identity/links/resume_path/approved_answers/preferences
+
+
+class JobPlanFillRequest(BaseModel):
+    fields: list[dict]                       # extracted form fields (from /api/desktop/step extract)
+
+
+class JobRankRequest(BaseModel):
+    listings: list[dict]
+
+
+@app.get("/api/jobs/profile")
+def api_jobs_profile_get():
+    """PII-FREE summary — which facts are on file, never their values."""
+    from core.job_profile import JobProfile
+    return JobProfile().summary()
+
+
+@app.post("/api/jobs/profile")
+def api_jobs_profile_set(payload: JobProfileSetRequest):
+    """Save your approved facts locally (~/.jarvis/job_profile.json — never the repo)."""
+    from core.job_profile import JobProfile
+    p = JobProfile().set(payload.data)
+    p.save()
+    return p.summary()
+
+
+@app.post("/api/jobs/plan_fill")
+def api_jobs_plan_fill(payload: JobPlanFillRequest):
+    """Map a page's extracted form fields to a fill plan: concrete actions whose
+    values came verbatim from your profile, plus the fields handed back to you.
+    Nothing is filled here — the actions run through the gated /api/desktop/step,
+    and Submit stays your confirm-gated step."""
+    from core.job_profile import JobProfile
+    from core.job_apply import map_form, to_actions, summarise
+    plan = map_form(payload.fields, JobProfile())
+    return {"plan": plan, "actions": to_actions(plan), "summary": summarise(plan)}
+
+
+@app.post("/api/jobs/rank")
+def api_jobs_rank(payload: JobRankRequest):
+    """Rank extracted listings against your saved preferences (pure scoring)."""
+    from core.job_profile import JobProfile
+    from core.job_apply import rank_listings
+    return {"ranked": rank_listings(payload.listings, JobProfile())}
 
 
 class EscalateRequest(BaseModel):

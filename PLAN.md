@@ -221,6 +221,30 @@ session or a passed `approve_desktop`; they now require an armed
 `DesktopController` session (`raw_input_allowed()`). The scoped session is the one
 switch that arms real keyboard/mouse — chat/voice can't.
 
+## Job Application Mode (Codex, build the profile editor + fill-review on THIS)
+
+A **planner on top of** the gated browser — it never bypasses a gate, and it
+**never invents an answer** (a form goes out in your name). Fills come only from a
+local facts-only profile; unknowns are handed back to you; Submit stays the
+console's confirm-gated step.
+
+```
+GET  /api/jobs/profile          → PII-FREE summary {has_profile, identity_fields:[…],
+                                   links:[…], resume:bool, approved_answers:[…], preferences}
+POST /api/jobs/profile {data}   → save approved facts to ~/.jarvis/job_profile.json (NOT the repo)
+POST /api/jobs/plan_fill {fields}→ {plan:[…], actions:[…], summary:{fields,auto_fill,needs_user:[…]}}
+POST /api/jobs/rank {listings}  → {ranked:[{score,…}]}
+```
+`fields` = what `extract` returns. Each `plan` entry is either
+`{needs_user:true, reason}` (YOU fill it — credential, or no approved fact) or
+`{needs_user:false, matched_key, source:"profile.<key>", action:{…}}` whose value
+was copied verbatim from the profile. `actions` are the auto-fills to feed one by
+one into `/api/desktop/step` (still per-step approved); the final **Submit is not
+in there** — it's your confirm-gated click. UI: a **profile editor** (identity,
+links, resume path, approved screening answers, preferences), and per application
+a **fill-review** that clearly marks each field *from your profile* vs *needs you*,
+then the Confirm-submission control. Never show JARVIS composing an answer.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -446,3 +470,14 @@ before calling the browser money/CAPTCHA guard complete.
   `test_desktop_control.py` **16/16**, browser fixture **5/5**. Codex: the backend
   guard is now authoritative — the client-side block is belt-and-suspenders, not
   the only line. Restart the backend to load it.
+- `2026-07-31 · Claude` — **Job Application Mode — core built.** New
+  `core/job_profile.py` (local facts-only profile at `~/.jarvis/job_profile.json`,
+  PII outside the repo, PII-free summary) + `core/job_apply.py` (`map_form`
+  deterministically maps extracted form fields → fill actions **only** from
+  approved facts; credentials/free-text/unknowns → `needs_user`; **never invents a
+  value**; `rank_listings` scores real listings by your prefs). Four `/api/jobs/*`
+  endpoints (contract above), token-guarded (PII). It's a PLANNER — execution
+  reuses the gated `/api/desktop/step`, Submit stays confirm-gated. Tests
+  `training/test_job_apply.py` **5/5** incl. the "NEVER fabricates a value" guard.
+  **Deferred:** live search orchestration polish. **Codex: build the profile editor
+  + fill-review UI on the contract above.**

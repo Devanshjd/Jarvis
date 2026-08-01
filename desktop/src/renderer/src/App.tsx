@@ -32,6 +32,7 @@ import type {
   DesktopControlAction,
   EdithQueue,
   JarvisShellSnapshot,
+  PersonaProfile,
   RuntimeStatus,
   ShellTab,
   SystemStatsResult,
@@ -689,7 +690,7 @@ export default function App() {
     }
   }
 
-  async function saveSettings(payload: { operatorName?: string; provider?: string; model?: string; voiceEngine?: string; personality?: string; voiceProfile?: string }) {
+  async function saveSettings(payload: { operatorName?: string; provider?: string; model?: string; voiceEngine?: string; persona?: PersonaProfile; voiceProfile?: string }) {
     await window.desktopApi?.saveSettings?.(payload)
     await refreshAll(false)
   }
@@ -836,7 +837,7 @@ export default function App() {
                 <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} /></motion.div>
               ) : null}
               {activeTab === 'settings' ? (
-                <motion.div key="settings" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><SettingsView snapshot={snapshot} onSave={saveSettings} /></motion.div>
+                <motion.div key="settings" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><SettingsView snapshot={snapshot} personaStatus={status?.persona} onSave={saveSettings} /></motion.div>
               ) : null}
             </Suspense>
           </AnimatePresence>

@@ -70,6 +70,23 @@ export type ActivityStatus = {
   error: string | null
 }
 
+/** Operator-authored local behaviour preferences; not a claim of consciousness. */
+export type PersonaProfile = {
+  instructions: string
+  humour: 'off' | 'subtle' | 'dry'
+  response_style: 'concise' | 'balanced' | 'detailed'
+  proactivity: 'off' | 'suggest_only'
+}
+
+/** Backend report: settings are active only when this is truthfully loaded. */
+export type PersonaStatus = {
+  loaded: boolean
+  humour?: PersonaProfile['humour']
+  response_style?: PersonaProfile['response_style']
+  proactivity?: PersonaProfile['proactivity']
+  error?: string | null
+}
+
 export const IDLE_ACTIVITY: ActivityStatus = {
   state: 'idle',
   active_agent: null,
@@ -93,6 +110,7 @@ export type RuntimeStatus = {
   voice_enabled?: boolean
   voice?: VoiceStatus
   activity?: ActivityStatus
+  persona?: PersonaStatus
   health?: RuntimeHealth
 }
 
@@ -380,6 +398,7 @@ export type JarvisShellSnapshot = {
     sttEngine: string
     geminiLiveModel: string
     geminiVoiceName: string
+    persona?: PersonaProfile
     apiKeys: Record<string, string>
   }
   memories: Array<{ id: number; title: string; content: string; createdAt: string }>

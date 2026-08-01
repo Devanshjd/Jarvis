@@ -13,6 +13,12 @@ declare global {
       sttEngine: string
       geminiLiveModel: string
       geminiVoiceName: string
+      persona?: {
+        instructions: string
+        humour: 'off' | 'subtle' | 'dry'
+        response_style: 'concise' | 'balanced' | 'detailed'
+        proactivity: 'off' | 'suggest_only'
+      }
       apiKeys: Record<string, string>
     }
     memories: Array<{
@@ -93,6 +99,13 @@ declare global {
         provider?: string
         model?: string
         voiceEngine?: string
+        voiceProfile?: string
+        persona?: {
+          instructions: string
+          humour: 'off' | 'subtle' | 'dry'
+          response_style: 'concise' | 'balanced' | 'detailed'
+          proactivity: 'off' | 'suggest_only'
+        }
       }) => Promise<{ success: boolean }>
       systemStats: () => Promise<SystemStatsResult>
       notesList: () => Promise<NoteItem[]>

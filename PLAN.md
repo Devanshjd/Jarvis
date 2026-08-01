@@ -505,3 +505,41 @@ before calling the browser money/CAPTCHA guard complete.
   `has_profile` account for `resume_path` / `cover_letter_path` /
   `work_authorization`, or return explicit presence booleans, so a profile made of
   those approved facts alone is represented truthfully in the inventory.
+
+## Persona + Presence v1 (parallel lanes, 2026-08-01)
+
+**Desktop contract (Codex owns):** Persist this local-only shape in
+`~/.jarvis_config.json` under `persona`, expose it in the shell snapshot, and
+provide an honest Settings editor. The renderer must not claim personality is
+active until the backend reports it has loaded the profile.
+
+```jsonc
+"persona": {
+  "instructions": "operator-authored, max 500 chars",
+  "humour": "off | subtle | dry",
+  "response_style": "concise | balanced | detailed",
+  "proactivity": "off | suggest_only"
+}
+```
+
+`voice.gemini_voice_name` remains the selected renderer-owned live voice. The
+Settings save must persist it rather than merely changing the selected button.
+
+**Core contract (Claude owns):** Load `config.persona`, validate/default it, and
+apply it to both local chat and Gemini Live context. Expose a truthful,
+PII-free `persona` status in `/api/status`, for example
+`{"loaded":true,"humour":"dry","response_style":"concise",
+"proactivity":"suggest_only"}`. Do not represent consciousness or invent
+observations/emotions. `suggest_only` may surface a real local signal as a
+recommendation but never execute, message externally, or interrupt voice without
+the operator's approval. Add focused tests for persistence/defaulting and that
+the status says unloaded when no profile is available.
+
+- `2026-08-01 · Codex` — Desktop half delivered: Settings now persists the
+  structured `persona` profile locally, preserves the chosen Gemini Live voice,
+  reloads both through the shell snapshot, and provides Tactical Butler / Warm
+  Partner / Direct Operator starting profiles plus explicit humour, response-style,
+  and suggest-only controls. The page never claims personality is active until
+  `GET /api/status` reports `persona.loaded`; before then it says backend
+  application is unverified. A snapshot refresh no longer overwrites an operator
+  while they are editing. Verified `npm run typecheck` + `npm run build`.

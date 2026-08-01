@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   RiBrainLine,
@@ -9,7 +9,7 @@ import {
   RiShieldKeyholeLine,
   RiUserVoiceLine
 } from 'react-icons/ri'
-import type { JarvisShellSnapshot, SettingsTab } from '../lib/types'
+import type { JarvisShellSnapshot, PersonaProfile, PersonaStatus, SettingsTab } from '../lib/types'
 import { SHELL_VOICE_ENGINE } from '../lib/types'
 
 /* ═══════════════════════════════════════════
@@ -18,25 +18,52 @@ import { SHELL_VOICE_ENGINE } from '../lib/types'
 
 export default function SettingsView({
   snapshot,
+  personaStatus,
   onSave
 }: {
   snapshot: JarvisShellSnapshot | null
-  onSave: (payload: { operatorName?: string; provider?: string; model?: string; voiceEngine?: string; personality?: string; voiceProfile?: string }) => Promise<void>
+  personaStatus?: PersonaStatus
+  onSave: (payload: { operatorName?: string; provider?: string; model?: string; voiceEngine?: string; persona?: PersonaProfile; voiceProfile?: string }) => Promise<void>
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [operatorName, setOperatorName] = useState(snapshot?.config.operatorName ?? '')
   const [provider, setProvider] = useState(snapshot?.config.provider ?? 'ollama')
   const [model, setModel] = useState(snapshot?.config.model ?? '')
-  const [personality, setPersonality] = useState('')
+  const [persona, setPersona] = useState<PersonaProfile>({
+    instructions: '', humour: 'subtle', response_style: 'concise', proactivity: 'suggest_only'
+  })
   const [voiceProfile, setVoiceProfile] = useState<'Kore' | 'Puck' | 'Charon' | 'Aoede'>('Kore')
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
   const [pinInput, setPinInput] = useState('')
   const [pinSaved, setPinSaved] = useState(false)
+  const loadedSnapshotRef = useRef(false)
 
   useEffect(() => {
+    // Shell snapshots refresh in the background. Load the form once so a
+    // refresh never overwrites the operator while they are editing a persona.
+    if (!snapshot || loadedSnapshotRef.current) return
     setOperatorName(snapshot?.config.operatorName ?? '')
     setProvider(snapshot?.config.provider ?? 'ollama')
     setModel(snapshot?.config.model ?? '')
+    setPersona(snapshot?.config.persona ?? { instructions: '', humour: 'subtle', response_style: 'concise', proactivity: 'suggest_only' })
+    const configuredVoice = snapshot?.config.geminiVoiceName
+    if (configuredVoice === 'Kore' || configuredVoice === 'Puck' || configuredVoice === 'Charon' || configuredVoice === 'Aoede') setVoiceProfile(configuredVoice)
+    loadedSnapshotRef.current = true
   }, [snapshot])
+
+  async function saveGeneralSettings() {
+    setSavingSettings(true)
+    setSaveMessage('')
+    try {
+      await onSave({ operatorName, provider, model, voiceEngine: SHELL_VOICE_ENGINE, persona, voiceProfile })
+      setSaveMessage(personaStatus?.loaded ? 'SAVED LOCALLY. BACKEND PERSONA PROFILE IS LOADED.' : 'SAVED LOCALLY. BACKEND APPLICATION IS NOT YET VERIFIED.')
+    } catch (err) {
+      setSaveMessage(`SAVE FAILED: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setSavingSettings(false)
+    }
+  }
 
   const keyRows = useMemo(() => {
     if (!snapshot) return []
@@ -79,8 +106,8 @@ export default function SettingsView({
               <div className="stormbreaker-setting-card md:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="stormbreaker-setting-title"><RiBrainLine /> Runtime Identity</span>
-                  <button onClick={() => void onSave({ operatorName, provider, model, voiceEngine: SHELL_VOICE_ENGINE, personality, voiceProfile })} className="flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-xs font-bold tracking-[0.18em] text-black">
-                    <RiSave3Line /> SAVE
+                  <button disabled={savingSettings} onClick={() => void saveGeneralSettings()} className="flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-xs font-bold tracking-[0.18em] text-black disabled:cursor-not-allowed disabled:opacity-45">
+                    <RiSave3Line /> {savingSettings ? 'SAVING' : 'SAVE'}
                   </button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
@@ -100,17 +127,37 @@ export default function SettingsView({
               </div>
 
               <div className="stormbreaker-setting-card md:col-span-2">
-                <div className="mb-4 stormbreaker-setting-title"><RiBrainLine /> Personality Matrix</div>
-                <textarea
-                  value={personality}
-                  onChange={(e) => setPersonality(e.target.value.slice(0, 500))}
-                  placeholder="Describe how JARVIS should behave. Example: 'Be witty and confident, like Tony Stark's AI. Use casual language. Sometimes add sarcastic humor.'"
-                  className="stormbreaker-input h-28 resize-none"
-                />
-                <div className="mt-2 flex items-center justify-between text-[10px] font-mono text-zinc-600">
-                  <span>Defines the AI's conversational personality</span>
-                  <span>{personality.length}/500</span>
+                <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="stormbreaker-setting-title"><RiBrainLine /> Persona Profile</div>
+                  <span className={`rounded border px-2 py-1 text-[9px] font-mono tracking-[0.14em] ${personaStatus?.loaded ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+                    {personaStatus?.loaded ? 'BACKEND PROFILE LOADED' : 'BACKEND APPLICATION NOT VERIFIED'}
+                  </span>
                 </div>
+                <p className="mt-4 text-[11px] leading-6 text-zinc-500">This saves an operator-authored local behaviour profile. It guides tone and initiative; it does not make JARVIS conscious, emotional, or able to claim observations it did not make.</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setPersona((current) => ({ ...current, instructions: 'Calm, capable, protective, and concise. Use subtle dry humour only when it improves the moment. State uncertainty plainly.' }))} className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-[9px] font-black tracking-[0.12em] text-amber-200 hover:bg-amber-500/10">TACTICAL BUTLER</button>
+                  <button type="button" onClick={() => setPersona((current) => ({ ...current, instructions: 'Warm, practical, and encouraging. Explain technical work clearly and keep humour gentle.' }))} className="rounded-lg border border-white/10 px-3 py-2 text-[9px] font-black tracking-[0.12em] text-zinc-300 hover:border-zinc-600">WARM PARTNER</button>
+                  <button type="button" onClick={() => setPersona((current) => ({ ...current, instructions: 'Direct, precise, and brief. Prioritise decisions, evidence, and next actions over small talk.' }))} className="rounded-lg border border-white/10 px-3 py-2 text-[9px] font-black tracking-[0.12em] text-zinc-300 hover:border-zinc-600">DIRECT OPERATOR</button>
+                </div>
+                <label className="mt-4 block">
+                  <span className="stormbreaker-input-label">YOUR PERSONA NOTES</span>
+                  <textarea
+                    value={persona.instructions}
+                    onChange={(e) => setPersona((current) => ({ ...current, instructions: e.target.value.slice(0, 500) }))}
+                    placeholder="Example: calm, sharp and reassuring; use dry humour sparingly; never exaggerate progress."
+                    className="stormbreaker-input mt-2 h-28 resize-none"
+                  />
+                </label>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <label className="stormbreaker-input-wrap"><span className="stormbreaker-input-label">Humour</span><select value={persona.humour} onChange={(e) => setPersona((current) => ({ ...current, humour: e.target.value as PersonaProfile['humour'] }))} className="stormbreaker-input mt-2"><option value="off">Off</option><option value="subtle">Subtle</option><option value="dry">Dry</option></select></label>
+                  <label className="stormbreaker-input-wrap"><span className="stormbreaker-input-label">Response style</span><select value={persona.response_style} onChange={(e) => setPersona((current) => ({ ...current, response_style: e.target.value as PersonaProfile['response_style'] }))} className="stormbreaker-input mt-2"><option value="concise">Concise</option><option value="balanced">Balanced</option><option value="detailed">Detailed</option></select></label>
+                  <label className="stormbreaker-input-wrap"><span className="stormbreaker-input-label">Proactive behaviour</span><select value={persona.proactivity} onChange={(e) => setPersona((current) => ({ ...current, proactivity: e.target.value as PersonaProfile['proactivity'] }))} className="stormbreaker-input mt-2"><option value="off">Off</option><option value="suggest_only">Suggest only</option></select></label>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-zinc-600">
+                  <span>Suggestions are recommendations only; they never act, send, or interrupt without your approval.</span>
+                  <span>{persona.instructions.length}/500</span>
+                </div>
+                {saveMessage ? <div className={`mt-4 rounded-xl border px-4 py-3 text-[11px] leading-5 ${saveMessage.startsWith('SAVE FAILED') ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'}`}>{saveMessage}</div> : null}
               </div>
 
               <div className="stormbreaker-setting-card">

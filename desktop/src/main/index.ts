@@ -13,6 +13,16 @@ let backendProcess: ChildProcess | null = null
 const BACKEND_PORT = 8765
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'])
 const SHELL_SELFTEST_FLAG = '.jarvis_sandbox\\enable_shell_selftest.flag'
+const GEMINI_VOICES = ['Kore', 'Puck', 'Charon', 'Aoede'] as const
+type PersonaHumour = 'off' | 'subtle' | 'dry'
+type PersonaResponseStyle = 'concise' | 'balanced' | 'detailed'
+type PersonaProactivity = 'off' | 'suggest_only'
+type PersonaConfig = {
+  instructions: string
+  humour: PersonaHumour
+  response_style: PersonaResponseStyle
+  proactivity: PersonaProactivity
+}
 
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 
@@ -87,6 +97,21 @@ function normalizeLiveModel(value: string | undefined | null) {
     return 'models/gemini-2.5-flash-native-audio-latest'
   }
   return raw.startsWith('models/') ? raw : `models/${raw}`
+}
+
+function choice<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === 'string' && allowed.includes(value as T) ? value as T : fallback
+}
+
+function readPersona(value: unknown): PersonaConfig | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const raw = value as Record<string, unknown>
+  return {
+    instructions: typeof raw.instructions === 'string' ? raw.instructions.slice(0, 500) : '',
+    humour: choice(raw.humour, ['off', 'subtle', 'dry'] as const, 'subtle'),
+    response_style: choice(raw.response_style, ['concise', 'balanced', 'detailed'] as const, 'concise'),
+    proactivity: choice(raw.proactivity, ['off', 'suggest_only'] as const, 'suggest_only')
+  }
 }
 
 async function writeJarvisConfig(nextConfig: unknown) {
@@ -201,6 +226,7 @@ async function buildShellSnapshot() {
   const tasks = Array.isArray(config.tasks) ? config.tasks : []
   const identity = config.identity ?? {}
   const voice = config.voice ?? {}
+  const persona = readPersona(config.persona)
 
   return {
     config: {
@@ -214,6 +240,7 @@ async function buildShellSnapshot() {
       sttEngine: voice.stt_engine || 'auto',
       geminiLiveModel: normalizeLiveModel(config.gemini?.live_model),
       geminiVoiceName: voice.gemini_voice_name || 'Kore',
+      persona,
       apiKeys: {
         gemini: maskKeySafely(config.gemini?.api_key || config.api_key),
         groq: maskKeySafely(config.groq?.api_key),
@@ -628,6 +655,8 @@ function createWindow() {
         provider?: string
         model?: string
         voiceEngine?: string
+        persona?: PersonaConfig
+        voiceProfile?: string
       }
     ) => {
       const config = await readJarvisConfig()
@@ -644,6 +673,12 @@ function createWindow() {
       }
       if (typeof payload.voiceEngine === 'string') {
         config.voice.engine = payload.voiceEngine
+      }
+      if (typeof payload.voiceProfile === 'string' && GEMINI_VOICES.includes(payload.voiceProfile as typeof GEMINI_VOICES[number])) {
+        config.voice.gemini_voice_name = payload.voiceProfile
+      }
+      if (payload.persona !== undefined) {
+        config.persona = readPersona(payload.persona)
       }
       await writeJarvisConfig(config)
       return { success: true }

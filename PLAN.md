@@ -268,6 +268,34 @@ It's facts-only: JARVIS never invents a preference, and the memory stays local.
 transcript can show "Right now: thinking / VISION scanning / browser step awaiting
 approval" honestly — pairs with your activity timeline.
 
+## Voice reliability — backend half (Codex, wire "stop/wait" + indicators to THIS)
+
+Split: Claude owns backend speech (cancellable/chunked/timed + truthful state);
+Codex owns the renderer mic, "stop/wait" UX, transcript timing, listening/speaking
+indicators. The backend now speaks **sentence-by-sentence** (first word starts as
+soon as the first sentence synthesises) and is **interruptible**.
+
+```
+POST /api/voice/stop     → halt host speech NOW (cancel flag + purge current sound);
+                           settles activity to idle. UNGUARDED (must be instant).
+                           returns { stopped:true, was_speaking:bool }
+GET  /api/voice/timing   → { speaking:bool, last:{chunks, first_audio_ms, total_ms, cancelled} }
+POST /api/tts/speak {text, play:true}  → now chunked+cancellable host playback
+```
+- **Truthful speaking state:** `activity.state == "speaking"` is set only while a
+  chunk is ACTUALLY playing on the host, and cleared the instant it stops/cancels
+  (`core/voice_control`). So the orb's speaking ring is real for backend/Piper
+  speech. (Gemini-Live speech is still renderer-known — you OR it in, per the
+  activity contract.)
+- **"Stop/wait":** when the user says stop (or you detect barge-in on the mic),
+  call `POST /api/voice/stop` — it cuts Piper off mid-reply. Do the same for your
+  renderer-side Gemini audio on your end; the backend hook only owns host/Piper.
+- **Measure latency:** `GET /api/voice/timing` gives real time-to-first-audio and
+  whether the last turn was cancelled — use it for the repeatable voice test.
+- **Still mine to do next:** cancelling in-flight LLM *generation* (not just
+  speech) needs streaming+abort — noted, not done. Wake word + the voice loop
+  calling `persona_prompt()` are the shared follow-ups.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -583,3 +611,15 @@ the status says unloaded when no profile is available.
   facts-only). **Voice loop still needs to call `persona_prompt()`** so both
   surfaces match — that's our shared voice-reliability milestone. All backend
   suites green (43/43).
+- `2026-08-01 · Claude` — **Voice reliability — backend half done.** New
+  `core/voice_control.py`: Piper speech is now **chunked** (sentence-by-sentence →
+  lower time-to-first-audio) and **cancellable**. `POST /api/voice/stop` (the
+  "stop/wait" hook, unguarded for instant response) halts speech mid-reply — cancel
+  flag + `winsound` purge — and settles activity to idle. **`activity.state=speaking`
+  is now driven by REAL playback** (set while a chunk plays, cleared the instant it
+  stops), and `GET /api/voice/timing` exposes real time-to-first-audio/total/
+  cancelled for the latency test. `POST /api/tts/speak {play:true}` routes through
+  it. Tests `training/test_voice_control.py` **7/7** (no audio device — hooks
+  injected); all suites **50/50**. Contract above. **Codex: wire "stop/wait" +
+  listening/speaking indicators to it.** Still mine: cancel in-flight LLM
+  generation (needs streaming+abort) + wake word — shared next.

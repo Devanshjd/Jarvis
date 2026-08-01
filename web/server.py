@@ -960,14 +960,19 @@ def api_tts_speak(payload: TTSRequest):
         b64 = base64.b64encode(wav_bytes).decode()
 
         if payload.play:
-            # Play in a background thread so the API doesn't block
-            def _play():
-                try:
-                    import winsound
-                    winsound.PlaySound(wav_bytes, winsound.SND_MEMORY)
-                except Exception:
-                    pass
-            threading.Thread(target=_play, daemon=True).start()
+            # Chunked + cancellable host playback (core/voice_control): the first
+            # word starts as soon as the first sentence is synthesised, and
+            # POST /api/voice/stop can cut it off mid-reply.
+            import io as _io, wave as _wave
+
+            def _synth(sentence: str) -> bytes:
+                b = _io.BytesIO()
+                with _wave.open(b, "wb") as wf:
+                    voice.synthesize_wav(sentence, wf)
+                return b.getvalue()
+
+            from core.voice_control import get_speech
+            get_speech().speak(text, synth=_synth, background=True)
 
         return {
             "success": True,
@@ -979,6 +984,24 @@ def api_tts_speak(payload: TTSRequest):
         }
     except Exception as e:
         return {"success": False, "error": f"TTS failed: {e}"}
+
+
+@app.post("/api/voice/stop")
+def api_voice_stop():
+    """The 'stop / wait' backend hook — halt host speech immediately (cancel flag
+    + purge the playing sound) and settle the activity state to idle. Unguarded
+    on purpose: stopping speech must be instant and low-friction."""
+    from core.voice_control import get_speech
+    return get_speech().stop()
+
+
+@app.get("/api/voice/timing")
+def api_voice_timing():
+    """Truthful voice timing: whether speech is actually playing now, and the last
+    turn's timing (time-to-first-audio, total, chunks, whether it was cancelled)."""
+    from core.voice_control import get_speech
+    sc = get_speech()
+    return {"speaking": sc.is_speaking(), "last": sc.last_timing()}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

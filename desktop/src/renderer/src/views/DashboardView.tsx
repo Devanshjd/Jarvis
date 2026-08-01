@@ -21,6 +21,8 @@ import type {
   ChatMessage,
   RuntimeStatus,
   SystemStatsResult,
+  VoiceLifecycleState,
+  VoiceStopRecord,
   VoiceTiming,
   VoiceStatus
 } from '../lib/types'
@@ -46,12 +48,15 @@ export interface DashboardViewProps {
   activity: ActivityStatus
   stillWorking: boolean
   voiceTiming: VoiceTiming | null
+  voiceLifecycle: VoiceLifecycleState
+  lastVoiceStop: VoiceStopRecord | null
+  waitAvailable: boolean
   onSend: () => void
   onRefresh: () => void
   onToggleVision: () => void
   onToggleVoice: () => void
   onToggleMic: () => void
-  onStopSpeech: () => void
+  onStopVoiceTurn: () => void
   onSetDashboardVision: (s: 'none' | 'camera' | 'screen') => void
   onCameraStreamReady?: (stream: MediaStream | null) => void
   onLocalVoice?: () => void
@@ -64,7 +69,8 @@ export default function DashboardView(props: DashboardViewProps) {
     busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     activity, stillWorking,
-    voiceTiming, onSend, onToggleVision, onToggleVoice, onToggleMic, onStopSpeech,
+    voiceTiming, voiceLifecycle, lastVoiceStop, waitAvailable,
+    onSend, onToggleVision, onToggleVoice, onToggleMic, onStopVoiceTurn,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
 
@@ -101,21 +107,27 @@ export default function DashboardView(props: DashboardViewProps) {
             : 'VOICE STATUS UNKNOWN'
   const backendSpeaking = Boolean(voiceTiming?.speaking)
   const rendererSpeaking = Boolean(voice?.speaking)
-  const speechActive = backendSpeaking || rendererSpeaking
-  const voiceCoreText = backendSpeaking
-    ? 'PIPER SPEAKING'
-    : rendererSpeaking
-      ? 'GEMINI SPEAKING'
-      : voiceError
-        ? 'VOICE DISCONNECTED'
-        : voiceConnecting
-          ? 'VOICE CORE CONNECTING'
-          : voiceLive
-            ? (voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE')
-            : 'VOICE CORE STANDBY'
+  const hostSpeaking = backendSpeaking || (activity.state === 'speaking' && !rendererSpeaking)
+  let voiceCoreText: string
+  if (hostSpeaking) voiceCoreText = 'PIPER SPEAKING'
+  else if (rendererSpeaking) voiceCoreText = 'GEMINI SPEAKING'
+  else if (voiceLifecycle === 'thinking') voiceCoreText = 'LOCAL VOICE THINKING'
+  else if (voiceLifecycle === 'listening') voiceCoreText = 'VOICE LISTENING'
+  else if (voiceLifecycle === 'cancelled') voiceCoreText = `CANCELLED // ${lastVoiceStop?.scope.toUpperCase() ?? 'TURN'}`
+  else if (voiceError) voiceCoreText = 'VOICE DISCONNECTED'
+  else if (voiceConnecting) voiceCoreText = 'VOICE CORE CONNECTING'
+  else if (voiceLive) voiceCoreText = voiceMuted ? 'VOICE CORE MUTED' : 'VOICE CORE LIVE'
+  else voiceCoreText = 'VOICE CORE STANDBY'
   const timing = voiceTiming?.last
-  const timingText = timing?.first_audio_ms != null
-    ? `PIPER FIRST AUDIO ${timing.first_audio_ms}MS // ${timing.chunks ?? 0} CHUNK${timing.chunks === 1 ? '' : 'S'}${timing.cancelled ? ' // CANCELLED' : ''}`
+  const hasVoiceDiagnostics = Boolean(
+    timing?.first_audio_ms != null || timing?.total_ms != null || lastVoiceStop
+  )
+  const stopSummary = lastVoiceStop
+    ? lastVoiceStop.scope === 'thinking'
+      ? 'LAST WAIT: WHOLE TURN STOPPED'
+      : lastVoiceStop.source === 'renderer'
+        ? 'LAST WAIT: GEMINI PLAYBACK STOPPED'
+        : 'LAST WAIT: PIPER SPEECH STOPPED'
     : null
   const visionText = visionUnavailable
     ? 'VISION UNAVAILABLE'
@@ -325,19 +337,20 @@ export default function DashboardView(props: DashboardViewProps) {
               {voiceLive && !voiceMuted ? <RiMicLine size={20} /> : <RiMicOffLine size={20} />}
             </button>
             {/* Local (offline) voice — click to record, click to stop */}
-            {speechActive ? <button
-              data-testid="dashboard-stop-speech"
-              onClick={onStopSpeech}
-              title="Stop current speech. An in-flight response may continue generating."
+            {waitAvailable ? <button
+              data-testid="dashboard-stop-voice-turn"
+              onClick={onStopVoiceTurn}
+              title="Stop the current local voice turn"
               className="flex items-center gap-2 rounded-full border border-red-500/45 bg-red-500/15 px-3 py-2 text-[9px] font-black tracking-[0.14em] text-red-200 transition-colors hover:bg-red-500/25"
             >
               <RiStopCircleLine size={16} /> WAIT
             </button> : null}
             <button
               data-testid="dashboard-localvoice-button"
-              onClick={backendSpeaking ? onStopSpeech : onLocalVoice}
+              onClick={onLocalVoice}
+              disabled={waitAvailable}
               title="Local voice (offline) — click to talk, click to stop"
-              className={`flex items-center gap-2 rounded-full px-3 py-2 text-[9px] font-bold tracking-[0.14em] transition-colors ${
+              className={`flex items-center gap-2 rounded-full px-3 py-2 text-[9px] font-bold tracking-[0.14em] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
                 localVoiceState === 'recording'
                   ? 'bg-red-500 text-white shadow-[0_0_16px_rgba(239,68,68,0.5)] animate-pulse'
                   : localVoiceState === 'thinking'
@@ -383,8 +396,21 @@ export default function DashboardView(props: DashboardViewProps) {
             </div>
           )}
 
+          {/* Measured controller facts only — no estimated latency or fake cancel state. */}
+          {hasVoiceDiagnostics ? <div
+            data-testid="voice-timing"
+            className={`mb-3 rounded-xl border px-3 py-2.5 font-mono ${timing?.cancelled || lastVoiceStop ? 'border-amber-500/25 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`}
+          >
+            <div className="mb-1.5 text-[8px] tracking-[0.2em] text-zinc-500">VOICE DIAGNOSTICS // MEASURED</div>
+            <div className="grid grid-cols-3 gap-2 text-[9px] tracking-[0.08em] text-zinc-300">
+              <span>FIRST {timing?.first_audio_ms != null ? `${timing.first_audio_ms}MS` : '—'}</span>
+              <span>TOTAL {timing?.total_ms != null ? `${timing.total_ms}MS` : '—'}</span>
+              <span>{timing?.chunks != null ? `${timing.chunks} CHUNK${timing.chunks === 1 ? '' : 'S'}` : 'NO AUDIO'}</span>
+            </div>
+            {stopSummary ? <div className="mt-1.5 text-[8px] tracking-[0.14em] text-amber-200">{stopSummary}</div> : null}
+          </div> : null}
+
           {/* Messages */}
-          {timingText ? <div data-testid="voice-timing" className={`mb-3 rounded-xl border px-3 py-2 text-[9px] font-mono tracking-[0.12em] ${timing?.cancelled ? 'border-amber-500/25 bg-amber-500/5 text-amber-200' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-200'}`}>{timingText}</div> : null}
           <div ref={scrollRef} className="scrollbar-small min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-zinc-700">

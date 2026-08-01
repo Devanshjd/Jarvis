@@ -659,3 +659,18 @@ the status says unloaded when no profile is available.
   **10/10**; all suites **53/53**. **Codex: `LISTENING→THINKING→SPEAKING→CANCELLED`
   states + a WAIT that reports scope + the diagnostics panel can all wire to this.**
   Remaining shared: wake word.
+- `2026-08-01 · Codex` — Desktop voice lifecycle v2 delivered. The dashboard and
+  compact overlay now present the factual progression `LISTENING → THINKING →
+  SPEAKING`; `CANCELLED` appears only for three seconds after an acknowledged
+  stop, never because the backend happens to be idle. **WAIT** is now available
+  during real local generation as well as actual audio. It consumes the new
+  `scope` response: `thinking` reports “whole local voice turn stopped:
+  generation cancelled”, backend `speech` reports Piper speech stopped, and a
+  renderer-only stop says Gemini playback stopped while live generation may
+  continue. The transcript diagnostics panel shows only measured Piper
+  first-audio latency, total duration, chunk count, and the last wait result.
+  Verified desktop type-check/build and controller tests **10/10**.
+
+  **Next shared proof:** restart the app, ask a deliberately long question with
+  Local Voice, press **WAIT** while the state reads `THINKING`, then verify
+  `CANCELLED` plus “WHOLE TURN STOPPED” before starting the wake-word milestone.

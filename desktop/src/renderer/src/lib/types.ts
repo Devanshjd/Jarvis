@@ -142,6 +142,27 @@ export type VoiceTiming = {
   } | null
 }
 
+/** What the voice controller actually stopped. `thinking` means the Ollama
+ * stream was cut; it is deliberately distinct from stopping playback only. */
+export type VoiceStopScope = 'speech' | 'thinking' | 'idle'
+
+export type VoiceStopResponse = {
+  stopped: boolean
+  was_speaking: boolean
+  was_generating: boolean
+  scope: VoiceStopScope
+}
+
+export type VoiceStopRecord = {
+  scope: Exclude<VoiceStopScope, 'idle'>
+  source: 'backend' | 'renderer'
+  at: number
+}
+
+/** A small, UI-facing lifecycle. `cancelled` is shown only after a real stop
+ * acknowledgement, never inferred from an idle backend. */
+export type VoiceLifecycleState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'cancelled'
+
 export type ChatMessage = {
   id: number
   role: string
@@ -364,6 +385,19 @@ export function resolveOrbActivity(
     }
   }
   return activity
+}
+
+export function resolveVoiceLifecycle(
+  activity: ActivityStatus,
+  activePlayback: boolean,
+  recentStop: VoiceStopRecord | null
+): VoiceLifecycleState {
+  if (activePlayback) return 'speaking'
+  if (recentStop) return 'cancelled'
+  if (activity.state === 'speaking') return 'speaking'
+  if (activity.state === 'thinking') return 'thinking'
+  if (activity.state === 'listening') return 'listening'
+  return 'idle'
 }
 
 export type SystemStatsResult = {

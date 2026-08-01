@@ -36,6 +36,8 @@ import type {
   RuntimeStatus,
   ShellTab,
   SystemStatsResult,
+  VoiceStopRecord,
+  VoiceStopResponse,
   VoiceTiming,
   VoiceStatus
 } from './lib/types'
@@ -49,6 +51,7 @@ import {
   formatProvider,
   mergeBackendWithShellMessages,
   resolveOrbActivity,
+  resolveVoiceLifecycle,
   setApiToken
 } from './lib/types'
 import { blobToWavBase64 } from './services/audioUtils'
@@ -76,6 +79,8 @@ export default function App() {
   const [activity, setActivity] = useState<ActivityStatus>(IDLE_ACTIVITY)
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null)
   const [voiceTiming, setVoiceTiming] = useState<VoiceTiming | null>(null)
+  const [lastVoiceStop, setLastVoiceStop] = useState<VoiceStopRecord | null>(null)
+  const [recentVoiceStop, setRecentVoiceStop] = useState<VoiceStopRecord | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -110,6 +115,7 @@ export default function App() {
   // answer arrives.
   const pendingTimeoutTurnRef = useRef<number | null>(null)
   const audioAnimRef = useRef<number>(0)
+  const voiceStopTimerRef = useRef<number | null>(null)
   // Refs so the gesture poller reads current state without stale closures.
   const activeTabRef = useRef<ShellTab>('dashboard')
   const voiceActiveRef = useRef(false)
@@ -373,6 +379,30 @@ export default function App() {
 
   // Fully-local voice: click to record, click to stop → Whisper→Ollama→Piper
   // on the backend, all offline. Turn-based; no Gemini, no cloud, no API cap.
+  useEffect(() => () => {
+    if (voiceStopTimerRef.current !== null) window.clearTimeout(voiceStopTimerRef.current)
+  }, [])
+
+  function recordVoiceStop(scope: VoiceStopRecord['scope'], source: VoiceStopRecord['source']) {
+    const record = { scope, source, at: Date.now() }
+    setLastVoiceStop(record)
+    setRecentVoiceStop(record)
+    if (voiceStopTimerRef.current !== null) window.clearTimeout(voiceStopTimerRef.current)
+    voiceStopTimerRef.current = window.setTimeout(() => {
+      setRecentVoiceStop(null)
+      voiceStopTimerRef.current = null
+    }, 3000)
+  }
+
+  function beginNewVoiceTurn() {
+    setLastVoiceStop(null)
+    setRecentVoiceStop(null)
+    if (voiceStopTimerRef.current !== null) {
+      window.clearTimeout(voiceStopTimerRef.current)
+      voiceStopTimerRef.current = null
+    }
+  }
+
   async function handleLocalVoice() {
     // If recording, stop → process.
     if (localVoiceState === 'recording') {
@@ -381,6 +411,7 @@ export default function App() {
     }
     if (localVoiceState === 'thinking') return
     try {
+      beginNewVoiceTurn()
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const rec = new MediaRecorder(stream)
       localChunksRef.current = []
@@ -396,6 +427,7 @@ export default function App() {
           const r = await fetchJson<{
             success: boolean; transcript?: string; reply?: string
             reply_audio_base64?: string; error?: string
+            cancelled?: boolean; cancelled_stage?: 'thinking' | 'speech'
           }>(`${API_BASE}/api/voice/local`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -667,17 +699,35 @@ export default function App() {
   async function stopVoiceOutput() {
     const rendererStopped = voiceBridgeRef.current?.interruptSpeech() ?? false
     try {
-      const result = await fetchJson<{ stopped?: boolean; was_speaking?: boolean }>(`${API_BASE}/api/voice/stop`, {
+      const result = await fetchJson<VoiceStopResponse>(`${API_BASE}/api/voice/stop`, {
         method: 'POST'
       })
       const backendStopped = Boolean(result.was_speaking)
-      setVoiceTiming((current) => current ? {
-        ...current,
-        speaking: false,
-        last: current.last ? { ...current.last, cancelled: backendStopped || current.speaking || current.last.cancelled } : current.last
-      } : current)
-      if (rendererStopped || backendStopped) appendShellSystemMessage('Speech stopped. Any in-flight response may still finish generating.')
-      else appendShellSystemMessage('No controllable speech was playing.')
+      const backendScope = result.scope === 'speech' || result.scope === 'thinking' ? result.scope : (backendStopped ? 'speech' : 'idle')
+      const scope = backendScope !== 'idle' ? backendScope : (rendererStopped ? 'speech' : 'idle')
+
+      if (backendStopped) {
+        setVoiceTiming((current) => current ? {
+          ...current,
+          speaking: false,
+          last: current.last ? { ...current.last, cancelled: true } : current.last
+        } : current)
+      }
+
+      if (scope === 'thinking') {
+        setLocalVoiceState('idle')
+        recordVoiceStop('thinking', 'backend')
+        appendShellSystemMessage('Whole local voice turn stopped: generation cancelled.')
+      } else if (scope === 'speech') {
+        recordVoiceStop('speech', backendScope === 'speech' ? 'backend' : 'renderer')
+        appendShellSystemMessage(
+          backendScope === 'speech'
+            ? 'Speech stopped.'
+            : 'Gemini playback stopped. Live generation may still continue.'
+        )
+      } else {
+        appendShellSystemMessage('No cancellable local voice work was running.')
+      }
       await refreshAll(false)
     } catch (err) {
       if (rendererStopped) appendShellSystemMessage('Renderer speech stopped. The backend stop request did not complete.')
@@ -758,7 +808,13 @@ export default function App() {
   const currentTask = snapshot?.tasks?.[0] ? extractTaskSummary(snapshot.tasks[0]) : 'NONE'
   const lastTranscript = voiceStatus?.last_output || voiceStatus?.last_input || ''
   const orbActivity = resolveOrbActivity(activity, voiceStatus, localVoiceState, busy)
-  const voiceSpeaking = Boolean(voiceStatus?.speaking || voiceTiming?.speaking)
+  const voiceSpeaking = Boolean(voiceStatus?.speaking || voiceTiming?.speaking || orbActivity.state === 'speaking')
+  const voiceLifecycle = resolveVoiceLifecycle(
+    orbActivity,
+    Boolean(voiceTiming?.speaking || voiceStatus?.speaking),
+    recentVoiceStop
+  )
+  const voiceWaitAvailable = localVoiceState === 'thinking' || voiceSpeaking
 
   // ─── Page transition config ───
   const viewTransition = { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }
@@ -780,13 +836,14 @@ export default function App() {
           voiceActive={Boolean(voiceStatus?.active)}
           voiceConnecting={Boolean(voiceStatus?.connecting)}
           micMuted={Boolean(voiceStatus?.mic_muted)}
-          voiceSpeaking={voiceSpeaking}
+          voiceLifecycle={voiceLifecycle}
+          waitAvailable={voiceWaitAvailable}
           visionActive={visionSource !== 'none'}
           lastTranscript={lastTranscript}
           onToggleVoice={() => void toggleVoice()}
           onToggleMic={toggleMic}
           onToggleVision={() => void toggleVision()}
-          onStopSpeech={() => void stopVoiceOutput()}
+          onStopVoiceTurn={() => void stopVoiceOutput()}
           onExpand={() => setOverlayMode(false)}
         />
       </AnimatePresence>
@@ -849,11 +906,14 @@ export default function App() {
                   dashboardVisionSource={dashboardVisionSource}
                   systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
                   voiceTiming={voiceTiming}
+                  voiceLifecycle={voiceLifecycle}
+                  lastVoiceStop={lastVoiceStop}
+                  waitAvailable={voiceWaitAvailable}
                   onSend={() => void sendPrompt()} onRefresh={() => void refreshAll()}
                   onToggleVision={() => void toggleVision()}
                   onToggleVoice={() => void toggleVoice()}
                   onToggleMic={() => toggleMic()}
-                  onStopSpeech={() => void stopVoiceOutput()}
+                  onStopVoiceTurn={() => void stopVoiceOutput()}
                   onSetDashboardVision={handleSetDashboardVision}
                   onCameraStreamReady={handleCameraStreamReady}
                   onLocalVoice={() => void handleLocalVoice()}

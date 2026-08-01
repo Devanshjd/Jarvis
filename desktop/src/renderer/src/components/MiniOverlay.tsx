@@ -10,18 +10,20 @@ import {
   RiExpandUpDownLine,
   RiExpandLeftRightFill
 } from 'react-icons/ri'
+import type { VoiceLifecycleState } from '../lib/types'
 
 type MiniOverlayProps = {
   voiceActive: boolean
   voiceConnecting: boolean
   micMuted: boolean
-  voiceSpeaking: boolean
+  voiceLifecycle: VoiceLifecycleState
+  waitAvailable: boolean
   visionActive: boolean
   lastTranscript: string
   onToggleVoice: () => void
   onToggleMic: () => void
   onToggleVision: () => void
-  onStopSpeech: () => void
+  onStopVoiceTurn: () => void
   onExpand: () => void
 }
 
@@ -29,13 +31,14 @@ export default function MiniOverlay({
   voiceActive,
   voiceConnecting,
   micMuted,
-  voiceSpeaking,
+  voiceLifecycle,
+  waitAvailable,
   visionActive,
   lastTranscript,
   onToggleVoice,
   onToggleMic,
   onToggleVision,
-  onStopSpeech,
+  onStopVoiceTurn,
   onExpand
 }: MiniOverlayProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -137,10 +140,10 @@ export default function MiniOverlay({
             <RiPhoneFill size={16} className={voiceConnecting ? 'animate-pulse' : ''} />
           </button>
 
-          {voiceSpeaking ? <button
-            data-testid="overlay-stop-speech"
-            onClick={onStopSpeech}
-            title="Stop current speech"
+          {waitAvailable ? <button
+            data-testid="overlay-stop-voice-turn"
+            onClick={onStopVoiceTurn}
+            title="Stop the current local voice turn"
             className="rounded-full bg-red-500/15 p-2 text-red-300 transition-colors hover:bg-red-500/25"
           >
             <RiStopCircleLine size={16} />
@@ -181,7 +184,17 @@ export default function MiniOverlay({
 
         {/* Status line */}
         <div className="text-[8px] font-mono tracking-[0.3em] text-zinc-600">
-          {voiceSpeaking ? 'SPEAKING' : voiceConnecting ? 'CONNECTING' : voiceActive ? (micMuted ? 'MUTED' : 'LIVE') : 'STANDBY'}
+          {voiceLifecycle === 'cancelled'
+            ? 'CANCELLED'
+            : voiceLifecycle === 'speaking'
+              ? 'SPEAKING'
+              : voiceLifecycle === 'thinking'
+                ? 'THINKING'
+                : voiceLifecycle === 'listening'
+                  ? 'LISTENING'
+                  : voiceConnecting
+                    ? 'CONNECTING'
+                    : voiceActive ? (micMuted ? 'MUTED' : 'LIVE') : 'STANDBY'}
         </div>
       </div>
     </motion.div>

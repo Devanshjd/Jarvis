@@ -6,6 +6,7 @@ import {
   RiCodeSSlashLine,
   RiCommandLine,
   RiComputerLine,
+  RiFileTextLine,
   RiFolderImageLine,
   RiLayoutGridLine,
   RiPhoneFill,
@@ -25,8 +26,10 @@ import ViewSkeleton from './components/ViewSkeleton'
 import { JarvisGeminiLive, type VisionSource, type VoiceBridgeState } from './services/JarvisGeminiLive'
 import type {
   ActivityStatus,
+  BrowserControlPage,
   ChatMessage,
   ChatResponse,
+  DesktopControlAction,
   EdithQueue,
   JarvisShellSnapshot,
   RuntimeStatus,
@@ -51,6 +54,7 @@ import { blobToWavBase64 } from './services/audioUtils'
 // ─── Views (Dashboard loads eagerly, others lazy for faster boot) ───
 import DashboardView from './views/DashboardView'
 const DesktopControlView = lazy(() => import('./views/DesktopControlView'))
+const JobsView = lazy(() => import('./views/JobsView'))
 const MacrosView = lazy(() => import('./views/MacrosView'))
 const NotesView = lazy(() => import('./views/NotesView'))
 const GalleryView = lazy(() => import('./views/GalleryView'))
@@ -89,6 +93,10 @@ export default function App() {
   const [audioLevel, setAudioLevel] = useState(0)
   const [systemStats, setSystemStats] = useState<SystemStatsResult | null>(null)
   const [edithPendingCount, setEdithPendingCount] = useState(0)
+  // App never fetches job-profile facts. Only browser evidence and reviewed
+  // actions (kept in memory until each gated Control step runs) transit here.
+  const [jobReviewPage, setJobReviewPage] = useState<BrowserControlPage | null>(null)
+  const [pendingJobFillActions, setPendingJobFillActions] = useState<DesktopControlAction[]>([])
 
   const voiceBridgeRef = useRef<JarvisGeminiLive | null>(null)
   const snapshotRef = useRef<JarvisShellSnapshot | null>(null)
@@ -423,7 +431,7 @@ export default function App() {
   //   peace     → switch to the next view
   // (Backend already speaks a confirmation; this adds the actual control.)
   useEffect(() => {
-    const TAB_ORDER: ShellTab[] = ['dashboard', 'control', 'macros', 'notes', 'gallery', 'oracle', 'edith', 'phone', 'settings']
+    const TAB_ORDER: ShellTab[] = ['dashboard', 'control', 'jobs', 'macros', 'notes', 'gallery', 'oracle', 'edith', 'phone', 'settings']
     const iv = setInterval(async () => {
       try {
         const r = await fetchJson<{ gesture: string | null; ts: number }>(`${API_BASE}/api/gesture/last`)
@@ -691,6 +699,7 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'DASHBOARD', icon: RiLayoutGridLine },
     { id: 'control', label: 'CONTROL', icon: RiComputerLine },
+    { id: 'jobs', label: 'JOBS', icon: RiFileTextLine },
     { id: 'macros', label: 'MACROS', icon: RiCommandLine },
     { id: 'notes', label: 'NOTES', icon: RiStickyNoteLine },
     { id: 'gallery', label: 'GALLERY', icon: RiFolderImageLine },
@@ -803,7 +812,10 @@ export default function App() {
             ) : null}
             <Suspense fallback={<ViewSkeleton />}>
               {activeTab === 'control' ? (
-                <motion.div key="control" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><DesktopControlView /></motion.div>
+                <motion.div key="control" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><DesktopControlView onPrepareJobReview={(page) => { setJobReviewPage(page); setActiveTab('jobs') }} pendingJobFillActions={pendingJobFillActions} onPendingJobFillActionsConsumed={() => setPendingJobFillActions([])} /></motion.div>
+              ) : null}
+              {activeTab === 'jobs' ? (
+                <motion.div key="jobs" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><JobsView initialPage={jobReviewPage} onQueueReviewedFills={(actions) => { setPendingJobFillActions(actions); setActiveTab('control') }} /></motion.div>
               ) : null}
               {activeTab === 'macros' ? (
                 <motion.div key="macros" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><MacrosView /></motion.div>

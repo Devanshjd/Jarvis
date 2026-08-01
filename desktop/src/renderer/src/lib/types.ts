@@ -254,7 +254,43 @@ export type BrowserControlPage = {
   elements: BrowserControlElement[]
 }
 
-export type ShellTab = 'dashboard' | 'control' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'
+/** Inventory returned by JobProfile.summary(); approved fact values are excluded. */
+export type JobProfileSummary = {
+  has_profile: boolean
+  identity_fields: string[]
+  links: string[]
+  resume: boolean
+  cover_letter: boolean
+  approved_answers: string[]
+  preferences: {
+    titles?: string[]
+    locations?: string[]
+    remote?: boolean
+    [key: string]: unknown
+  }
+}
+
+export type JobFillPlanStep = {
+  selector: string
+  label: string
+  matched_key?: string | null
+  source?: string
+  needs_user: boolean
+  reason?: string
+  action?: DesktopControlAction
+}
+
+export type JobFillPlan = {
+  plan: JobFillPlanStep[]
+  actions: DesktopControlAction[]
+  summary: {
+    fields: number
+    auto_fill: number
+    needs_user: Array<{ label: string; reason: string }>
+  }
+}
+
+export type ShellTab = 'dashboard' | 'control' | 'jobs' | 'macros' | 'notes' | 'gallery' | 'phone' | 'settings' | 'oracle' | 'edith'
 export type SettingsTab = 'general' | 'keys' | 'security'
 
 /**

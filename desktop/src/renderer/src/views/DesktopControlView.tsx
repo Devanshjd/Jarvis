@@ -29,6 +29,16 @@ type BrowserQueueItem = {
   action: DesktopControlAction
   result?: DesktopControlStepResult
   submissionReviewed?: boolean
+  /** Facts-only job values stay in memory for the step but are never rendered. */
+  sensitive?: boolean
+}
+
+type DesktopControlViewProps = {
+  /** Sends page evidence to the jobs view; it never triggers a browser action. */
+  onPrepareJobReview?: (page: BrowserControlPage) => void
+  /** Reviewed facts-only actions returned by Jobs, still awaiting per-step approval. */
+  pendingJobFillActions?: DesktopControlAction[]
+  onPendingJobFillActionsConsumed?: () => void
 }
 
 const BROWSER_HARD_BLOCK_RE = /\b(pass\s?word|passwd|pwd|pass\s?phrase|\bpin\b|otp|2fa|mfa|cvv|cvc|card\s*number|credit\s*card|debit\s*card|ssn|social\s*security|seed\s*phrase|private\s*key|secret\s*key|api[_\s-]?key|captcha|recaptcha|hcaptcha|i'?m\s*not\s*a\s*robot|\bbuy\b|\bsell\b|\btrade\b|transfer|wire|withdraw|deposit|send\s*money|pay(ment)?|purchase|checkout|place\s*(the\s*)?order|confirm\s*order)\b/i
@@ -66,6 +76,17 @@ function actionLabel(action: DesktopControlAction): string {
     case 'browser_shot': return 'CAPTURE BROWSER EVIDENCE'
     default: return String(action.action || 'UNKNOWN ACTION').replaceAll('_', ' ').toUpperCase()
   }
+}
+
+function actionPayload(action: DesktopControlAction, sensitive = false): string {
+  if (!sensitive) return JSON.stringify(action, null, 2)
+  // Keep approved fact values in memory solely until their individually approved
+  // step runs; never reveal the value or local file path in the renderer.
+  return JSON.stringify({
+    action: action.action,
+    selector: action.selector,
+    source: 'approved local job profile fact - value hidden'
+  }, null, 2)
 }
 
 function resultText(result?: DesktopControlStepResult): string {
@@ -147,7 +168,11 @@ function screenshotDataUrl(result: unknown): string | null {
   return typeof b64 === 'string' && b64 ? `data:image/png;base64,${b64}` : null
 }
 
-export default function DesktopControlView() {
+export default function DesktopControlView({
+  onPrepareJobReview,
+  pendingJobFillActions = [],
+  onPendingJobFillActionsConsumed
+}: DesktopControlViewProps) {
   const [status, setStatus] = useState<DesktopControlStatus>(EMPTY_STATUS)
   const [task, setTask] = useState('')
   const [appScope, setAppScope] = useState('')
@@ -223,6 +248,21 @@ export default function DesktopControlView() {
   const planActions = plan?.actions ?? []
   const completedSteps = useMemo(() => planActions.filter((_, index) => stepResults[index]?.ok).length, [planActions, stepResults])
 
+  useEffect(() => {
+    if (pendingJobFillActions.length === 0 || !sessionActive || !hasBrowserScope) return
+    setBrowserQueue((current) => [
+      ...current,
+      ...pendingJobFillActions.map((action, index) => ({
+        id: `job-${Date.now()}-${current.length + index}`,
+        action,
+        submissionReviewed: false,
+        sensitive: true
+      }))
+    ])
+    onPendingJobFillActionsConsumed?.()
+    setMessage('REVIEWED FACTS-ONLY FILL STEPS LOADED. APPROVE THEM ONE AT A TIME.')
+  }, [hasBrowserScope, onPendingJobFillActionsConsumed, pendingJobFillActions, sessionActive])
+
   async function toggleControl(on: boolean) {
     if (on && !window.confirm('Enable Computer Use? It remains scoped, expires automatically, and still requires approval for every step.')) return
     setActing('toggle')
@@ -289,6 +329,7 @@ export default function DesktopControlView() {
       setObservation(null)
       setBrowserPage(null)
       setBrowserScreenshot(null)
+      setBrowserQueue((current) => current.filter((item) => !item.sensitive))
       setMessage('STOP CONFIRMED — THE COMPUTER USE SESSION HAS ENDED.')
       await refreshStatus(true)
     } catch (err) {
@@ -441,6 +482,7 @@ export default function DesktopControlView() {
 
         {error ? <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
         {message ? <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{message}</div> : null}
+        {pendingJobFillActions.length > 0 && (!sessionActive || !hasBrowserScope) ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100">JOB FILL REVIEW IS READY. Start a browser-scoped session for the application origin to load its reviewed steps. Nothing has been filled.</div> : null}
 
         {!status.available && !loading ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-200">
@@ -560,6 +602,15 @@ export default function DesktopControlView() {
                 <div className="flex items-center gap-2 text-[10px] font-black tracking-[0.16em] text-zinc-300"><RiEyeLine /> LIVE PAGE EVIDENCE</div>
                 <div data-testid="browser-live-url" className={`mt-2 break-all font-mono text-[11px] ${browserPage?.url ? 'text-amber-300' : 'text-zinc-600'}`}>{browserPage?.url || 'NO PAGE OBSERVED — NAVIGATE, THEN PROPOSE “READ PAGE ELEMENTS”.'}</div>
                 {browserPage?.title ? <div className="mt-1 text-xs text-zinc-400">{browserPage.title}</div> : null}
+                <button
+                  data-testid="prepare-job-fill-review"
+                  type="button"
+                  disabled={!browserPage || browserPage.elements.length === 0}
+                  onClick={() => browserPage && onPrepareJobReview?.(browserPage)}
+                  className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[8px] font-black tracking-[0.12em] text-amber-300 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  PREPARE JOB FILL REVIEW
+                </button>
               </div>
               {browserPage?.elements?.length ? (
                 <div className="scrollbar-small max-h-72 overflow-y-auto divide-y divide-white/5">
@@ -603,7 +654,7 @@ export default function DesktopControlView() {
                             {submission ? <span className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-[9px] font-mono tracking-[0.12em] text-red-300">SUBMISSION REVIEW REQUIRED</span> : null}
                           </div>
                           <h3 className="mt-2 text-xs font-black tracking-[0.08em] text-zinc-100">{actionLabel(item.action)}</h3>
-                          <pre className="scrollbar-small mt-3 max-h-36 overflow-auto rounded-lg border border-white/5 bg-black/35 p-3 text-[11px] leading-5 text-zinc-300">{JSON.stringify(item.action, null, 2)}</pre>
+                          <pre className="scrollbar-small mt-3 max-h-36 overflow-auto rounded-lg border border-white/5 bg-black/35 p-3 text-[11px] leading-5 text-zinc-300">{actionPayload(item.action, item.sensitive)}</pre>
                           {verifyText(item.result?.verify) ? <div className="mt-3 text-[11px] text-emerald-300">VERIFIED {verifyText(item.result?.verify)}</div> : null}
                           {item.result && !item.result.ok ? <div className="mt-3 text-xs leading-5 text-red-300">{resultText(item.result)}</div> : null}
                           {submission ? (

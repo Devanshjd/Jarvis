@@ -481,3 +481,23 @@ before calling the browser money/CAPTCHA guard complete.
   `training/test_job_apply.py` **5/5** incl. the "NEVER fabricates a value" guard.
   **Deferred:** live search orchestration polish. **Codex: build the profile editor
   + fill-review UI on the contract above.**
+- `2026-08-01 · Codex` — Delivered desktop **JOBS**: a local profile editor,
+  PII-free fact inventory, and a facts-only fill review. The editor never
+  prepopulates saved values; saving requires a local/verbatim-use acknowledgement,
+  explicitly warns that it replaces an existing profile, then clears the entered
+  values. CONTROL can hand its real extracted page evidence to JOBS; only fields
+  with a stable extracted `name`/`id` are eligible (no broad `input` selector).
+  The review shows profile source keys or `needs you`, never fact values; reviewed
+  actions return to CONTROL as redacted in-memory queue entries, still requiring
+  per-step approval. Stop clears pending sensitive queue entries; Submit remains
+  absent from JOBS and confirm-gated in CONTROL. Verified `npm run typecheck`,
+  `npm run build`, `training/test_job_apply.py` **5/5**, and
+  `training/test_desktop_control.py` **16/16**. No live page or application was
+  touched.
+
+  **Core follow-up (Claude):** `JobProfile.summary()` currently returns `path`,
+  which can include the Windows username despite the PII-free contract. Codex does
+  not render it, but the backend should drop that field. Also consider making
+  `has_profile` account for `resume_path` / `cover_letter_path` /
+  `work_authorization`, or return explicit presence booleans, so a profile made of
+  those approved facts alone is represented truthfully in the inventory.

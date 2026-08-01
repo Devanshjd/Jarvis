@@ -1151,34 +1151,50 @@ def api_voice_local(payload: LocalVoiceRequest):
     except Exception:
         pass
 
-    reply = ""
+    from core.voice_control import get_speech, stream_chat
+    from core.activity_state import get_activity
+    sc = get_speech()
+    sc.begin_turn()                      # fresh turn: a WAIT only cancels THIS one
+
+    model = "gemma3:4b"
     try:
-        import requests as _rq
-        model = "gemma3:4b"
-        try:
-            _cfg = json.loads((Path.home() / ".jarvis_config.json").read_text(encoding="utf-8"))
-            model = (_cfg.get("ollama") or {}).get("model") or model
-        except Exception:
-            pass
-        system = ("You are JARVIS, a concise, helpful local voice assistant. "
-                  "Answer in 1-3 spoken sentences — no markdown, no lists, no code "
-                  "blocks. Be direct and natural, as if speaking aloud.")
-        if memory_context:
-            system += "\n\n" + memory_context + "\nUse these memories if relevant."
-        _r = _rq.post(
-            "http://127.0.0.1:11434/api/chat",
-            json={"model": model, "stream": False, "keep_alive": "5m",
-                  "options": {"temperature": 0.6, "num_predict": 200},
-                  "messages": [
-                      {"role": "system", "content": system},
-                      {"role": "user", "content": transcript}]},
-            timeout=60)
-        if _r.status_code == 200:
-            reply = (_r.json().get("message", {}).get("content") or "").strip()
-    except Exception as e:
-        reply = f"I hit a local reasoning error: {e}"
+        _cfg = json.loads((Path.home() / ".jarvis_config.json").read_text(encoding="utf-8"))
+        model = (_cfg.get("ollama") or {}).get("model") or model
+    except Exception:
+        pass
+
+    # Persona (calm/sharp/honest) + a spoken-form instruction + recalled memory.
+    try:
+        from core.persona import persona_prompt
+        system = persona_prompt()
+    except Exception:
+        system = "You are JARVIS, a local voice assistant."
+    system += ("\n\n[VOICE MODE] You are speaking aloud. Reply in 1-3 natural spoken "
+               "sentences — no markdown, no lists, no code blocks.")
+    if memory_context:
+        system += "\n\n" + memory_context + "\nUse these memories only if relevant."
+
+    # Reason locally, STREAMING, so WAIT (/api/voice/stop) can abort mid-thought.
+    get_activity().thinking("JARVIS", "Thinking")
+    sc.mark_generating(True)
+    try:
+        result = stream_chat(model, system, transcript,
+                             abort_check=sc.generation_aborted,
+                             options={"temperature": 0.6, "num_predict": 240},
+                             register=sc.register_stream)
+    finally:
+        sc.mark_generating(False)
+
+    if result.get("aborted"):
+        get_activity().idle()
+        return {"success": True, "transcript": transcript, "reply": "",
+                "cancelled": True, "cancelled_stage": "thinking", "local": True,
+                "latency_ms": int((time.time() - t_start) * 1000)}
+
+    reply = (result.get("text") or "").strip()
     if not reply:
-        reply = "I could not generate a reply locally. Is Ollama running?"
+        reply = ("I could not generate a reply locally. Is Ollama running?"
+                 if result.get("error") else "I don't have an answer for that.")
 
     # Remember this turn so future questions can recall it.
     try:
@@ -1187,31 +1203,33 @@ def api_voice_local(payload: LocalVoiceRequest):
     except Exception:
         pass
 
-    # 3) Text -> speech (local Piper), play on host + return audio
+    # 3) Text -> speech: full WAV for the renderer, PLUS chunked + cancellable
+    #    host playback via the controller (so WAIT cuts it off and the speaking
+    #    activity state is real). If we don't speak, settle activity to idle.
     audio_b64 = ""
-    if payload.speak and reply:
-        voice = _get_piper_voice()
-        if voice is not None:
-            try:
-                buf = io.BytesIO()
-                with wave.open(buf, "wb") as wf:
-                    voice.synthesize_wav(reply[:1500], wf)
-                wav = buf.getvalue()
-                audio_b64 = base64.b64encode(wav).decode()
+    voice = _get_piper_voice() if (payload.speak and reply) else None
+    if voice is not None:
+        try:
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as wf:
+                voice.synthesize_wav(reply[:1500], wf)
+            audio_b64 = base64.b64encode(buf.getvalue()).decode()
+        except Exception:
+            pass
 
-                def _play():
-                    try:
-                        import winsound
-                        winsound.PlaySound(wav, winsound.SND_MEMORY)
-                    except Exception:
-                        pass
-                threading.Thread(target=_play, daemon=True).start()
-            except Exception:
-                pass
+        def _synth(sentence: str) -> bytes:
+            b = io.BytesIO()
+            with wave.open(b, "wb") as wf:
+                voice.synthesize_wav(sentence, wf)
+            return b.getvalue()
+
+        sc.speak(reply[:1500], synth=_synth, background=True)
+    else:
+        get_activity().idle()
 
     return {
         "success": True, "transcript": transcript, "reply": reply,
-        "reply_audio_base64": audio_b64, "local": True,
+        "reply_audio_base64": audio_b64, "local": True, "cancelled": False,
         "latency_ms": int((time.time() - t_start) * 1000),
     }
 

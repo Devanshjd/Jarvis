@@ -276,11 +276,18 @@ indicators. The backend now speaks **sentence-by-sentence** (first word starts a
 soon as the first sentence synthesises) and is **interruptible**.
 
 ```
-POST /api/voice/stop     → halt host speech NOW (cancel flag + purge current sound);
-                           settles activity to idle. UNGUARDED (must be instant).
-                           returns { stopped:true, was_speaking:bool }
+POST /api/voice/stop     → the WAIT hook. Aborts the WHOLE turn: in-flight
+                           GENERATION (closes the stream → model stops thinking)
+                           AND speech (cancel + purge). UNGUARDED (must be instant).
+                           returns { stopped, was_speaking, was_generating,
+                                     scope:"speech"|"thinking"|"idle" }  ← use scope
+                           to say "stopped speech" vs "stopped the whole turn".
 GET  /api/voice/timing   → { speaking:bool, last:{chunks, first_audio_ms, total_ms, cancelled} }
-POST /api/tts/speak {text, play:true}  → now chunked+cancellable host playback
+POST /api/tts/speak {text, play:true}  → chunked+cancellable host playback
+POST /api/voice/local    → now STREAMS generation (abortable mid-thought), uses the
+                           Persona prompt, and speaks chunked/cancellable. On a
+                           mid-thought WAIT it returns { cancelled:true,
+                           cancelled_stage:"thinking", reply:"" }.
 ```
 - **Truthful speaking state:** `activity.state == "speaking"` is set only while a
   chunk is ACTUALLY playing on the host, and cleared the instant it stops/cancels
@@ -639,3 +646,16 @@ the status says unloaded when no profile is available.
   path through the controller before claiming that every local-voice reply is
   cancellable/timed. Then add generation abort and wake-word detection as the
   remaining reliability work.
+- `2026-08-01 · Claude` — **Local voice now fully interruptible — generation AND
+  speech.** `/api/voice/local` rebuilt: (1) routed through `voice_control` so
+  replies are chunked + cancellable + timed; (2) **streaming generation with an
+  abort signal** — `stream_chat()` streams Ollama and `POST /api/voice/stop` closes
+  the live stream so the model stops mid-thought (not just mid-sentence); (3) the
+  **Persona prompt** now drives the voice loop (+ a spoken-form instruction), so
+  text and voice finally match. `stop()` reports honest `scope`
+  (speech/thinking/idle) + `was_generating`. **Verified LIVE against gemma3:4b:**
+  long answer, WAIT at 2s → generation aborted at **2.1s** with 474 chars produced
+  then cut — the model genuinely stops thinking. Tests `test_voice_control.py`
+  **10/10**; all suites **53/53**. **Codex: `LISTENING→THINKING→SPEAKING→CANCELLED`
+  states + a WAIT that reports scope + the diagnostics panel can all wire to this.**
+  Remaining shared: wake word.

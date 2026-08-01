@@ -86,6 +86,70 @@ def test_empty_text_is_a_noop() -> None:
     assert r["spoken"] == [] and r["cancelled"] is False
 
 
+def test_stop_scope_is_reported_honestly() -> None:
+    c = SpeechController()
+    # idle → nothing was live
+    assert c.stop(interrupt=_NULL)["scope"] == "idle"
+    # mid-generation → WAIT stops the THINKING
+    c.begin_turn()
+    c.mark_generating(True)
+    r = c.stop(interrupt=_NULL)
+    assert r["scope"] == "thinking" and r["was_generating"] is True
+    # mid-speech → WAIT stops the SPEECH (tested via the play hook)
+    c2 = SpeechController()
+    scopes: list[str] = []
+    c2.speak("A. B.", synth=lambda s: b"x",
+             play=lambda w: scopes.append(c2.stop(interrupt=_NULL)["scope"]))
+    assert scopes and scopes[0] == "speech"
+
+
+def test_stop_closes_the_registered_stream() -> None:
+    c = SpeechController()
+
+    class _Stream:
+        def __init__(self): self.closed = False
+        def close(self): self.closed = True
+
+    s = _Stream()
+    c.begin_turn()
+    c.mark_generating(True)
+    c.register_stream(s)
+    c.stop(interrupt=_NULL)
+    assert s.closed is True, "stop() must close the live stream (unblocks first-token wait)"
+
+
+def test_stream_chat_assembles_then_aborts() -> None:
+    from core import voice_control
+    import requests as _rq
+
+    class _Resp:
+        def __init__(self, lines): self.lines = lines
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def iter_lines(self):
+            for ln in self.lines:
+                yield ln
+
+    lines = [b'{"message":{"content":"Hello "}}',
+             b'{"message":{"content":"world."}}',
+             b'{"done":true}']
+    orig = _rq.post
+    _rq.post = lambda *a, **k: _Resp(lines)
+    try:
+        full = voice_control.stream_chat("m", "sys", "hi", abort_check=lambda: False)
+        assert full["aborted"] is False and full["text"] == "Hello world."
+
+        calls = {"n": 0}
+        def abort():                       # abort after the first chunk is consumed
+            calls["n"] += 1
+            return calls["n"] > 1
+        cut = voice_control.stream_chat("m", "sys", "hi", abort_check=abort)
+        assert cut["aborted"] is True, "must stop streaming when abort fires"
+        assert cut["text"] == "Hello", "returns whatever was produced before abort"
+    finally:
+        _rq.post = orig
+
+
 def main() -> None:
     tests = [
         ("split into sentences", test_split_sentences),
@@ -95,6 +159,9 @@ def main() -> None:
         ("stop when idle is honest", test_stop_when_idle_is_honest),
         ("fresh speak clears prior cancel", test_fresh_speak_clears_prior_cancel),
         ("empty text is a no-op", test_empty_text_is_a_noop),
+        ("stop scope reported honestly", test_stop_scope_is_reported_honestly),
+        ("stop closes the registered stream", test_stop_closes_the_registered_stream),
+        ("stream_chat assembles then aborts", test_stream_chat_assembles_then_aborts),
     ]
     print("=" * 64)
     print(" VOICE-CONTROL TESTS")

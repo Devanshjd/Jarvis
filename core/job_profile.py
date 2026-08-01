@@ -82,7 +82,8 @@ class JobProfile:
                     or self.data.get("approved_answers"))
 
     def summary(self) -> dict:
-        """PII-free view for the UI: WHICH facts are on file, not their values."""
+        """PII-free view for the UI: WHICH facts are on file, not their values —
+        and no filesystem path (the home dir leaks the OS username)."""
         ident = self.data.get("identity") or {}
         return {
             "has_profile": not self.is_empty(),
@@ -92,5 +93,4 @@ class JobProfile:
             "cover_letter": bool(self.data.get("cover_letter_path")),
             "approved_answers": sorted((self.data.get("approved_answers") or {}).keys()),
             "preferences": self.data.get("preferences") or {},
-            "path": str(self.path),
         }

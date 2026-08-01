@@ -62,9 +62,14 @@ def test_profile_round_trip_and_pii_free_summary() -> None:
         assert p2.value_for("resume_path") == "C:/resume.pdf"
         assert p2.value_for("salary_expectation") == "35000"
         assert p2.value_for("portfolio") is None                # not on file
-        blob = json.dumps(p2.summary())
+        summ = p2.summary()
+        blob = json.dumps(summ)
         assert "test@example.com" not in blob and "+44" not in blob, \
             "the summary must expose which facts exist, not their PII values"
+        # ...and no filesystem path (the home dir leaks the OS username).
+        assert "path" not in summ, "summary must not expose the profile file path"
+        assert str(p2.path) not in blob and ".jarvis" not in blob, \
+            "summary must not leak the profile location"
 
 
 def test_map_form_fills_only_from_profile() -> None:

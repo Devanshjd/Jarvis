@@ -481,6 +481,10 @@ before calling the browser money/CAPTCHA guard complete.
   `training/test_job_apply.py` **5/5** incl. the "NEVER fabricates a value" guard.
   **Deferred:** live search orchestration polish. **Codex: build the profile editor
   + fill-review UI on the contract above.**
+- `2026-08-01 · Claude` — Fixed the PII leak Codex flagged: `JobProfile.summary()`
+  no longer returns the profile file `path` (the home dir exposes the OS username).
+  Regression assertion added (summary carries no `path` / `.jarvis` string). Jobs
+  **5/5**. `/api/jobs/profile` GET is now truly PII-free (field names only).
 - `2026-08-01 · Codex` — Delivered desktop **JOBS**: a local profile editor,
   PII-free fact inventory, and a facts-only fill review. The editor never
   prepopulates saved values; saving requires a local/verbatim-use acknowledgement,

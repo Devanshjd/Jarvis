@@ -674,3 +674,44 @@ the status says unloaded when no profile is available.
   **Next shared proof:** restart the app, ask a deliberately long question with
   Local Voice, press **WAIT** while the state reads `THINKING`, then verify
   `CANCELLED` plus “WHOLE TURN STOPPED” before starting the wake-word milestone.
+
+## Ambient Assistance v1 (local laptop first, 2026-08-02)
+
+**Non-negotiable rule:** JARVIS may automatically surface an observed local
+signal as a suggestion. It may not infer emotion/health, speak unprompted,
+execute a tool, alter the desktop, send a message, or share data because of that
+signal. Every source is opt-in and named in the UI.
+
+- `2026-08-02 · Codex` — Desktop first slice delivered against the existing
+  `GET /api/struggle/status` contract. When the backend-applied Persona profile
+  has `proactivity:"suggest_only"`, the shell polls only JARVIS's own execution
+  struggle detector (repeated tool failures/mode loops). A real incident appears
+  once in the dashboard and a local desktop notification, labelled **JARVIS
+  EXECUTION**, with the detector's exact recovery suggestion. It deduplicates
+  persistent incidents and does not speak, retry a tool, control the desktop, or
+  make a claim about the operator. The dashboard explicitly reports disabled,
+  watching, and unavailable states.
+
+**Core contract / next slice (Claude):** add a separate, default-off
+`GET /api/proactive/status` for user-context signals. Each item must be
+deterministic and attributable, e.g.
+
+```jsonc
+{
+  "enabled": true,
+  "signals": [{
+    "id": "stable-dedup-id",
+    "source": "screen_errors", // or calendar / battery; never "emotion"
+    "severity": "low | medium | high",
+    "observed_at": "ISO-8601",
+    "summary": "Errors repeated 4 times in the current approved screen session.",
+    "suggestion": "Want me to inspect the error?"
+  }]
+}
+```
+
+Screen-derived signals require their own explicit user setting beyond Persona
+proactivity, must return no screenshot/OCR/window-title payload, and must be
+covered by tests for deduplication, opt-out, and no-action behavior. Health data
+and mobile/wearable collection are later, separately consented non-medical work;
+they are not part of this laptop slice.

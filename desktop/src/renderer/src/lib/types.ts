@@ -163,6 +163,30 @@ export type VoiceStopRecord = {
  * acknowledgement, never inferred from an idle backend. */
 export type VoiceLifecycleState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'cancelled'
 
+/** Backend evidence that JARVIS's own execution is stuck. This is not a claim
+ * about the operator's emotions, health, or off-device activity. */
+export type ExecutionStruggleStatus = {
+  score: number
+  is_struggling: boolean
+  reason: string
+  suggestion: string
+  consecutive_failures: number
+  mode_switches: number
+  repeated_calls: number
+  history_size: number
+  current_goal: string
+}
+
+export type ProactiveWatchState = 'disabled' | 'watching' | 'unavailable'
+
+export type ProactiveSuggestion = {
+  id: string
+  source: 'jarvis_execution'
+  score: number
+  reason: string
+  suggestion: string
+}
+
 export type ChatMessage = {
   id: number
   role: string

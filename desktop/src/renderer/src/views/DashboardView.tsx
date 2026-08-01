@@ -21,6 +21,8 @@ import type {
   ChatMessage,
   RuntimeStatus,
   SystemStatsResult,
+  ProactiveSuggestion,
+  ProactiveWatchState,
   VoiceLifecycleState,
   VoiceStopRecord,
   VoiceTiming,
@@ -48,6 +50,8 @@ export interface DashboardViewProps {
   activity: ActivityStatus
   stillWorking: boolean
   voiceTiming: VoiceTiming | null
+  proactiveWatch: ProactiveWatchState
+  proactiveSuggestion: ProactiveSuggestion | null
   voiceLifecycle: VoiceLifecycleState
   lastVoiceStop: VoiceStopRecord | null
   waitAvailable: boolean
@@ -69,7 +73,8 @@ export default function DashboardView(props: DashboardViewProps) {
     busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     activity, stillWorking,
-    voiceTiming, voiceLifecycle, lastVoiceStop, waitAvailable,
+    voiceTiming, proactiveWatch, proactiveSuggestion,
+    voiceLifecycle, lastVoiceStop, waitAvailable,
     onSend, onToggleVision, onToggleVoice, onToggleMic, onStopVoiceTurn,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
@@ -395,6 +400,37 @@ export default function DashboardView(props: DashboardViewProps) {
               )}
             </div>
           )}
+
+          {/* Ambient assistance is suggestion-only and identifies the exact
+              observed source. Nothing here infers operator health or acts. */}
+          {proactiveWatch !== 'disabled' ? <div
+            data-testid="proactive-watch"
+            className={`mb-3 rounded-xl border px-3 py-2.5 ${
+              proactiveWatch === 'unavailable'
+                ? 'border-zinc-700 bg-zinc-900/35'
+                : proactiveSuggestion
+                  ? 'border-amber-500/30 bg-amber-500/5'
+                  : 'border-white/10 bg-black/25'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3 text-[8px] font-mono tracking-[0.18em]">
+              <span className="text-zinc-400">PROACTIVE WATCH // EXECUTION</span>
+              <span className={proactiveWatch === 'unavailable' ? 'text-zinc-600' : proactiveSuggestion ? 'text-amber-300' : 'text-emerald-300'}>
+                {proactiveWatch === 'unavailable' ? 'SOURCE UNAVAILABLE' : proactiveSuggestion ? 'SUGGESTION READY' : 'WATCHING'}
+              </span>
+            </div>
+            {proactiveWatch === 'unavailable' ? (
+              <p className="mt-2 text-[10px] leading-5 text-zinc-600">The local execution-signal endpoint is unavailable. No proactive claim is being shown.</p>
+            ) : proactiveSuggestion ? (
+              <div className="mt-2 space-y-1.5">
+                <p className="text-[10px] leading-5 text-amber-100/90">{proactiveSuggestion.suggestion}</p>
+                {proactiveSuggestion.reason ? <p className="text-[9px] leading-4 text-zinc-500">Observed: {proactiveSuggestion.reason}</p> : null}
+                <p className="text-[8px] font-mono tracking-[0.12em] text-zinc-600">SOURCE: JARVIS EXECUTION // SEVERITY {Math.round(proactiveSuggestion.score * 100)}%</p>
+              </div>
+            ) : (
+              <p className="mt-2 text-[10px] leading-5 text-zinc-600">No real execution-recovery signal is active.</p>
+            )}
+          </div> : null}
 
           {/* Measured controller facts only — no estimated latency or fake cancel state. */}
           {hasVoiceDiagnostics ? <div

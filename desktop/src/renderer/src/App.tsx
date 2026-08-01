@@ -31,8 +31,11 @@ import type {
   ChatResponse,
   DesktopControlAction,
   EdithQueue,
+  ExecutionStruggleStatus,
   JarvisShellSnapshot,
   PersonaProfile,
+  ProactiveSuggestion,
+  ProactiveWatchState,
   RuntimeStatus,
   ShellTab,
   SystemStatsResult,
@@ -81,6 +84,8 @@ export default function App() {
   const [voiceTiming, setVoiceTiming] = useState<VoiceTiming | null>(null)
   const [lastVoiceStop, setLastVoiceStop] = useState<VoiceStopRecord | null>(null)
   const [recentVoiceStop, setRecentVoiceStop] = useState<VoiceStopRecord | null>(null)
+  const [proactiveWatch, setProactiveWatch] = useState<ProactiveWatchState>('disabled')
+  const [proactiveSuggestion, setProactiveSuggestion] = useState<ProactiveSuggestion | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -116,6 +121,7 @@ export default function App() {
   const pendingTimeoutTurnRef = useRef<number | null>(null)
   const audioAnimRef = useRef<number>(0)
   const voiceStopTimerRef = useRef<number | null>(null)
+  const emittedProactiveSignalRef = useRef('')
   // Refs so the gesture poller reads current state without stale closures.
   const activeTabRef = useRef<ShellTab>('dashboard')
   const voiceActiveRef = useRef(false)
@@ -128,6 +134,11 @@ export default function App() {
   const expectingLiveReplyRef = useRef(false)
   const lastCommittedOutputRef = useRef('')
   const liveReplyDebounceRef = useRef<number | null>(null)
+  // Proactivity is an explicit backend-applied preference. If the profile has
+  // not been loaded, the desktop must not assume permission to notify.
+  const proactivityEnabled = Boolean(
+    status?.persona?.loaded && status.persona.proactivity === 'suggest_only'
+  )
 
   // ─── Refresh helpers ───
 
@@ -291,6 +302,59 @@ export default function App() {
     const id = window.setInterval(() => void poll(), 500)
     return () => { alive = false; window.clearInterval(id) }
   }, [])
+
+  // Phase 1 of ambient assistance: surface a recovery suggestion only when the
+  // backend reports a real JARVIS execution problem. This is deliberately not
+  // a user-health, emotion, camera, or microphone inference, and it never takes
+  // an action on the operator's behalf.
+  useEffect(() => {
+    if (!proactivityEnabled) {
+      emittedProactiveSignalRef.current = ''
+      setProactiveWatch('disabled')
+      setProactiveSuggestion(null)
+      return
+    }
+
+    let alive = true
+    const poll = async (): Promise<void> => {
+      try {
+        const next = await fetchJson<ExecutionStruggleStatus>(`${API_BASE}/api/struggle/status`)
+        if (!alive) return
+        setProactiveWatch('watching')
+
+        if (!next.is_struggling || !next.suggestion.trim()) {
+          emittedProactiveSignalRef.current = ''
+          setProactiveSuggestion(null)
+          return
+        }
+
+        const id = [next.reason, next.suggestion, next.consecutive_failures, next.repeated_calls].join('|')
+        const signal: ProactiveSuggestion = {
+          id,
+          source: 'jarvis_execution',
+          score: Math.max(0, Math.min(1, Number(next.score) || 0)),
+          reason: next.reason.trim(),
+          suggestion: next.suggestion.trim()
+        }
+        setProactiveSuggestion(signal)
+
+        // One notification per incident. It is a local suggestion only: no
+        // speech, external message, tool retry, or desktop control happens here.
+        if (emittedProactiveSignalRef.current !== id) {
+          emittedProactiveSignalRef.current = id
+          const body = `JARVIS execution is stuck. Suggestion: ${signal.suggestion}`
+          appendShellSystemMessage(`[Proactive / JARVIS execution] ${body}`)
+          void window.desktopApi?.jarvisNotify?.('Recovery suggestion', body, 'normal').catch(() => {})
+        }
+      } catch {
+        if (alive) setProactiveWatch('unavailable')
+      }
+    }
+
+    void poll()
+    const id = window.setInterval(() => void poll(), 4000)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [proactivityEnabled])
 
   // Multi-agent crew readiness (isolated, non-critical polling)
   useEffect(() => {
@@ -906,6 +970,8 @@ export default function App() {
                   dashboardVisionSource={dashboardVisionSource}
                   systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
                   voiceTiming={voiceTiming}
+                  proactiveWatch={proactiveWatch}
+                  proactiveSuggestion={proactiveSuggestion}
                   voiceLifecycle={voiceLifecycle}
                   lastVoiceStop={lastVoiceStop}
                   waitAvailable={voiceWaitAvailable}

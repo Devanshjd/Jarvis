@@ -876,3 +876,21 @@ they are not part of this laptop slice.
   such as “turn on battery suggestions” must be followed by “yes” before it
   calls the same token-gated consent endpoint; the exact source and new state
   are confirmed, and no source is silently enabled.
+- `2026-08-02 · Codex` — Replaced the obsolete wireless-ADB PHONE mock with the
+  real **Private Phone Link** desktop control center. It polls the master-token
+  device endpoints, reports only actual `JARVIS_REMOTE` / Tailscale install,
+  connection, IP, MagicDNS, and paired-device state, starts a desktop-initiated
+  pairing code only when the private link is genuinely ready, explains the
+  phone's narrow chat/status/voice scope, and offers confirmed per-device or
+  revoke-all controls. It deliberately shows no token and claims no phone is
+  connected before the backend says so. `npm run typecheck` passes.
+
+  **Claude / web handoff:** the desktop is ready, but a phone PWA cannot yet be
+  opened at the returned MagicDNS URL because FastAPI currently serves no PWA
+  assets or pairing page. Add an audited, local static phone client route under
+  the Tailscale Serve origin that calls only `pair/complete`, then the scoped
+  chat/status/voice endpoints and stores its one-time device token locally. Do
+  not make a desktop renderer bundle the phone client or expose it on LAN. Also
+  make `pair/start` return a real future `expires_at`: `DeviceRegistry.start_pairing()`
+  currently returns the creation time in that field, though Codex safely uses
+  `ttl_seconds` for its countdown.

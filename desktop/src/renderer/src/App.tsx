@@ -1106,7 +1106,7 @@ export default function App() {
                 <motion.div key="edith" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><EdithReviewView onPendingCountChange={setEdithPendingCount} /></motion.div>
               ) : null}
               {activeTab === 'phone' ? (
-                <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} /></motion.div>
+                <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} onOpenDashboard={() => { setActiveTab('dashboard'); void refreshAll() }} /></motion.div>
               ) : null}
               {activeTab === 'settings' ? (
                 <motion.div key="settings" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><SettingsView snapshot={snapshot} personaStatus={status?.persona} ambientSignals={ambientSignals} ambientSignalsUnavailable={ambientSignalsUnavailable} ambientConsentPending={ambientConsentPending} onSetAmbientConsent={(source, on) => void setAmbientConsent(source, on)} onSave={saveSettings} /></motion.div>

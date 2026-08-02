@@ -47,6 +47,16 @@ type PairStart = {
   error?: string
 }
 
+type Handoff = {
+  id: string
+  to: 'phone' | 'laptop'
+  from: 'phone' | 'laptop'
+  created_at: string
+  summary: string
+  note: string
+  acked: boolean
+}
+
 function formatTime(value: string | null): string {
   if (!value) return 'NEVER SEEN'
   const date = new Date(value)
@@ -58,7 +68,18 @@ function pairingTime(seconds: number): string {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-export default function PhoneView({ backendState }: { backendState: string }) {
+function phonePwaUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  return `${url.replace(/\/+$/, '')}/phone`
+}
+
+export default function PhoneView({
+  backendState,
+  onOpenDashboard
+}: {
+  backendState: string
+  onOpenDashboard: () => void
+}) {
   const [network, setNetwork] = useState<NetworkStatus | null>(null)
   const [devices, setDevices] = useState<PairedDevice[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,6 +88,9 @@ export default function PhoneView({ backendState }: { backendState: string }) {
   const [pairingSeconds, setPairingSeconds] = useState(0)
   const [startingPairing, setStartingPairing] = useState(false)
   const [revoking, setRevoking] = useState<string | null>(null)
+  const [sendingHandoff, setSendingHandoff] = useState(false)
+  const [outgoingHandoff, setOutgoingHandoff] = useState<Handoff | null>(null)
+  const [incomingHandoff, setIncomingHandoff] = useState<Handoff | null>(null)
 
   const refresh = async (): Promise<void> => {
     setError('')
@@ -99,6 +123,35 @@ export default function PhoneView({ backendState }: { backendState: string }) {
     }, 1000)
     return () => window.clearInterval(interval)
   }, [pairingSeconds])
+
+  useEffect(() => {
+    let alive = true
+    let polling = false
+    const checkHandoff = async (): Promise<void> => {
+      if (polling) return
+      polling = true
+      try {
+        const result = await fetchJson<{ handoff: Handoff | null }>(`${API_BASE}/api/handoff/latest?for=laptop`)
+        if (!alive || !result.handoff?.id) return
+        setIncomingHandoff(result.handoff)
+        // The laptop has received the nudge. Keep it visible in this view,
+        // but acknowledge it so it cannot reappear on another receiver.
+        await fetchJson<{ acked: boolean }>(`${API_BASE}/api/handoff/ack`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: result.handoff.id })
+        })
+      } catch {
+        // Handoff is optional while a backend is restarting or still on an
+        // older version. Do not turn that into a false incoming handoff.
+      } finally {
+        polling = false
+      }
+    }
+    void checkHandoff()
+    const interval = window.setInterval(() => void checkHandoff(), 5000)
+    return () => { alive = false; window.clearInterval(interval) }
+  }, [])
 
   const reachable = Boolean(network?.remote_enabled && network.tailscale.installed && network.tailscale.up && network.tailscale.magicdns)
   const remoteState = !network
@@ -174,6 +227,25 @@ export default function PhoneView({ backendState }: { backendState: string }) {
     }
   }
 
+  async function continueOnPhone(): Promise<void> {
+    if (!reachable || devices.length === 0) return
+    setSendingHandoff(true)
+    setError('')
+    try {
+      const result = await fetchJson<Handoff>(`${API_BASE}/api/handoff/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: 'phone' })
+      })
+      if (!result.id || result.to !== 'phone') throw new Error('The handoff was not created.')
+      setOutgoingHandoff(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSendingHandoff(false)
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-[#050505] px-6 py-8 lg:px-10">
       <div className="mx-auto w-full max-w-6xl">
@@ -210,7 +282,22 @@ export default function PhoneView({ backendState }: { backendState: string }) {
 
             <div className="stormbreaker-setting-card">
               <div className="flex items-start gap-3 border-b border-white/10 pb-4"><RiShieldCheckLine size={19} className="mt-0.5 text-emerald-300" /><div><div className="stormbreaker-setting-title">Pair a Phone</div><p className="mt-2 text-[11px] leading-5 text-zinc-500">Pairing starts here, expires in five minutes, and can only grant a phone the safe access scope.</p></div></div>
-              {!pairing || pairingSeconds === 0 ? <div className="mt-5"><button type="button" disabled={!reachable || startingPairing} onClick={() => void startPairing()} className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-[10px] font-black tracking-[0.16em] text-emerald-200 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45">{startingPairing ? 'CREATING PAIRING CODE' : 'START PHONE PAIRING'}</button><p className="mt-3 text-[10px] leading-5 text-zinc-600">{pairDisabledReason || 'A one-time code is created only after the private link is genuinely ready.'}</p></div> : <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5"><div className="flex items-center justify-between text-[9px] font-mono tracking-[0.14em]"><span className="text-zinc-500">ONE-TIME PAIRING CODE</span><span className="flex items-center gap-1 text-amber-200"><RiTimeLine /> {pairingTime(pairingSeconds)}</span></div><div className="mt-3 text-center text-5xl font-black tracking-[0.22em] text-emerald-200">{pairing.code}</div><p className="mt-4 break-all rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[10px] leading-5 text-zinc-400">On the phone, open: <span className="text-zinc-200">{pairing.url || 'No tailnet URL was returned.'}</span></p><p className="mt-3 text-[10px] leading-5 text-zinc-600">The phone client must submit this code once. JARVIS never displays or stores that phone’s raw access token here.</p><button type="button" onClick={() => { setPairing(null); setPairingSeconds(0) }} className="mt-4 text-[9px] font-mono tracking-[0.12em] text-zinc-500 hover:text-zinc-200">DISMISS CODE</button></div>}
+              {!pairing || pairingSeconds === 0 ? <div className="mt-5"><button type="button" disabled={!reachable || startingPairing} onClick={() => void startPairing()} className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-[10px] font-black tracking-[0.16em] text-emerald-200 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45">{startingPairing ? 'CREATING PAIRING CODE' : 'START PHONE PAIRING'}</button><p className="mt-3 text-[10px] leading-5 text-zinc-600">{pairDisabledReason || 'A one-time code is created only after the private link is genuinely ready.'}</p></div> : <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5"><div className="flex items-center justify-between text-[9px] font-mono tracking-[0.14em]"><span className="text-zinc-500">ONE-TIME PAIRING CODE</span><span className="flex items-center gap-1 text-amber-200"><RiTimeLine /> {pairingTime(pairingSeconds)}</span></div><div className="mt-3 text-center text-5xl font-black tracking-[0.22em] text-emerald-200">{pairing.code}</div><p className="mt-4 break-all rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[10px] leading-5 text-zinc-400">On the phone, open: <span className="text-zinc-200">{phonePwaUrl(pairing.url) || 'No tailnet URL was returned.'}</span></p><p className="mt-3 text-[10px] leading-5 text-zinc-600">The phone client must submit this code once. JARVIS never displays or stores that phone’s raw access token here.</p><button type="button" onClick={() => { setPairing(null); setPairingSeconds(0) }} className="mt-4 text-[9px] font-mono tracking-[0.12em] text-zinc-500 hover:text-zinc-200">DISMISS CODE</button></div>}
+            </div>
+
+            <div className="stormbreaker-setting-card">
+              <div className="flex items-start gap-3 border-b border-white/10 pb-4">
+                <RiSmartphoneLine size={19} className="mt-0.5 text-emerald-300" />
+                <div>
+                  <div className="stormbreaker-setting-title">Conversation Handoff</div>
+                  <p className="mt-2 text-[11px] leading-5 text-zinc-500">Your phone and laptop already share one JARVIS history. This sends a short nudge so the other screen visibly picks up where you were.</p>
+                </div>
+              </div>
+              <button type="button" disabled={!reachable || devices.length === 0 || sendingHandoff} onClick={() => void continueOnPhone()} className="mt-5 w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-[10px] font-black tracking-[0.16em] text-emerald-200 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45">
+                {sendingHandoff ? 'SENDING HANDOFF' : 'CONTINUE ON PHONE'}
+              </button>
+              {outgoingHandoff ? <div className="mt-4 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3"><p className="text-[9px] font-mono tracking-[0.13em] text-emerald-300">HANDOFF SENT TO PHONE</p><p className="mt-2 text-[10px] leading-5 text-zinc-400">{outgoingHandoff.summary || 'Your paired phone will pick up the shared conversation when it checks in.'}</p></div> : <p className="mt-3 text-[10px] leading-5 text-zinc-600">{devices.length === 0 ? 'Pair a phone first.' : !reachable ? 'The private link must be ready before a phone can receive a handoff.' : 'Any active paired phone can pick up this one pending handoff.'}</p>}
+              {incomingHandoff ? <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3"><p className="text-[9px] font-mono tracking-[0.13em] text-amber-300">CONTINUED FROM YOUR PHONE</p><p className="mt-2 text-[10px] leading-5 text-amber-100/90">{incomingHandoff.summary || 'Your phone handed the shared conversation back to this laptop.'}</p><button type="button" onClick={onOpenDashboard} className="mt-3 text-[9px] font-mono tracking-[0.12em] text-amber-200 hover:text-amber-100">OPEN TRANSCRIPT</button></div> : null}
             </div>
           </section>
 
@@ -227,7 +314,7 @@ export default function PhoneView({ backendState }: { backendState: string }) {
           </aside>
         </div>
 
-        <p className="mx-auto mt-8 max-w-3xl text-center text-[10px] leading-5 text-zinc-600">Backend: {backendState}. The phone PWA is a separate delivery step: it must be served through the private Tailscale URL before a phone can submit a pairing code. This screen deliberately does not claim that client exists yet.</p>
+        <p className="mx-auto mt-8 max-w-3xl text-center text-[10px] leading-5 text-zinc-600">Backend: {backendState}. The phone client is served at <span className="text-zinc-400">/phone</span> through the private Tailscale URL only. It can chat, use voice, and receive a handoff; it cannot control this desktop.</p>
       </div>
     </div>
   )

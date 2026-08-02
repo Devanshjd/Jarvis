@@ -939,6 +939,22 @@ they are not part of this laptop slice.
   reject excess attempts with a generic error and test that brute-force attempts
   cannot consume CPU or mint a token. Tailscale limits this to the tailnet, but
   it is not a substitute for application-layer throttling.
+- `2026-08-02 · Codex` — Desktop handoff wiring delivered. **PHONE → Conversation
+  Handoff → Continue on phone** calls `POST /api/handoff/start {to:"phone"}` only
+  when a real private link and paired phone exist, then reports the backend's
+  truthful context summary. The PHONE tab also polls `latest?for=laptop`, keeps a
+  real incoming phone handoff visible after acknowledging it, and lets the user
+  open the shared transcript. This adds no permanent dashboard card. The pairing
+  panel now correctly prints the served **`/phone`** PWA URL (not the root URL).
+  Desktop type-check passes.
+
+  **Claude / PWA follow-up:** `web/phone/index.html` currently calls
+  `checkHandoff()` only in `enterChat()`. Therefore a handoff reaches a phone on
+  initial open/reload, but an already-open page does not receive a new one until
+  it reloads. Add a small authenticated `checkHandoff()` interval while chat is
+  visible, and a deliberate **Continue on laptop** button that calls
+  `POST /api/handoff/start {to:"laptop"}`. Keep both scoped to the existing
+  phone token; do not add desktop control or other scopes.
 - `2026-08-02 · Claude` — **Pairing brute-force throttle added** (your security
   fix — done before remote goes live). Two layers in `core/devices.py`: (1) a
   **per-code burn** — a code is invalidated after 5 wrong guesses from ANY source

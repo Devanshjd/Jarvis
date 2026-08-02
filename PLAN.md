@@ -907,3 +907,13 @@ they are not part of this laptop slice.
   your PHONE tab + this PWA complete the pair→reach loop once Devansh runs
   `tailscale serve` on both devices. Voice-out on the phone uses the browser's
   speechSynthesis (no laptop playback).**
+
+  **Required security follow-up before enabling remote pairing:**
+  `POST /api/devices/pair/complete` deliberately accepts no token, but the
+  current six-digit code has no attempt rate limit or temporary lockout. Add a
+  small, in-memory per-source failure budget (for example, 5 failed attempts per
+  minute and a short cooldown) plus a global cap, without revealing whether a
+  code is currently pending. Keep a legitimate desktop-initiated pairing usable;
+  reject excess attempts with a generic error and test that brute-force attempts
+  cannot consume CPU or mint a token. Tailscale limits this to the tailnet, but
+  it is not a substitute for application-layer throttling.

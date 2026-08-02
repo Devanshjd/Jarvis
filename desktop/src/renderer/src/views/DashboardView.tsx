@@ -18,13 +18,11 @@ import CameraFeed from '../components/CameraFeed'
 import MarkdownMessage from '../components/MarkdownMessage'
 import type {
   ActivityStatus,
-  AmbientSignalSource,
   AmbientSignalsStatus,
   ChatMessage,
   RuntimeStatus,
   SystemStatsResult,
   ProactiveSuggestion,
-  ProactiveWatchState,
   VoiceLifecycleState,
   VoiceStopRecord,
   VoiceTiming,
@@ -54,8 +52,6 @@ export interface DashboardViewProps {
   voiceTiming: VoiceTiming | null
   ambientSignals: AmbientSignalsStatus | null
   ambientSignalsUnavailable: boolean
-  ambientConsentPending: AmbientSignalSource | null
-  proactiveWatch: ProactiveWatchState
   proactiveSuggestion: ProactiveSuggestion | null
   voiceLifecycle: VoiceLifecycleState
   lastVoiceStop: VoiceStopRecord | null
@@ -66,7 +62,6 @@ export interface DashboardViewProps {
   onToggleVoice: () => void
   onToggleMic: () => void
   onStopVoiceTurn: () => void
-  onSetAmbientConsent: (source: AmbientSignalSource, on: boolean) => void
   onSetDashboardVision: (s: 'none' | 'camera' | 'screen') => void
   onCameraStreamReady?: (stream: MediaStream | null) => void
   onLocalVoice?: () => void
@@ -79,10 +74,9 @@ export default function DashboardView(props: DashboardViewProps) {
     busy, visionSource,
     dashboardVisionSource, systemStats, audioLevel,
     activity, stillWorking,
-    voiceTiming, ambientSignals, ambientSignalsUnavailable, ambientConsentPending,
-    proactiveWatch, proactiveSuggestion,
+    voiceTiming, ambientSignals, ambientSignalsUnavailable, proactiveSuggestion,
     voiceLifecycle, lastVoiceStop, waitAvailable,
-    onSend, onToggleVision, onToggleVoice, onToggleMic, onStopVoiceTurn, onSetAmbientConsent,
+    onSend, onToggleVision, onToggleVoice, onToggleMic, onStopVoiceTurn,
     onSetDashboardVision, onCameraStreamReady, onLocalVoice, localVoiceState = 'idle'
   } = props
 
@@ -141,31 +135,18 @@ export default function DashboardView(props: DashboardViewProps) {
         ? 'LAST WAIT: GEMINI PLAYBACK STOPPED'
         : 'LAST WAIT: PIPER SPEECH STOPPED'
     : null
-  const ambientSources: Array<{
-    source: AmbientSignalSource
-    label: string
-    description: string
-    available: boolean
-  }> = [
-    {
-      source: 'screen_errors',
-      label: 'SCREEN ERRORS',
-      description: 'Counts repeated errors only. No image, OCR, or window title.',
-      available: true
-    },
-    {
-      source: 'battery',
-      label: 'BATTERY',
-      description: 'Reads charge percentage and charging state only.',
-      available: true
-    },
-    {
-      source: 'calendar',
-      label: 'CALENDAR',
-      description: 'Reserved until a local calendar provider is connected.',
-      available: false
-    }
-  ]
+  const activeAmbientSignals = ambientSignals?.signals ?? []
+  const ambientWatch = ambientSignalsUnavailable
+    ? { text: 'UNAVAILABLE', tone: 'text-zinc-600' }
+    : !ambientSignals
+      ? { text: 'CHECKING', tone: 'text-zinc-600' }
+      : activeAmbientSignals.length > 0 || proactiveSuggestion
+        ? { text: 'ATTENTION', tone: 'text-amber-300' }
+        : ambientSignals.proactivity === 'off'
+          ? { text: 'OFF', tone: 'text-zinc-600' }
+          : ambientSignals.enabled
+            ? { text: 'WATCHING', tone: 'text-emerald-300' }
+            : { text: 'IDLE', tone: 'text-zinc-600' }
   const visionText = visionUnavailable
     ? 'VISION UNAVAILABLE'
     : activeVisionSource === 'screen'
@@ -410,9 +391,14 @@ export default function DashboardView(props: DashboardViewProps) {
               <RiTerminalBoxLine />
               TRANSCRIPT
             </span>
-            <span className={`text-[10px] font-mono tracking-[0.24em] ${stillWorking ? 'animate-pulse text-amber-300' : 'text-amber-500/70'}`}>
-              {stillWorking ? 'JARVIS // STILL WORKING' : 'LIVE-LOG'}
-            </span>
+            <div className="flex items-center gap-3">
+              <span data-testid="ambient-signals" title="Ambient assistance status. Configure sources in Settings." className={`text-[8px] font-mono tracking-[0.14em] ${ambientWatch.tone}`}>
+                AMBIENT // {ambientWatch.text}
+              </span>
+              <span className={`text-[10px] font-mono tracking-[0.24em] ${stillWorking ? 'animate-pulse text-amber-300' : 'text-amber-500/70'}`}>
+                {stillWorking ? 'JARVIS // STILL WORKING' : 'LIVE-LOG'}
+              </span>
+            </div>
           </div>
 
           {/* Live voice I/O — green box (keeps voice working) */}
@@ -433,107 +419,25 @@ export default function DashboardView(props: DashboardViewProps) {
             </div>
           )}
 
-          {/* Ambient assistance is suggestion-only and identifies the exact
-              observed source. Nothing here infers operator health or acts. */}
-          {proactiveWatch !== 'disabled' ? <div
-            data-testid="proactive-watch"
-            className={`mb-3 rounded-xl border px-3 py-2.5 ${
-              proactiveWatch === 'unavailable'
-                ? 'border-zinc-700 bg-zinc-900/35'
-                : proactiveSuggestion
-                  ? 'border-amber-500/30 bg-amber-500/5'
-                  : 'border-white/10 bg-black/25'
-            }`}
-          >
+          {/* The dashboard stays quiet until JARVIS has a real, attributable
+              recovery suggestion. Configuration lives in Settings. */}
+          {proactiveSuggestion ? <div data-testid="proactive-alert" className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
             <div className="flex items-center justify-between gap-3 text-[8px] font-mono tracking-[0.18em]">
-              <span className="text-zinc-400">PROACTIVE WATCH // EXECUTION</span>
-              <span className={proactiveWatch === 'unavailable' ? 'text-zinc-600' : proactiveSuggestion ? 'text-amber-300' : 'text-emerald-300'}>
-                {proactiveWatch === 'unavailable' ? 'SOURCE UNAVAILABLE' : proactiveSuggestion ? 'SUGGESTION READY' : 'WATCHING'}
-              </span>
+              <span className="text-zinc-400">JARVIS EXECUTION // ATTENTION</span>
+              <span className="text-amber-300">SUGGESTION</span>
             </div>
-            {proactiveWatch === 'unavailable' ? (
-              <p className="mt-2 text-[10px] leading-5 text-zinc-600">The local execution-signal endpoint is unavailable. No proactive claim is being shown.</p>
-            ) : proactiveSuggestion ? (
-              <div className="mt-2 space-y-1.5">
-                <p className="text-[10px] leading-5 text-amber-100/90">{proactiveSuggestion.suggestion}</p>
-                {proactiveSuggestion.reason ? <p className="text-[9px] leading-4 text-zinc-500">Observed: {proactiveSuggestion.reason}</p> : null}
-                <p className="text-[8px] font-mono tracking-[0.12em] text-zinc-600">SOURCE: JARVIS EXECUTION // SEVERITY {Math.round(proactiveSuggestion.score * 100)}%</p>
-              </div>
-            ) : (
-              <p className="mt-2 text-[10px] leading-5 text-zinc-600">No real execution-recovery signal is active.</p>
-            )}
+            <p className="mt-2 text-[10px] leading-5 text-amber-100/90">{proactiveSuggestion.suggestion}</p>
+            {proactiveSuggestion.reason ? <p className="mt-1 text-[9px] leading-4 text-zinc-500">Observed: {proactiveSuggestion.reason}</p> : null}
           </div> : null}
 
-          {/* Separate opt-in sources for context about the operator's local
-              environment. Labels describe precisely what may be observed. */}
-          <div
-            data-testid="ambient-signals"
-            className={`mb-3 rounded-xl border px-3 py-2.5 ${
-              ambientSignalsUnavailable
-                ? 'border-zinc-700 bg-zinc-900/35'
-                : (ambientSignals?.signals.length ?? 0) > 0
-                  ? 'border-amber-500/30 bg-amber-500/5'
-                  : 'border-white/10 bg-black/25'
-            }`}
-          >
+          {activeAmbientSignals.map((signal) => <div key={signal.id} data-testid="ambient-signal-alert" className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
             <div className="flex items-center justify-between gap-3 text-[8px] font-mono tracking-[0.18em]">
-              <span className="text-zinc-400">AMBIENT SIGNALS // LOCAL</span>
-              <span className={ambientSignalsUnavailable ? 'text-zinc-600' : ambientSignals?.proactivity === 'off' ? 'text-zinc-600' : 'text-emerald-300'}>
-                {ambientSignalsUnavailable ? 'SOURCE UNAVAILABLE' : ambientSignals?.proactivity === 'off' ? 'PERSONA OFF' : 'SUGGEST ONLY'}
-              </span>
+              <span className="text-zinc-400">AMBIENT // {signal.source.toUpperCase()}</span>
+              <span className="text-amber-300">{signal.severity.toUpperCase()}</span>
             </div>
-
-            {ambientSignalsUnavailable ? (
-              <p className="mt-2 text-[10px] leading-5 text-zinc-600">The local ambient-signal service is unavailable. No device or screen claim is being shown.</p>
-            ) : !ambientSignals ? (
-              <p className="mt-2 text-[10px] leading-5 text-zinc-600">Checking local consented sources…</p>
-            ) : (
-              <>
-                <p className="mt-2 text-[9px] leading-4 text-zinc-600">
-                  {ambientSignals.proactivity === 'off'
-                    ? 'Persona proactivity is off. Sources can be configured, but nothing will surface until you enable Suggest only in Settings.'
-                    : 'Sources are off by default. A signal can ask; it cannot act, speak, or send anything.'}
-                </p>
-
-                <div className="mt-2 space-y-2">
-                  {ambientSources.map((item) => {
-                    const enabled = Boolean(ambientSignals.sources[item.source])
-                    const pending = ambientConsentPending === item.source
-                    const disabled = !item.available || pending
-                    return <div key={item.source} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className={`text-[9px] font-mono tracking-[0.13em] ${item.available ? 'text-zinc-300' : 'text-zinc-600'}`}>{item.label}</span>
-                        <button
-                          data-testid={`ambient-consent-${item.source}`}
-                          disabled={disabled}
-                          onClick={() => onSetAmbientConsent(item.source, !enabled)}
-                          title={item.description}
-                          className={`rounded border px-2 py-1 text-[8px] font-mono tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                            enabled
-                              ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
-                              : 'border-zinc-700 text-zinc-500 hover:border-amber-500/35 hover:text-amber-200'
-                          }`}
-                        >
-                          {pending ? 'SAVING' : !item.available ? 'RESERVED' : enabled ? 'ON' : 'OFF'}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-[8px] leading-4 text-zinc-600">{item.description}</p>
-                    </div>
-                  })}
-                </div>
-
-                {ambientSignals.signals.length > 0 ? <div className="mt-2 space-y-2">
-                  {ambientSignals.signals.map((signal) => <div key={signal.id} className="rounded-lg border border-amber-500/15 bg-amber-500/5 px-2.5 py-2">
-                    <p className="text-[9px] leading-4 text-amber-100/90">{signal.summary}</p>
-                    <p className="mt-1 text-[9px] leading-4 text-amber-200/80">{signal.suggestion}</p>
-                    <p className="mt-1 text-[8px] font-mono tracking-[0.1em] text-zinc-600">SOURCE: {signal.source.toUpperCase()} // {signal.severity.toUpperCase()}</p>
-                  </div>)}
-                </div> : ambientSignals.proactivity !== 'off' && ambientSignals.enabled ? (
-                  <p className="mt-2 text-[9px] leading-4 text-zinc-600">No consented real signal is active.</p>
-                ) : null}
-              </>
-            )}
-          </div>
+            <p className="mt-2 text-[10px] leading-5 text-amber-100/90">{signal.summary}</p>
+            <p className="mt-1 text-[9px] leading-4 text-amber-200/80">{signal.suggestion}</p>
+          </div>)}
 
           {/* Measured controller facts only — no estimated latency or fake cancel state. */}
           {hasVoiceDiagnostics ? <div

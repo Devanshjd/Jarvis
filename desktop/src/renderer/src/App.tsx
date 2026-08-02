@@ -38,7 +38,6 @@ import type {
   JarvisShellSnapshot,
   PersonaProfile,
   ProactiveSuggestion,
-  ProactiveWatchState,
   RuntimeStatus,
   ShellTab,
   SystemStatsResult,
@@ -87,7 +86,6 @@ export default function App() {
   const [voiceTiming, setVoiceTiming] = useState<VoiceTiming | null>(null)
   const [lastVoiceStop, setLastVoiceStop] = useState<VoiceStopRecord | null>(null)
   const [recentVoiceStop, setRecentVoiceStop] = useState<VoiceStopRecord | null>(null)
-  const [proactiveWatch, setProactiveWatch] = useState<ProactiveWatchState>('disabled')
   const [proactiveSuggestion, setProactiveSuggestion] = useState<ProactiveSuggestion | null>(null)
   const [ambientSignals, setAmbientSignals] = useState<AmbientSignalsStatus | null>(null)
   const [ambientSignalsUnavailable, setAmbientSignalsUnavailable] = useState(false)
@@ -317,7 +315,6 @@ export default function App() {
   useEffect(() => {
     if (!proactivityEnabled) {
       emittedProactiveSignalRef.current = ''
-      setProactiveWatch('disabled')
       setProactiveSuggestion(null)
       return
     }
@@ -327,8 +324,6 @@ export default function App() {
       try {
         const next = await fetchJson<ExecutionStruggleStatus>(`${API_BASE}/api/struggle/status`)
         if (!alive) return
-        setProactiveWatch('watching')
-
         if (!next.is_struggling || !next.suggestion.trim()) {
           emittedProactiveSignalRef.current = ''
           setProactiveSuggestion(null)
@@ -354,7 +349,8 @@ export default function App() {
           void window.desktopApi?.jarvisNotify?.('Recovery suggestion', body, 'normal').catch(() => {})
         }
       } catch {
-        if (alive) setProactiveWatch('unavailable')
+        // A missing optional recovery endpoint stays silent. The dashboard
+        // reports only a real, attributable recovery suggestion.
       }
     }
 
@@ -1071,8 +1067,6 @@ export default function App() {
                   voiceTiming={voiceTiming}
                   ambientSignals={ambientSignals}
                   ambientSignalsUnavailable={ambientSignalsUnavailable}
-                  ambientConsentPending={ambientConsentPending}
-                  proactiveWatch={proactiveWatch}
                   proactiveSuggestion={proactiveSuggestion}
                   voiceLifecycle={voiceLifecycle}
                   lastVoiceStop={lastVoiceStop}
@@ -1082,7 +1076,6 @@ export default function App() {
                   onToggleVoice={() => void toggleVoice()}
                   onToggleMic={() => toggleMic()}
                   onStopVoiceTurn={() => void stopVoiceOutput()}
-                  onSetAmbientConsent={(source, on) => void setAmbientConsent(source, on)}
                   onSetDashboardVision={handleSetDashboardVision}
                   onCameraStreamReady={handleCameraStreamReady}
                   onLocalVoice={() => void handleLocalVoice()}
@@ -1116,7 +1109,7 @@ export default function App() {
                 <motion.div key="phone" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><PhoneView backendState={backendState} /></motion.div>
               ) : null}
               {activeTab === 'settings' ? (
-                <motion.div key="settings" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><SettingsView snapshot={snapshot} personaStatus={status?.persona} onSave={saveSettings} /></motion.div>
+                <motion.div key="settings" initial={viewInitial} animate={viewAnimate} exit={viewExit} transition={viewTransition} className="h-full"><SettingsView snapshot={snapshot} personaStatus={status?.persona} ambientSignals={ambientSignals} ambientSignalsUnavailable={ambientSignalsUnavailable} ambientConsentPending={ambientConsentPending} onSetAmbientConsent={(source, on) => void setAmbientConsent(source, on)} onSave={saveSettings} /></motion.div>
               ) : null}
             </Suspense>
           </AnimatePresence>

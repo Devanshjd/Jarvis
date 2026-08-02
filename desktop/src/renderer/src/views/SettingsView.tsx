@@ -9,8 +9,34 @@ import {
   RiShieldKeyholeLine,
   RiUserVoiceLine
 } from 'react-icons/ri'
-import type { JarvisShellSnapshot, PersonaProfile, PersonaStatus, SettingsTab } from '../lib/types'
+import type { AmbientSignalSource, AmbientSignalsStatus, JarvisShellSnapshot, PersonaProfile, PersonaStatus, SettingsTab } from '../lib/types'
 import { SHELL_VOICE_ENGINE } from '../lib/types'
+
+const ambientSources: Array<{
+  source: AmbientSignalSource
+  label: string
+  description: string
+  available: boolean
+}> = [
+  {
+    source: 'screen_errors',
+    label: 'SCREEN ERRORS',
+    description: 'Counts repeated errors only. It never receives an image, OCR text, or a window title.',
+    available: true
+  },
+  {
+    source: 'battery',
+    label: 'BATTERY',
+    description: 'Reads charge percentage and charging state only.',
+    available: true
+  },
+  {
+    source: 'calendar',
+    label: 'CALENDAR',
+    description: 'Reserved until a local calendar provider is connected.',
+    available: false
+  }
+]
 
 /* ═══════════════════════════════════════════
    Settings View — Stormbreaker-style config center
@@ -19,10 +45,18 @@ import { SHELL_VOICE_ENGINE } from '../lib/types'
 export default function SettingsView({
   snapshot,
   personaStatus,
+  ambientSignals,
+  ambientSignalsUnavailable,
+  ambientConsentPending,
+  onSetAmbientConsent,
   onSave
 }: {
   snapshot: JarvisShellSnapshot | null
   personaStatus?: PersonaStatus
+  ambientSignals: AmbientSignalsStatus | null
+  ambientSignalsUnavailable: boolean
+  ambientConsentPending: AmbientSignalSource | null
+  onSetAmbientConsent: (source: AmbientSignalSource, on: boolean) => void
   onSave: (payload: { operatorName?: string; provider?: string; model?: string; voiceEngine?: string; persona?: PersonaProfile; voiceProfile?: string }) => Promise<void>
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
@@ -75,6 +109,17 @@ export default function SettingsView({
       ['DeepSeek Fallback', snapshot.config.apiKeys.deepseek || 'NOT SET']
     ]
   }, [snapshot])
+
+  const ambientSourceReady = Boolean(ambientSignals) && !ambientSignalsUnavailable
+  const ambientStatus = ambientSignalsUnavailable
+    ? { label: 'SERVICE UNAVAILABLE', tone: 'border-zinc-700 bg-zinc-900/35 text-zinc-500' }
+    : !ambientSignals
+      ? { label: 'CHECKING LOCAL STATUS', tone: 'border-zinc-700 bg-zinc-900/35 text-zinc-500' }
+      : ambientSignals.proactivity === 'off'
+        ? { label: 'PERSONA SUGGESTIONS OFF', tone: 'border-zinc-700 bg-zinc-900/35 text-zinc-500' }
+        : ambientSignals.enabled
+          ? { label: 'CONSENTED SOURCES ACTIVE', tone: 'border-emerald-500/25 bg-emerald-500/5 text-emerald-200' }
+          : { label: 'NO SOURCE ENABLED', tone: 'border-white/10 bg-black/25 text-zinc-500' }
 
   return (
     <div className="flex h-full justify-center overflow-y-auto bg-black px-8 py-10">
@@ -158,6 +203,49 @@ export default function SettingsView({
                   <span>{persona.instructions.length}/500</span>
                 </div>
                 {saveMessage ? <div className={`mt-4 rounded-xl border px-4 py-3 text-[11px] leading-5 ${saveMessage.startsWith('SAVE FAILED') ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'}`}>{saveMessage}</div> : null}
+              </div>
+
+              <div className="stormbreaker-setting-card md:col-span-2">
+                <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="stormbreaker-setting-title"><RiBrainLine /> Ambient Assistance</div>
+                  <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[9px] font-mono tracking-[0.14em] text-emerald-300">LOCAL ONLY</span>
+                </div>
+                <p className="mt-4 text-[11px] leading-6 text-zinc-500">
+                  The dashboard stays voice-first. These switches are the manual fallback for approving what JARVIS may observe; every source starts off and can only suggest a next step.
+                </p>
+                <div className={`mt-4 rounded-xl border px-3 py-2 text-[9px] font-mono tracking-[0.12em] ${ambientStatus.tone}`}>
+                  {ambientStatus.label}
+                </div>
+                {ambientSignalsUnavailable ? <p className="mt-3 text-[10px] leading-5 text-zinc-600">The local signal service is unavailable, so no device or screen status is being claimed. Restart the backend when it is safe to do so, then return here.</p> : null}
+                {ambientSignals?.proactivity === 'off' ? <p className="mt-3 text-[10px] leading-5 text-zinc-600">Sources may be approved below, but they stay silent until you save Persona Profile with Proactive behaviour set to Suggest only.</p> : null}
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {ambientSources.map((item) => {
+                    const enabled = Boolean(ambientSignals?.sources[item.source])
+                    const pending = ambientConsentPending === item.source
+                    const disabled = !item.available || !ambientSourceReady || pending
+                    return <div key={item.source} className="rounded-xl border border-white/10 bg-black/25 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className={`text-[10px] font-mono tracking-[0.14em] ${item.available ? 'text-zinc-200' : 'text-zinc-600'}`}>{item.label}</span>
+                        <button
+                          type="button"
+                          data-testid={`ambient-consent-${item.source}`}
+                          disabled={disabled}
+                          onClick={() => onSetAmbientConsent(item.source, !enabled)}
+                          title={item.description}
+                          className={`rounded border px-2.5 py-1.5 text-[8px] font-mono tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                            enabled
+                              ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+                              : 'border-zinc-700 text-zinc-500 hover:border-amber-500/35 hover:text-amber-200'
+                          }`}
+                        >
+                          {pending ? 'SAVING' : !item.available ? 'RESERVED' : enabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                      <p className="mt-3 text-[10px] leading-5 text-zinc-600">{item.description}</p>
+                    </div>
+                  })}
+                </div>
+                <p className="mt-4 text-[10px] leading-5 text-zinc-600">Voice commands for these switches are not wired yet. Until then, this is the deliberate manual control point; the dashboard only shows a compact state or a real observed alert.</p>
               </div>
 
               <div className="stormbreaker-setting-card">

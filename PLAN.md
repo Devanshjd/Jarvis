@@ -761,3 +761,15 @@ they are not part of this laptop slice.
 - `2026-08-02 · Claude` — Refreshed the live backend so `GET /api/proactive/status`
   is up; verified default-off (`enabled:false`, no signals), the consent toggle
   (battery on→off), and left all sources **OFF** (Devansh's choice in the UI).
+- `2026-08-02 · Codex` — Decluttered the dashboard: the persistent execution and
+  ambient configuration cards are gone. It now shows one tiny factual
+  `AMBIENT // OFF | IDLE | WATCHING | ATTENTION | UNAVAILABLE` indicator in the
+  transcript header, and an in-panel card only when there is a real attributable
+  recovery or ambient suggestion. All per-source consent controls moved to
+  **Settings → General → Ambient Assistance**, where they remain explicit,
+  local-only, and default off. The final explanatory line is deliberate:
+  **voice commands for these consent switches are not wired yet**. Next core/
+  voice slice may add narrowly-scoped local utterances (for example, “turn on
+  battery suggestions” / “turn off screen-error suggestions”) which must call
+  the same token-gated consent endpoint, confirm the exact source and new state,
+  and never silently enable a source.

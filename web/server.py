@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -552,13 +552,19 @@ def api_devices_pair_start():
 
 
 @app.post("/api/devices/pair/complete")
-def api_devices_pair_complete(payload: DevicePairCompleteRequest):
+def api_devices_pair_complete(payload: DevicePairCompleteRequest, request: Request):
     """Phone submits the code (over Tailscale) → receives its own token ONCE.
-    Code-gated (no token yet); exempt from the master-token guard by design."""
+    Code-gated (no token yet); exempt from the master-token guard by design.
+    Brute-force throttled: a code is burned after 5 wrong guesses, and a source is
+    cooled down after repeated failures."""
     from core.devices import get_registry, remote_enabled
     if not remote_enabled():
         return {"error": "remote access is disabled"}
-    res = get_registry().complete_pairing(payload.code, payload.device_name)
+    # Behind Tailscale Serve the TCP peer is localhost, so prefer the tailnet
+    # identity header; fall back to the client IP.
+    source = (request.headers.get("Tailscale-User-Login")
+              or (request.client.host if request.client else "unknown"))
+    res = get_registry().complete_pairing(payload.code, payload.device_name, source=source)
     if not res:
         return {"error": "invalid or expired pairing code"}
     return res

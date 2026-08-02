@@ -32,6 +32,10 @@ from typing import Optional
 
 _STORE = Path.home() / ".jarvis" / "devices.json"
 _PAIR_TTL = 300.0            # a pairing code is valid for 5 minutes
+# Brute-force defence for the 6-digit code (a million possibilities):
+_MAX_CODE_FAILS = 5         # a code is BURNED after this many wrong guesses (any source)
+_MAX_SOURCE_FAILS = 8       # a source is locked out after this many failures…
+_SOURCE_WINDOW = 60.0       # …within this many seconds (generic per-source cooldown)
 
 # The ONLY endpoint prefixes a paired phone may reach (default-deny allowlist).
 # Deliberately excludes desktop/terminal/self-modify/edith/agent/files/jobs/
@@ -63,7 +67,8 @@ class DeviceRegistry:
     def __init__(self, path: Optional[Path] = None) -> None:
         self.path = Path(path) if path else _STORE
         self._lock = threading.RLock()
-        self._pending: Optional[tuple] = None       # (code, expires_at)
+        self._pending: Optional[dict] = None         # {code, expiry, fails}
+        self._src_fails: dict = {}                   # source → [failure timestamps]
 
     # ── persistence ──────────────────────────────────────────────────────
     def _load(self) -> dict:
@@ -84,18 +89,40 @@ class DeviceRegistry:
         code = f"{secrets.randbelow(1_000_000):06d}"
         expiry = time.time() + _PAIR_TTL
         with self._lock:
-            self._pending = (code, expiry)
+            self._pending = {"code": code, "expiry": expiry, "fails": 0}
         return {"code": code,
                 "expires_at": datetime.fromtimestamp(expiry, timezone.utc).isoformat(),
                 "ttl_seconds": int(_PAIR_TTL)}
 
-    def complete_pairing(self, code: str, device_name: str = "phone") -> Optional[dict]:
+    # ── brute-force throttle ─────────────────────────────────────────────
+    def _throttled(self, source: str) -> bool:
+        now = time.time()
+        hits = [t for t in self._src_fails.get(source, []) if now - t < _SOURCE_WINDOW]
+        self._src_fails[source] = hits
+        return len(hits) >= _MAX_SOURCE_FAILS
+
+    def _note_fail(self, source: str) -> None:
+        self._src_fails.setdefault(source, []).append(time.time())
+
+    def complete_pairing(self, code: str, device_name: str = "phone",
+                         source: str = "local") -> Optional[dict]:
         with self._lock:
+            # Per-source cooldown: too many recent failures from this caller → stop.
+            if self._throttled(source):
+                return None
             pend = self._pending
-            if not pend or time.time() > pend[1] or not secrets.compare_digest(
-                    str(code or ""), pend[0]):
-                return None                          # wrong or expired
-            self._pending = None                     # single-use
+            if not pend or time.time() > pend["expiry"]:
+                self._note_fail(source)
+                return None                          # no code / expired
+            if not secrets.compare_digest(str(code or ""), pend["code"]):
+                pend["fails"] += 1
+                self._note_fail(source)
+                if pend["fails"] >= _MAX_CODE_FAILS:
+                    self._pending = None             # BURN the code after too many misses
+                return None
+            # correct → mint the device, single-use, clear this source's failures
+            self._pending = None
+            self._src_fails.pop(source, None)
             raw = secrets.token_urlsafe(32)
             device = {
                 "id": secrets.token_hex(4),

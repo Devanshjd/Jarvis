@@ -63,12 +63,42 @@ def test_pair_start_returns_a_real_future_expiry() -> None:
 def test_wrong_and_expired_codes_are_rejected() -> None:
     with tempfile.TemporaryDirectory() as d:
         reg = _reg(d)
-        reg.start_pairing()
-        assert reg.complete_pairing("000000", "x") is None or True  # wrong code (prob.)
+        code = reg.start_pairing()["code"]
+        wrong = "000000" if code != "000000" else "111111"
+        assert reg.complete_pairing(wrong, "x") is None, "a wrong code is rejected"
         # force expiry
         reg.start_pairing()
-        reg._pending = (reg._pending[0], time.time() - 1)
-        assert reg.complete_pairing(reg._pending[0], "x") is None, "expired code rejected"
+        reg._pending["expiry"] = time.time() - 1
+        assert reg.complete_pairing(reg._pending["code"], "x") is None, "expired code rejected"
+
+
+def test_brute_force_burns_the_code() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        reg = _reg(d)
+        code = reg.start_pairing()["code"]
+        wrong = "000000" if code != "000000" else "111111"
+        for _ in range(5):                                   # _MAX_CODE_FAILS
+            assert reg.complete_pairing(wrong, "x", source="atk") is None
+        # the code is BURNED — even the CORRECT code no longer works
+        assert reg.complete_pairing(code, "x", source="atk") is None, \
+            "5 wrong guesses must burn the code (brute-force defence)"
+        # a fresh code still pairs (this source isn't cooled down yet)
+        code2 = reg.start_pairing()["code"]
+        assert reg.complete_pairing(code2, "phone", source="atk"), "a new code pairs"
+
+
+def test_source_cooldown_after_repeated_failures() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        reg = _reg(d)
+        for _ in range(8):                                   # _MAX_SOURCE_FAILS
+            reg._note_fail("bot")
+        assert reg._throttled("bot") is True
+        code = reg.start_pairing()["code"]
+        assert reg.complete_pairing(code, "x", source="bot") is None, \
+            "a cooled-down source can't pair even with a valid code"
+        # a different source is unaffected by the bot's lockout
+        assert reg.complete_pairing(code, "phone", source="clean") is not None, \
+            "the lockout is per-source, not global"
 
 
 def test_phone_scope_allows_only_safe_endpoints() -> None:
@@ -113,6 +143,8 @@ def main() -> None:
         ("pairing lifecycle + one-time code", test_pairing_lifecycle_and_one_time_code),
         ("pair/start returns a real future expiry", test_pair_start_returns_a_real_future_expiry),
         ("wrong/expired codes rejected", test_wrong_and_expired_codes_are_rejected),
+        ("brute-force burns the code", test_brute_force_burns_the_code),
+        ("source cooldown after repeated failures", test_source_cooldown_after_repeated_failures),
         ("phone scope allows only safe endpoints", test_phone_scope_allows_only_safe_endpoints),
         ("non-phone scope denied everything", test_non_phone_scope_is_denied_everything),
         ("revocation kills the token", test_revocation_kills_the_token),

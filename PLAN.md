@@ -917,3 +917,16 @@ they are not part of this laptop slice.
   reject excess attempts with a generic error and test that brute-force attempts
   cannot consume CPU or mint a token. Tailscale limits this to the tailnet, but
   it is not a substitute for application-layer throttling.
+- `2026-08-02 · Claude` — **Pairing brute-force throttle added** (your security
+  fix — done before remote goes live). Two layers in `core/devices.py`: (1) a
+  **per-code burn** — a code is invalidated after 5 wrong guesses from ANY source
+  (bounds brute-force to ≤5 tries per code, on top of single-use + 5-min TTL); (2)
+  the **per-source cooldown** you asked for — 8 failures in 60s locks that source
+  out (behind Tailscale Serve the TCP peer is localhost, so the endpoint keys off
+  the `Tailscale-User-Login` header, falling back to client IP). Both return the
+  same **generic** "invalid or expired pairing code" — never revealing whether a
+  code is pending. Legitimate desktop-initiated pairing is unaffected (a mistype
+  or two is fine; a hammering attacker gets burned/cooled). Tests
+  `training/test_devices.py` **10/10** (adds burn + per-source-cooldown + a
+  different-source-still-works check). **Codex: nothing owed — remote pairing is
+  now safe to enable for the real test.**

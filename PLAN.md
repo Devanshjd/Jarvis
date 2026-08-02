@@ -314,11 +314,16 @@ the phone is a thin client and the laptop must be on + reachable.
 **Network model (the safe binding).**
 - **Tailscale** (WireGuard mesh): phone + laptop on the user's own tailnet. No
   ports opened to the public internet; NAT traversal + encryption are Tailscale's.
-- New default-OFF flag **`JARVIS_REMOTE=1`**. Off ⇒ today's posture is unchanged
-  (bind `127.0.0.1` only). On ⇒ bind `0.0.0.0:8765` **plus a source-IP guard
-  middleware** that rejects any request whose peer IP isn't `127.0.0.1` or in the
-  Tailscale CGNAT range `100.64.0.0/10`. So even a misconfigured firewall can't
-  expose it beyond localhost + the tailnet. (Belt: OS firewall + Tailscale ACLs.)
+- **FastAPI ALWAYS binds `127.0.0.1` only** — today's posture, unchanged, zero LAN
+  exposure. Remote reach is provided by **Tailscale Serve** as a private ingress
+  (Devansh's refinement, adopted): `tailscale serve` proxies
+  `https://<magicdns> (tailnet-only, TLS)` → `127.0.0.1:8765`. The port is never
+  opened on `0.0.0.0`/LAN; the only non-localhost path is Tailscale's own proxy,
+  which serves tailnet peers only. A default-OFF **`JARVIS_REMOTE`** flag gates
+  whether device **pairing + device-token auth** are active — NOT the bind (the
+  bind never changes). Two independent layers: Tailscale restricts to your tailnet
+  (network), per-device scoped tokens restrict to paired devices + a safe endpoint
+  allowlist (app).
 - CORS regex extended deliberately to the tailnet/MagicDNS origin — never `*`.
 
 **Per-device identity + pairing (initiated from the trusted desktop).**
@@ -843,6 +848,23 @@ they are not part of this laptop slice.
   Devansh to confirm first. **Codex: the pairing/status UI contract is the
   `/api/devices/*` block above; hold until the backend lands.** (Also noted: the
   real consent file had `screen_errors:true` — not set by me; asked Devansh.)
+- `2026-08-02 · Claude` — **Device-pairing backend BUILT** (Devansh confirmed the
+  design; adopted his refinement — FastAPI stays 127.0.0.1, Tailscale Serve is the
+  ingress, no `0.0.0.0` bind). `core/devices.py`: registry (`~/.jarvis/devices.json`),
+  desktop-initiated 6-digit pairing (5-min single-use code), per-device tokens
+  (sha256-hashed at rest, shown once), constant-time auth, revoke/revoke-all,
+  truthful `network_status()` (shells `tailscale status`). Middleware gains a phone
+  path: `X-JARVIS-Device-Token` → authenticate → **scope allowlist** (chat/status/
+  voice ONLY) → 403 on anything else; pair/complete is exempt (code-gated). All OFF
+  unless `JARVIS_REMOTE=1`; the bind never changes. Endpoints: `pair/start`,
+  `pair/complete`, `GET /api/devices`, `revoke`, `GET /api/devices/network`.
+  Tests `training/test_devices.py` **7/7**; all suites **76/76**. **VERIFIED LIVE**
+  (backend with `JARVIS_REMOTE=1`): paired a phone with the code, its token got
+  **200 on /api/status** but **403 on /api/desktop/enable and /api/proactive/consent**
+  ("not available to a paired phone"); revoked + restarted back to default-off.
+  **Codex: build the desktop pairing/status UI + phone PWA shell to the
+  `/api/devices/*` contract. Reminder: `tailscale serve https / http://127.0.0.1:8765`
+  is the operator step that provides the ingress; the backend reports its status.**
 - `2026-08-02 · Codex` — Decluttered the dashboard: the persistent execution and
   ambient configuration cards are gone. It now shows one tiny factual
   `AMBIENT // OFF | IDLE | WATCHING | ATTENTION | UNAVAILABLE` indicator in the

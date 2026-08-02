@@ -89,6 +89,7 @@ _PROTECTED_PREFIXES = (
     "/api/jobs/",        # holds/returns PII (job profile, fill plans)
     "/api/persona/",     # writes the local persona/preferences store
     "/api/proactive/",   # writes the proactive-signal consent store
+    "/api/devices/",     # pair/revoke — desktop (master token) only
 )
 
 
@@ -96,7 +97,32 @@ _PROTECTED_PREFIXES = (
 async def _token_guard(request, call_next):
     from fastapi.responses import JSONResponse as _JSON
     path = request.url.path
-    if request.method not in ("OPTIONS", "GET") and any(
+    method = request.method
+
+    # Pairing handshake: the phone has no token yet — the endpoint itself is
+    # gated by the one-time 6-digit code, so let it through the token guard.
+    if path == "/api/devices/pair/complete":
+        return await call_next(request)
+
+    # Phone path — a per-device token authenticates AND is scope-limited on EVERY
+    # method (a paired phone can reach only chat/status/voice; never desktop
+    # control, terminal, self-modify, or device management).
+    dev_tok = request.headers.get("X-JARVIS-Device-Token", "")
+    if dev_tok:
+        from core.devices import get_registry, remote_enabled, device_scope_allows
+        if not remote_enabled():
+            return _JSON({"error": "remote access is disabled"}, status_code=403)
+        device = get_registry().authenticate(dev_tok)
+        if not device:
+            return _JSON({"error": "unknown or revoked device"}, status_code=403)
+        if not device_scope_allows(device, path):
+            return _JSON({"error": "this endpoint is not available to a paired phone"},
+                         status_code=403)
+        get_registry().touch(device["id"])
+        return await call_next(request)
+
+    # Desktop path — the master token guards non-GET protected prefixes (as before).
+    if method not in ("OPTIONS", "GET") and any(
             path.startswith(p) for p in _PROTECTED_PREFIXES):
         if request.headers.get("X-JARVIS-Token", "") != API_TOKEN:
             return _JSON({"error": "unauthorized: missing or invalid X-JARVIS-Token"},
@@ -494,6 +520,73 @@ def api_proactive_voice(payload: ProactiveVoiceRequest):
     from core.proactive_voice import route_utterance
     from core.proactive_signals import Consent
     return route_utterance(payload.utterance, Consent())
+
+
+# ═══════════════════════════════════════════
+# Device pairing — reach the brain from a phone over Tailscale (see core/devices)
+# FastAPI stays 127.0.0.1; Tailscale Serve is the private ingress. OFF unless
+# JARVIS_REMOTE=1. Phone tokens are scope-limited (chat/status/voice only).
+# ═══════════════════════════════════════════
+class DevicePairCompleteRequest(BaseModel):
+    code: str = Field(min_length=4)
+    device_name: str = "phone"
+
+
+class DeviceRevokeRequest(BaseModel):
+    device_id: str = Field(min_length=1)
+
+
+@app.post("/api/devices/pair/start")
+def api_devices_pair_start():
+    """Desktop-initiated pairing: mint a one-time 6-digit code + the tailnet URL to
+    show as a QR. Master-token only. Requires JARVIS_REMOTE=1."""
+    from core.devices import get_registry, remote_enabled, network_status
+    if not remote_enabled():
+        return {"error": "remote access is disabled (set JARVIS_REMOTE=1 to enable)"}
+    started = get_registry().start_pairing()
+    net = network_status()["tailscale"]
+    magicdns = net.get("magicdns")
+    return {**started, "magicdns": magicdns,
+            "url": f"https://{magicdns}" if magicdns else None,
+            "tailscale_up": net.get("up")}
+
+
+@app.post("/api/devices/pair/complete")
+def api_devices_pair_complete(payload: DevicePairCompleteRequest):
+    """Phone submits the code (over Tailscale) → receives its own token ONCE.
+    Code-gated (no token yet); exempt from the master-token guard by design."""
+    from core.devices import get_registry, remote_enabled
+    if not remote_enabled():
+        return {"error": "remote access is disabled"}
+    res = get_registry().complete_pairing(payload.code, payload.device_name)
+    if not res:
+        return {"error": "invalid or expired pairing code"}
+    return res
+
+
+@app.get("/api/devices")
+def api_devices_list():
+    """Paired devices (no tokens) for the desktop management UI."""
+    from core.devices import get_registry, remote_enabled
+    return {"remote_enabled": remote_enabled(), "devices": get_registry().list()}
+
+
+@app.post("/api/devices/revoke")
+def api_devices_revoke(payload: DeviceRevokeRequest):
+    """Revoke a device's access immediately (its token is rejected next request).
+    Master-token only."""
+    from core.devices import get_registry
+    if (payload.device_id or "").lower() == "all":
+        return {"revoked_all": get_registry().revoke_all()}
+    return {"revoked": get_registry().revoke(payload.device_id)}
+
+
+@app.get("/api/devices/network")
+def api_devices_network():
+    """Truthful remote-reach status — Tailscale installed/up, tailnet IP + MagicDNS
+    name, whether remote is enabled, and how many devices are paired."""
+    from core.devices import network_status
+    return network_status()
 
 
 class EscalateRequest(BaseModel):

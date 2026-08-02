@@ -176,8 +176,19 @@ class DeviceRegistry:
 
 
 # ── Tailscale status (truthful — never claim reachable when it isn't) ────
-def _tailscale_status() -> dict:
+def _tailscale_exe() -> Optional[str]:
+    """Find the tailscale CLI on PATH OR at the Windows default install path (the
+    backend process often doesn't have Program Files\\Tailscale on its PATH, which
+    would otherwise make us falsely report 'not installed')."""
     exe = shutil.which("tailscale")
+    if exe:
+        return exe
+    default = Path(r"C:\Program Files\Tailscale\tailscale.exe")
+    return str(default) if default.exists() else None
+
+
+def _tailscale_status() -> dict:
+    exe = _tailscale_exe()
     if not exe:
         return {"installed": False, "up": False, "ip": None, "magicdns": None}
     try:

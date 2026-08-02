@@ -26,6 +26,9 @@ import ViewSkeleton from './components/ViewSkeleton'
 import { JarvisGeminiLive, type VisionSource, type VoiceBridgeState } from './services/JarvisGeminiLive'
 import type {
   ActivityStatus,
+  AmbientSignalSource,
+  AmbientSignalsResponse,
+  AmbientSignalsStatus,
   BrowserControlPage,
   ChatMessage,
   ChatResponse,
@@ -86,6 +89,9 @@ export default function App() {
   const [recentVoiceStop, setRecentVoiceStop] = useState<VoiceStopRecord | null>(null)
   const [proactiveWatch, setProactiveWatch] = useState<ProactiveWatchState>('disabled')
   const [proactiveSuggestion, setProactiveSuggestion] = useState<ProactiveSuggestion | null>(null)
+  const [ambientSignals, setAmbientSignals] = useState<AmbientSignalsStatus | null>(null)
+  const [ambientSignalsUnavailable, setAmbientSignalsUnavailable] = useState(false)
+  const [ambientConsentPending, setAmbientConsentPending] = useState<AmbientSignalSource | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [snapshot, setSnapshot] = useState<JarvisShellSnapshot | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -122,6 +128,7 @@ export default function App() {
   const audioAnimRef = useRef<number>(0)
   const voiceStopTimerRef = useRef<number | null>(null)
   const emittedProactiveSignalRef = useRef('')
+  const emittedAmbientSignalIdsRef = useRef(new Set<string>())
   // Refs so the gesture poller reads current state without stale closures.
   const activeTabRef = useRef<ShellTab>('dashboard')
   const voiceActiveRef = useRef(false)
@@ -356,6 +363,64 @@ export default function App() {
     return () => { alive = false; window.clearInterval(id) }
   }, [proactivityEnabled])
 
+  // User-context ambient signals are separate from JARVIS's own recovery
+  // detector. The backend already enforces per-source consent and a Persona
+  // master switch; the renderer exposes those real states and only announces a
+  // newly observed, content-free signal once.
+  useEffect(() => {
+    let alive = true
+    const allowedSources: AmbientSignalSource[] = ['screen_errors', 'battery', 'calendar']
+    const isKnownSource = (value: string): value is AmbientSignalSource => allowedSources.includes(value as AmbientSignalSource)
+
+    const poll = async (): Promise<void> => {
+      try {
+        const raw = await fetchJson<AmbientSignalsStatus>(`${API_BASE}/api/proactive/status`)
+        if (!alive) return
+
+        const next: AmbientSignalsStatus = {
+          enabled: Boolean(raw.enabled),
+          proactivity: raw.proactivity === 'off' ? 'off' : 'suggest_only',
+          sources: {
+            screen_errors: Boolean(raw.sources?.screen_errors),
+            battery: Boolean(raw.sources?.battery),
+            calendar: Boolean(raw.sources?.calendar)
+          },
+          signals: (Array.isArray(raw.signals) ? raw.signals : [])
+            .filter((signal) => isKnownSource(String(signal.source)))
+            .map((signal) => ({
+              id: String(signal.id),
+              source: signal.source,
+              severity: signal.severity === 'high' || signal.severity === 'medium' ? signal.severity : 'low',
+              observed_at: String(signal.observed_at),
+              summary: String(signal.summary),
+              suggestion: String(signal.suggestion)
+            }))
+        }
+
+        setAmbientSignalsUnavailable(false)
+        setAmbientSignals(next)
+
+        const visibleIds = new Set(next.signals.map((signal) => signal.id))
+        for (const signal of next.signals) {
+          if (emittedAmbientSignalIdsRef.current.has(signal.id)) continue
+          const body = `${signal.summary} ${signal.suggestion}`
+          appendShellSystemMessage(`[Ambient / ${signal.source}] ${body}`)
+          void window.desktopApi?.jarvisNotify?.('Ambient signal', body, 'normal').catch(() => {})
+        }
+        emittedAmbientSignalIdsRef.current = visibleIds
+      } catch {
+        if (!alive) return
+        setAmbientSignals(null)
+        setAmbientSignalsUnavailable(true)
+        emittedAmbientSignalIdsRef.current = new Set()
+      }
+    }
+
+    void poll()
+    const id = window.setInterval(() => void poll(), 5000)
+    return () => { alive = false; window.clearInterval(id) }
+  }, [])
+
   // Multi-agent crew readiness (isolated, non-critical polling)
   useEffect(() => {
     let alive = true
@@ -578,6 +643,40 @@ export default function App() {
 
   function appendShellSystemMessage(text: string) {
     setMessages((c) => [...c, { id: Date.now(), role: 'system', text, ts: new Date().toISOString(), source: 'shell' }])
+  }
+
+  async function setAmbientConsent(source: AmbientSignalSource, on: boolean) {
+    setAmbientConsentPending(source)
+    try {
+      const result = await fetchJson<AmbientSignalsResponse>(`${API_BASE}/api/proactive/consent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, on })
+      })
+      if (!result.ok) throw new Error('The local signal source was rejected.')
+
+      setAmbientSignals((current) => current ? {
+        ...current,
+        enabled: current.proactivity !== 'off' && Object.values(result.sources).some(Boolean),
+        sources: result.sources,
+        signals: on ? current.signals : current.signals.filter((signal) => signal.source !== source)
+      } : current)
+      emittedAmbientSignalIdsRef.current = new Set()
+
+      const label = source === 'screen_errors'
+        ? 'Screen error-count monitoring'
+        : source === 'battery'
+          ? 'Battery monitoring'
+          : 'Calendar monitoring'
+      const privacyNote = source === 'screen_errors'
+        ? ' It uses counts only—never screenshots, OCR text, or window titles.'
+        : ''
+      appendShellSystemMessage(`${label} ${on ? 'enabled' : 'disabled'}.${on ? privacyNote : ''}`)
+    } catch (err) {
+      appendShellSystemMessage(`Could not update ${source} consent: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setAmbientConsentPending(null)
+    }
   }
 
   // When the dashboard camera turns on, ask the backend to run Face ID and
@@ -970,6 +1069,9 @@ export default function App() {
                   dashboardVisionSource={dashboardVisionSource}
                   systemStats={systemStats} audioLevel={audioLevel} activity={orbActivity} stillWorking={stillWorking}
                   voiceTiming={voiceTiming}
+                  ambientSignals={ambientSignals}
+                  ambientSignalsUnavailable={ambientSignalsUnavailable}
+                  ambientConsentPending={ambientConsentPending}
                   proactiveWatch={proactiveWatch}
                   proactiveSuggestion={proactiveSuggestion}
                   voiceLifecycle={voiceLifecycle}
@@ -980,6 +1082,7 @@ export default function App() {
                   onToggleVoice={() => void toggleVoice()}
                   onToggleMic={() => toggleMic()}
                   onStopVoiceTurn={() => void stopVoiceOutput()}
+                  onSetAmbientConsent={(source, on) => void setAmbientConsent(source, on)}
                   onSetDashboardVision={handleSetDashboardVision}
                   onCameraStreamReady={handleCameraStreamReady}
                   onLocalVoice={() => void handleLocalVoice()}

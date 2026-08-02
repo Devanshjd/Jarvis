@@ -187,6 +187,30 @@ export type ProactiveSuggestion = {
   suggestion: string
 }
 
+/** User-context sources are separately consented and default off. Keep this
+ * list narrow so the renderer cannot silently opt in an unreviewed source. */
+export type AmbientSignalSource = 'screen_errors' | 'battery' | 'calendar'
+
+export type AmbientSignal = {
+  id: string
+  source: AmbientSignalSource
+  severity: 'low' | 'medium' | 'high'
+  observed_at: string
+  summary: string
+  suggestion: string
+}
+
+export type AmbientSignalsStatus = {
+  enabled: boolean
+  proactivity: PersonaProfile['proactivity']
+  sources: Record<AmbientSignalSource, boolean>
+  signals: AmbientSignal[]
+}
+
+export type AmbientSignalsResponse = Pick<AmbientSignalsStatus, 'sources'> & {
+  ok: boolean
+}
+
 export type ChatMessage = {
   id: number
   role: string

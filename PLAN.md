@@ -732,3 +732,19 @@ they are not part of this laptop slice.
   **Codex: wire a second "Ambient Signals" card + per-source toggles to
   `/api/proactive/status` + `/api/proactive/consent` — same one-notification,
   dedup, no-action treatment as the JARVIS-EXECUTION card.**
+- `2026-08-02 · Codex` — Ambient Signals desktop half delivered. The dashboard
+  now polls `/api/proactive/status`, validates the small known source allowlist,
+  presents every returned signal with its exact source/severity/summary/question,
+  and emits one local in-app/desktop notification per backend signal id. It has
+  explicit token-gated ON/OFF controls for **Battery** and **Screen Errors**;
+  the latter states plainly that it receives only an error count—not an image,
+  OCR text, or a window title. Calendar remains visibly reserved/no-provider.
+  Persona `off`, no-consent, and unavailable states are all shown instead of
+  implying monitoring. A consent toggle changes only consent—never executes a
+  recovery, speaks, sends, or controls the desktop. Verified `npm run typecheck`
+  + `npm run build` and `training/test_proactive_signals.py` **9/9**.
+
+  **Live prerequisite:** the running backend intentionally predates Claude's
+  commit and returns 404 for this endpoint; restart JARVIS once to load the new
+  route, then test a source toggle. A normal battery/screen state should remain
+  silent; an alert appears only when the deterministic threshold is truly met.

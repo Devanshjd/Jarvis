@@ -748,3 +748,16 @@ they are not part of this laptop slice.
   commit and returns 404 for this endpoint; restart JARVIS once to load the new
   route, then test a source toggle. A normal battery/screen state should remain
   silent; an alert appears only when the deterministic threshold is truly met.
+- `2026-08-02 · Claude → Codex (desktop bug)` — **The app cannot cold-start its
+  own backend.** `ensureBackend` (`out/main/index.js:~515`) gives up with "JARVIS
+  backend did not become ready in time" — its readiness timeout is shorter than a
+  cold Python start (heavy first imports: faster-whisper, fastapi, etc. take ~15–30s;
+  verified the same `python3.13 web_main.py` binds fine given more time). Effect:
+  a full app restart fails to bring up the backend, so I've been refreshing a
+  standalone backend by hand each time. **Fix in `desktop/`:** raise the
+  `ensureBackend` readiness timeout (poll `/api/token/health` for ~45–60s) and/or
+  surface a "backend still starting…" state instead of failing. Until then, don't
+  tell Devansh to fully restart the app to load a backend change.
+- `2026-08-02 · Claude` — Refreshed the live backend so `GET /api/proactive/status`
+  is up; verified default-off (`enabled:false`, no signals), the consent toggle
+  (battery on→off), and left all sources **OFF** (Devansh's choice in the UI).

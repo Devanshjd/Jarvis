@@ -121,6 +121,22 @@ async def _token_guard(request, call_next):
         get_registry().touch(device["id"])
         return await call_next(request)
 
+    # Remote (tailnet, via Tailscale Serve) requests WITHOUT a device token: the
+    # desktop console and the un-scoped API must NOT be reachable over the tailnet.
+    # Only the phone client + the pairing handshake are — you pair first, then use
+    # a scoped token. `Tailscale-User-Login` is injected+stripped by Serve (can't
+    # be forged); a non-localhost Host is the secondary signal.
+    host = (request.headers.get("host", "").split(":")[0] or "").lower()
+    is_remote = (bool(request.headers.get("Tailscale-User-Login"))
+                 or host not in ("127.0.0.1", "localhost", ""))
+    if is_remote:
+        if path.startswith("/phone"):
+            return await call_next(request)          # the pairing/chat client
+        if path == "/":
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/phone/")   # bare domain → the phone client
+        return _JSON({"error": "pair this device first — open /phone"}, status_code=403)
+
     # Desktop path — the master token guards non-GET protected prefixes (as before).
     if method not in ("OPTIONS", "GET") and any(
             path.startswith(p) for p in _PROTECTED_PREFIXES):

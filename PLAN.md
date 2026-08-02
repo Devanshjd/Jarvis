@@ -930,3 +930,17 @@ they are not part of this laptop slice.
   `training/test_devices.py` **10/10** (adds burn + per-source-cooldown + a
   different-source-still-works check). **Codex: nothing owed — remote pairing is
   now safe to enable for the real test.**
+- `2026-08-02 · Claude` — Tailscale set up live (Devansh did install+login+phone;
+  I hit the boundary on `tailscale serve` = admin, his to run). **Two real fixes
+  the live test surfaced:** (1) `network_status()` reported `installed:false` when
+  Tailscale wasn't on the backend's PATH — now checks the default install path
+  (truthful again). (2) **The bare MagicDNS URL served the FULL desktop console +
+  un-scoped API over the tailnet** (the phone-scoping is opt-in on the device
+  token, so an un-tokened tailnet request bypassed it). Middleware now treats any
+  **remote** request (Tailscale-Serve identity header, or a non-localhost Host) as
+  scoped: without a device token it may reach ONLY `/phone*` (`/` 307-redirects
+  there) + pairing; the console and un-scoped API are 403. Local (127.0.0.1)
+  desktop is unchanged. **Verified live over the real tunnel** (remote `/`→307
+  `/phone/`, `/phone/`→200, `/api/status` no-token→403; local `/`→200). Serve is up
+  (`desktop-kiu916g.tail678de1.ts.net`, tailnet-only). Devansh: open the bare URL
+  on the phone → it lands on the pairing client → pair with the desktop code.

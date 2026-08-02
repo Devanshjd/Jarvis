@@ -49,6 +49,17 @@ def test_pairing_lifecycle_and_one_time_code() -> None:
         assert reg.complete_pairing(code, "again") is None, "code must not be reusable"
 
 
+def test_pair_start_returns_a_real_future_expiry() -> None:
+    from datetime import datetime, timezone
+    with tempfile.TemporaryDirectory() as d:
+        started = _reg(d).start_pairing()
+        exp = datetime.fromisoformat(started["expires_at"])
+        now = datetime.now(timezone.utc)
+        delta = (exp - now).total_seconds()
+        assert 60 < delta <= 300 + 5, f"expires_at must be ~5 min in the FUTURE, got {delta}s"
+        assert started["ttl_seconds"] == 300
+
+
 def test_wrong_and_expired_codes_are_rejected() -> None:
     with tempfile.TemporaryDirectory() as d:
         reg = _reg(d)
@@ -100,6 +111,7 @@ def main() -> None:
     tests = [
         ("remote off by default", test_remote_off_by_default),
         ("pairing lifecycle + one-time code", test_pairing_lifecycle_and_one_time_code),
+        ("pair/start returns a real future expiry", test_pair_start_returns_a_real_future_expiry),
         ("wrong/expired codes rejected", test_wrong_and_expired_codes_are_rejected),
         ("phone scope allows only safe endpoints", test_phone_scope_allows_only_safe_endpoints),
         ("non-phone scope denied everything", test_non_phone_scope_is_denied_everything),

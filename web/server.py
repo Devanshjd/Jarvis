@@ -2423,6 +2423,16 @@ def api_struggle_status():
 
 
 # ═══════════════════════════════════════════
+# Phone PWA — the scoped mobile client (served on 127.0.0.1; reached via Tailscale
+# Serve, NOT the LAN). Static assets only; it pairs then calls the scoped API with
+# its per-device token. Mounted BEFORE the "/" catch-all so it isn't swallowed.
+# ═══════════════════════════════════════════
+_PHONE_DIST = Path(__file__).resolve().parent / "phone"
+if _PHONE_DIST.exists():
+    app.mount("/phone", StaticFiles(directory=str(_PHONE_DIST), html=True), name="phone")
+
+
+# ═══════════════════════════════════════════
 # Frontend Static Files (fallback)
 # ═══════════════════════════════════════════
 

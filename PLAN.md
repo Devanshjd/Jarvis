@@ -894,3 +894,16 @@ they are not part of this laptop slice.
   make `pair/start` return a real future `expires_at`: `DeviceRegistry.start_pairing()`
   currently returns the creation time in that field, though Codex safely uses
   `ttl_seconds` for its countdown.
+- `2026-08-02 · Claude` — **Phone PWA served + `expires_at` fixed** (both your
+  handoff items). `web/phone/index.html` is a self-contained scoped mobile client
+  (pairing → chat + push-to-talk voice; per-device token in `localStorage`; honest
+  status dot; handles 403-revoked → back to pairing; timeout → polls `/api/history`;
+  voice speaks the reply on the PHONE, not the laptop). Mounted at **`/phone`**
+  (StaticFiles), registered BEFORE the `/` catch-all so the frontend isn't shadowed.
+  Served on 127.0.0.1 only — reached via Tailscale Serve, never the LAN. `expires_at`
+  now returns the real future expiry (creation + TTL). Tests `test_devices.py`
+  **8/8**; verified live: `GET /phone/` → 200 + renders the pairing screen (browser
+  pane), `GET /` still the frontend, `GET /api/status` 200. **Codex: nothing owed —
+  your PHONE tab + this PWA complete the pair→reach loop once Devansh runs
+  `tailscale serve` on both devices. Voice-out on the phone uses the browser's
+  speechSynthesis (no laptop playback).**

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<title>JARVIS</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22JARVIS%22%2C%22short_name%22%3A%22JARVIS%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b0e14%22%2C%22theme_color%22%3A%22%230b0e14%22%7D">
+<style>
+  :root { --bg:#0b0e14; --panel:#131822; --line:#232b3a; --txt:#dfe6f2; --dim:#8a97ad;
+          --amber:#ffb454; --ok:#5fd08a; --bad:#ff6b6b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt);
+    font:16px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; }
+  #app { display:flex; flex-direction:column; height:100dvh; max-width:640px; margin:0 auto; }
+  header { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); }
+  header .logo { font:700 15px/1 ui-monospace,monospace; letter-spacing:3px; color:var(--amber); }
+  header .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); }
+  header .dot.ok { background:var(--ok); } header .dot.bad { background:var(--bad); }
+  header .status { font-size:12px; color:var(--dim); margin-left:auto; text-align:right; }
+  .forget { background:none; border:1px solid var(--line); color:var(--dim);
+    border-radius:8px; padding:5px 9px; font-size:11px; }
+  /* pairing */
+  #pair { padding:28px 20px; display:none; }
+  #pair.show { display:block; }
+  #pair h1 { font:700 18px/1 ui-monospace,monospace; letter-spacing:2px; color:var(--amber); margin:0 0 6px; }
+  #pair p { color:var(--dim); font-size:14px; margin:0 0 22px; }
+  #pair label { display:block; font-size:12px; color:var(--dim); margin:16px 0 6px; }
+  #code { width:100%; padding:14px; font:600 26px/1 ui-monospace,monospace; letter-spacing:10px;
+    text-align:center; background:var(--panel); border:1px solid var(--line); border-radius:12px; color:var(--txt); }
+  #dname { width:100%; padding:12px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; color:var(--txt); font-size:15px; }
+  #pairBtn { width:100%; margin-top:22px; padding:15px; background:var(--amber); color:#1a1200;
+    border:none; border-radius:12px; font:700 15px/1 sans-serif; }
+  #pairBtn:disabled { opacity:.5; }
+  #pairErr { color:var(--bad); font-size:13px; min-height:18px; margin-top:12px; text-align:center; }
+  /* chat */
+  #chat { display:none; flex-direction:column; flex:1; min-height:0; }
+  #chat.show { display:flex; }
+  #log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .msg { max-width:82%; padding:10px 13px; border-radius:14px; font-size:15px; white-space:pre-wrap; word-wrap:break-word; }
+  .me  { align-self:flex-end; background:#1d2740; border-bottom-right-radius:4px; }
+  .jv  { align-self:flex-start; background:var(--panel); border:1px solid var(--line); border-bottom-left-radius:4px; }
+  .jv.think { color:var(--dim); font-style:italic; }
+  form { display:flex; gap:8px; padding:12px; border-top:1px solid var(--line); }
+  #text { flex:1; padding:12px 14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:22px; color:var(--txt); font-size:15px; }
+  .icon { width:46px; border:none; border-radius:50%; font-size:18px; }
+  #mic { background:var(--panel); border:1px solid var(--line); color:var(--txt); }
+  #mic.rec { background:var(--bad); color:#fff; }
+  #send { background:var(--amber); color:#1a1200; }
+  .empty { color:var(--dim); text-align:center; margin-top:40px; font-size:14px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="dot" id="dot"></span>
+    <span class="logo">JARVIS</span>
+    <span class="status" id="stat">connecting…</span>
+    <button class="forget" id="forget" style="display:none" onclick="forgetDevice()">Forget</button>
+  </header>
+
+  <section id="pair">
+    <h1>PAIR THIS PHONE</h1>
+    <p>On your laptop, open <b>PHONE → Pair a phone</b> and enter the 6-digit code it shows. It expires in 5 minutes.</p>
+    <label for="code">Pairing code</label>
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="––––––" autocomplete="one-time-code">
+    <label for="dname">Name this device</label>
+    <input id="dname" placeholder="My phone" maxlength="40">
+    <button id="pairBtn" onclick="doPair()">Pair</button>
+    <div id="pairErr"></div>
+  </section>
+
+  <section id="chat">
+    <div id="log"><div class="empty">Paired. Say hello to JARVIS.</div></div>
+    <form onsubmit="return doSend(event)">
+      <button type="button" class="icon" id="mic" onclick="toggleMic()" title="Hold to talk">🎙</button>
+      <input id="text" placeholder="Message JARVIS…" autocomplete="off">
+      <button type="submit" class="icon" id="send">➤</button>
+    </form>
+  </section>
+</div>
+
+<script>
+const TOK = 'jarvis_device_token';
+const tok = () => localStorage.getItem(TOK);
+const $ = id => document.getElementById(id);
+
+function headers(json=true) {
+  const h = {}; if (json) h['Content-Type'] = 'application/json';
+  const t = tok(); if (t) h['X-JARVIS-Device-Token'] = t; return h;
+}
+async function api(path, opts={}) {
+  return fetch(path, { ...opts, headers: { ...headers(opts.json !== false), ...(opts.headers||{}) } });
+}
+
+function show(view) {
+  $('pair').classList.toggle('show', view === 'pair');
+  $('chat').classList.toggle('show', view === 'chat');
+  $('forget').style.display = view === 'chat' ? '' : 'none';
+}
+function forgetDevice() { localStorage.removeItem(TOK); show('pair'); setStatus(false, 'not paired'); }
+function setStatus(ok, txt) {
+  $('dot').className = 'dot ' + (ok ? 'ok' : 'bad'); $('stat').textContent = txt;
+}
+
+// ── pairing ───────────────────────────────────────────────
+async function doPair() {
+  const code = $('code').value.trim(), name = $('dname').value.trim() || 'phone';
+  $('pairErr').textContent = ''; $('pairBtn').disabled = true;
+  try {
+    const r = await fetch('/api/devices/pair/complete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, device_name: name }) });
+    const d = await r.json();
+    if (d.device_token) { localStorage.setItem(TOK, d.device_token); enterChat(); }
+    else $('pairErr').textContent = d.error || 'Pairing failed.';
+  } catch (e) { $('pairErr').textContent = 'Could not reach JARVIS — is Tailscale connected?'; }
+  $('pairBtn').disabled = false;
+}
+
+// ── chat ──────────────────────────────────────────────────
+function addMsg(who, txt, think=false) {
+  const empty = $('log').querySelector('.empty'); if (empty) empty.remove();
+  const d = document.createElement('div');
+  d.className = 'msg ' + (who === 'me' ? 'me' : 'jv') + (think ? ' think' : '');
+  d.textContent = txt; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight;
+  return d;
+}
+async function doSend(ev) {
+  ev.preventDefault();
+  const t = $('text').value.trim(); if (!t) return false;
+  $('text').value = ''; addMsg('me', t);
+  const think = addMsg('jv', 'thinking…', true);
+  try {
+    const r = await api('/api/chat', { method: 'POST', body: JSON.stringify({ text: t }) });
+    if (r.status === 403) { think.remove(); return revoked(); }
+    const d = await r.json();
+    if (d.kind === 'timeout') { think.textContent = 'still working…'; pollHistory(think); }
+    else { think.classList.remove('think'); think.textContent = d.reply || "(no reply)"; }
+  } catch (e) { think.textContent = '⚠ could not reach JARVIS'; }
+  return false;
+}
+async function pollHistory(node) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const r = await api('/api/history?limit=2'); if (!r.ok) continue;
+      const h = await r.json(); const msgs = h.messages || h.history || h || [];
+      const last = Array.isArray(msgs) ? msgs[msgs.length - 1] : null;
+      const reply = last && (last.assistant || last.content || last.reply);
+      if (reply) { node.classList.remove('think'); node.textContent = reply; return; }
+    } catch (e) {}
+  }
+  node.textContent = '(timed out)';
+}
+function revoked() { forgetDevice(); $('pairErr').textContent = 'This device was revoked on the desktop.'; }
+
+// ── voice (record → /api/voice/local, speak reply on the PHONE) ──
+let rec, chunks = [];
+async function toggleMic() {
+  if (rec && rec.state === 'recording') { rec.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    rec = new MediaRecorder(stream); chunks = [];
+    rec.ondataavailable = e => chunks.push(e.data);
+    rec.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop()); $('mic').classList.remove('rec');
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const b64 = await new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result.split(',')[1]); f.readAsDataURL(blob); });
+      const think = addMsg('jv', 'listening…', true);
+      try {
+        const r = await api('/api/voice/local', { method: 'POST', body: JSON.stringify({ audio_base64: b64, speak: false }) });
+        if (r.status === 403) { think.remove(); return revoked(); }
+        const d = await r.json();
+        if (d.transcript) addMsg('me', d.transcript);
+        think.classList.remove('think'); think.textContent = d.reply || d.error || '(no reply)';
+        if (d.reply && window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance(d.reply));
+      } catch (e) { think.textContent = '⚠ voice failed'; }
+    };
+    rec.start(); $('mic').classList.add('rec');
+  } catch (e) { alert('Microphone permission is needed for voice.'); }
+}
+
+// ── status + boot ─────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const r = await api('/api/status'); if (!r.ok) { setStatus(false, 'unauthorized'); return; }
+    const d = await r.json();
+    const online = d.provider && d.provider.reachable;
+    setStatus(online, online ? (d.provider.model || 'online') : 'brain offline');
+  } catch (e) { setStatus(false, 'offline'); }
+}
+function enterChat() { show('chat'); refreshStatus(); }
+if (tok()) enterChat(); else { show('pair'); setStatus(false, 'not paired'); }
+setInterval(() => { if (tok() && $('chat').classList.contains('show')) refreshStatus(); }, 8000);
+</script>
+</body>
+</html>

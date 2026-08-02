@@ -82,9 +82,12 @@ class DeviceRegistry:
     # ── pairing (desktop starts, phone completes once) ───────────────────
     def start_pairing(self) -> dict:
         code = f"{secrets.randbelow(1_000_000):06d}"
+        expiry = time.time() + _PAIR_TTL
         with self._lock:
-            self._pending = (code, time.time() + _PAIR_TTL)
-        return {"code": code, "expires_at": _now(), "ttl_seconds": int(_PAIR_TTL)}
+            self._pending = (code, expiry)
+        return {"code": code,
+                "expires_at": datetime.fromtimestamp(expiry, timezone.utc).isoformat(),
+                "ttl_seconds": int(_PAIR_TTL)}
 
     def complete_pairing(self, code: str, device_name: str = "phone") -> Optional[dict]:
         with self._lock:

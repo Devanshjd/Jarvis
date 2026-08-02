@@ -41,7 +41,9 @@
   .msg { max-width:82%; padding:10px 13px; border-radius:14px; font-size:15px; white-space:pre-wrap; word-wrap:break-word; }
   .me  { align-self:flex-end; background:#1d2740; border-bottom-right-radius:4px; }
   .jv  { align-self:flex-start; background:var(--panel); border:1px solid var(--line); border-bottom-left-radius:4px; }
-  .jv.think { color:var(--dim); font-style:italic; }
+  .jv.think { color:var(--dim); font-style:italic; animation:pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
+  .icon:disabled, #text:disabled { opacity:.5; }
   form { display:flex; gap:8px; padding:12px; border-top:1px solid var(--line); }
   #text { flex:1; padding:12px 14px; background:var(--panel); border:1px solid var(--line);
     border-radius:22px; color:var(--txt); font-size:15px; }
@@ -87,6 +89,12 @@ const TOK = 'jarvis_device_token';
 const tok = () => localStorage.getItem(TOK);
 const $ = id => document.getElementById(id);
 
+let busy = false;                         // one turn at a time (the local model is serial)
+function setBusy(b) {
+  busy = b;
+  $('send').disabled = b; $('text').disabled = b; $('mic').disabled = b;
+}
+
 function headers(json=true) {
   const h = {}; if (json) h['Content-Type'] = 'application/json';
   const t = tok(); if (t) h['X-JARVIS-Device-Token'] = t; return h;
@@ -130,16 +138,19 @@ function addMsg(who, txt, think=false) {
 }
 async function doSend(ev) {
   ev.preventDefault();
+  if (busy) return false;                 // wait for the current reply first
   const t = $('text').value.trim(); if (!t) return false;
   $('text').value = ''; addMsg('me', t);
   const think = addMsg('jv', 'thinking…', true);
+  setBusy(true);
   try {
     const r = await api('/api/chat', { method: 'POST', body: JSON.stringify({ text: t }) });
-    if (r.status === 403) { think.remove(); return revoked(); }
+    if (r.status === 403) { think.remove(); revoked(); return false; }
     const d = await r.json();
     if (d.kind === 'timeout') { think.textContent = 'still working…'; pollHistory(think); }
     else { think.classList.remove('think'); think.textContent = d.reply || "(no reply)"; }
-  } catch (e) { think.textContent = '⚠ could not reach JARVIS'; }
+  } catch (e) { think.classList.remove('think'); think.textContent = '⚠ could not reach JARVIS'; }
+  finally { setBusy(false); $('text').focus(); }
   return false;
 }
 async function pollHistory(node) {
@@ -167,17 +178,19 @@ async function toggleMic() {
     rec.ondataavailable = e => chunks.push(e.data);
     rec.onstop = async () => {
       stream.getTracks().forEach(t => t.stop()); $('mic').classList.remove('rec');
+      setBusy(true);
       const blob = new Blob(chunks, { type: 'audio/webm' });
       const b64 = await new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result.split(',')[1]); f.readAsDataURL(blob); });
       const think = addMsg('jv', 'listening…', true);
       try {
         const r = await api('/api/voice/local', { method: 'POST', body: JSON.stringify({ audio_base64: b64, speak: false }) });
-        if (r.status === 403) { think.remove(); return revoked(); }
+        if (r.status === 403) { think.remove(); revoked(); return; }
         const d = await r.json();
         if (d.transcript) addMsg('me', d.transcript);
         think.classList.remove('think'); think.textContent = d.reply || d.error || '(no reply)';
         if (d.reply && window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance(d.reply));
-      } catch (e) { think.textContent = '⚠ voice failed'; }
+      } catch (e) { think.classList.remove('think'); think.textContent = '⚠ voice failed'; }
+      finally { setBusy(false); }
     };
     rec.start(); $('mic').classList.add('rec');
   } catch (e) { alert('Microphone permission is needed for voice.'); }

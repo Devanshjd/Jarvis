@@ -611,6 +611,62 @@ def api_devices_network():
     return network_status()
 
 
+# ═══════════════════════════════════════════
+# Cross-device handoff — "continue this on my phone" (see core/handoff)
+# A note + short context summary; the history is already shared across devices.
+# ═══════════════════════════════════════════
+class HandoffStartRequest(BaseModel):
+    to: str = "phone"                        # phone | laptop
+    note: str = ""
+
+
+class HandoffAckRequest(BaseModel):
+    id: str = Field(min_length=1)
+
+
+def _recent_summary() -> str:
+    """A one-line 'where you were' from the shared history — best effort."""
+    try:
+        rt = get_runtime()
+        msgs = [m for m in rt.brain.history if m.get("content")]
+        last_user = next((m["content"] for m in reversed(msgs) if m.get("role") == "user"), "")
+        last_asst = next((m["content"] for m in reversed(msgs) if m.get("role") == "assistant"), "")
+        parts = []
+        if last_user:
+            parts.append("You: " + " ".join(last_user.split())[:120])
+        if last_asst:
+            parts.append("JARVIS: " + " ".join(last_asst.split())[:120])
+        return " · ".join(parts)
+    except Exception:
+        return ""
+
+
+@app.post("/api/handoff/start")
+def api_handoff_start(payload: HandoffStartRequest, request: Request):
+    """Hand the current conversation to the other device. Stores a note + a short
+    summary of where you were; the receiving device polls /latest and picks up the
+    (already-shared) history. No action is taken."""
+    from core.handoff import get_handoff
+    from_device = "phone" if request.headers.get("X-JARVIS-Device-Token") else "laptop"
+    return get_handoff().start(payload.to, from_device=from_device,
+                               summary=_recent_summary(), note=payload.note)
+
+
+@app.get("/api/handoff/latest")
+def api_handoff_latest(target: str | None = Query(default=None, alias="for")):
+    """The pending handoff (optionally only if it targets `for=phone|laptop`), or
+    null. The receiving device polls this to show 'continue where you left off'."""
+    from core.handoff import get_handoff
+    return {"handoff": get_handoff().latest(target)}
+
+
+@app.post("/api/handoff/ack")
+def api_handoff_ack(payload: HandoffAckRequest):
+    """The receiving device confirms it picked up the handoff (stops the nudge)."""
+    from core.handoff import get_handoff
+    return {"acked": get_handoff().ack(payload.id)}
+
+
 class EscalateRequest(BaseModel):
     problem: str = Field(min_length=1)
     context: str = ""

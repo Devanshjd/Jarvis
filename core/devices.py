@@ -41,7 +41,8 @@ _SOURCE_WINDOW = 60.0       # …within this many seconds (generic per-source co
 # Deliberately excludes desktop/terminal/self-modify/edith/agent/files/jobs/
 # persona/device-management and even proactive consent — chat, status, voice only.
 _PHONE_ALLOW = ("/api/chat", "/api/history", "/api/status", "/api/token/health",
-                "/api/voice/", "/api/tts/", "/api/stt/", "/api/proactive/status")
+                "/api/voice/", "/api/tts/", "/api/stt/", "/api/proactive/status",
+                "/api/handoff")     # continue-here: pick up + ack a handoff
 
 
 def _now() -> str:

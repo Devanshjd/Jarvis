@@ -205,7 +205,31 @@ async function refreshStatus() {
     setStatus(online, online ? (d.provider.model || 'online') : 'brain offline');
   } catch (e) { setStatus(false, 'offline'); }
 }
-function enterChat() { show('chat'); refreshStatus(); }
+async function loadHistory() {
+  try {
+    const r = await api('/api/history?limit=20'); if (!r.ok) return;
+    const h = await r.json();
+    const msgs = h.messages || h.history || (Array.isArray(h) ? h : []);
+    if (!msgs.length) return;
+    const empty = $('log').querySelector('.empty'); if (empty) empty.remove();
+    for (const m of msgs.slice(-12)) {
+      const role = m.role || (m.user ? 'user' : 'assistant');
+      const txt = m.content || m.user || m.assistant || m.text || '';
+      if (txt && role !== 'system') addMsg(role === 'user' ? 'me' : 'jv', txt);
+    }
+  } catch (e) {}
+}
+async function checkHandoff() {
+  try {
+    const r = await api('/api/handoff/latest?for=phone'); if (!r.ok) return;
+    const h = (await r.json()).handoff;
+    if (h && h.id) {
+      addMsg('jv', 'Continued from your laptop' + (h.summary ? ' — ' + h.summary : '.'));
+      api('/api/handoff/ack', { method: 'POST', body: JSON.stringify({ id: h.id }) });
+    }
+  } catch (e) {}
+}
+function enterChat() { show('chat'); loadHistory().then(checkHandoff); refreshStatus(); }
 if (tok()) enterChat(); else { show('pair'); setStatus(false, 'not paired'); }
 setInterval(() => { if (tok() && $('chat').classList.contains('show')) refreshStatus(); }, 8000);
 </script>

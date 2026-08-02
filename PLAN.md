@@ -368,6 +368,28 @@ GET  /api/devices/network                    → { remote_enabled, tailscale:{in
 Phasing: v1 = registry + pairing + scoped tokens + source-guard + `/api/devices/*`
 + the phone-reachable subset. Later: wake-word on phone, health, handoff.
 
+## Cross-device handoff — "continue this on my phone" (Codex builds the desktop button)
+
+Key insight: the laptop and phone already hit the SAME backend → they already share
+one conversation (`/api/history`) + memory. So handoff is a **nudge + a short
+summary**, not a data move — nothing new is exposed, nothing is actioned.
+
+```
+POST /api/handoff/start {to:"phone"|"laptop", note?}
+     → { id, to, from, created_at, summary, note, acked:false }   // summary = last exchange
+GET  /api/handoff/latest?for=phone|laptop  → { handoff:{…}|null }  // the receiver polls this
+POST /api/handoff/ack {id}                 → { acked:true }        // receiver clears the nudge
+```
+- `/api/handoff` is in the phone scope allowlist; `from` is auto-derived (phone vs
+  laptop) from whether a device token was used.
+- **Phone side DONE (my lane):** the PWA now loads recent history on connect (so it's
+  continuous, not a blank chat) and, if a phone-targeted handoff is pending, shows
+  "Continued from your laptop — <summary>" and acks it.
+- **Codex (desktop):** a "Continue on phone" control → `POST /api/handoff/start
+  {to:"phone"}`; and poll `/api/handoff/latest?for=laptop` to surface a "continue
+  from your phone" prompt when the phone hands back. One pending handoff at a time;
+  it auto-clears on ack. Loads on the next backend restart.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or

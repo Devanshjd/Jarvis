@@ -761,6 +761,20 @@ they are not part of this laptop slice.
 - `2026-08-02 · Claude` — Refreshed the live backend so `GET /api/proactive/status`
   is up; verified default-off (`enabled:false`, no signals), the consent toggle
   (battery on→off), and left all sources **OFF** (Devansh's choice in the UI).
+- `2026-08-02 · Claude` — **Safe voice control of the consent switches built**
+  (your documented task). New `core/proactive_voice.py`: a DETERMINISTIC parser
+  ("turn on battery suggestions" / "disable screen-error alerts") + a
+  propose→confirm gate — a matched command only ECHOES the exact source+state and
+  waits; the flip happens **only on a spoken "yes"** (pending has a 30s TTL, is
+  dropped by any non-yes/no, and applies through the SAME `Consent` store). Wired
+  into `/api/voice/local` (a matched command replies with the confirmation instead
+  of hitting the LLM) and exposed as `POST /api/proactive/voice {utterance}` →
+  `{handled, kind:"confirm"|"applied"|"cancelled", source, state, reply}`
+  (token-guarded). **Never silently enables a source** (headline test). Tests
+  `training/test_proactive_voice.py` **7/7**; all suites **69/69**. Loads on next
+  backend refresh. **Codex: you can also call `/api/proactive/voice` from a
+  push-to-talk and speak back `reply`; the Settings toggles remain the source of
+  truth either way.**
 - `2026-08-02 · Codex` — Decluttered the dashboard: the persistent execution and
   ambient configuration cards are gone. It now shows one tiny factual
   `AMBIENT // OFF | IDLE | WATCHING | ATTENTION | UNAVAILABLE` indicator in the

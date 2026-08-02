@@ -481,6 +481,21 @@ def api_proactive_consent(payload: ProactiveConsentRequest):
     return {"ok": ok, "sources": c.summary()}
 
 
+class ProactiveVoiceRequest(BaseModel):
+    utterance: str = Field(min_length=1)
+
+
+@app.post("/api/proactive/voice")
+def api_proactive_voice(payload: ProactiveVoiceRequest):
+    """Narrow, safe voice control of the consent switches. A matched command only
+    PROPOSES (kind:"confirm") — nothing is enabled until a spoken "yes" (kind:
+    "applied"). Deterministic parse; ambiguous utterances return {handled:false}
+    and should fall through to normal chat. Same Consent store as the toggle."""
+    from core.proactive_voice import route_utterance
+    from core.proactive_signals import Consent
+    return route_utterance(payload.utterance, Consent())
+
+
 class EscalateRequest(BaseModel):
     problem: str = Field(min_length=1)
     context: str = ""
@@ -1201,6 +1216,42 @@ def api_voice_local(payload: LocalVoiceRequest):
         return {"success": False, "error": f"STT failed: {e}"}
     if not transcript:
         return {"success": False, "error": "no speech detected", "transcript": ""}
+
+    # ── Safe voice control of ambient consent switches ──────────────────
+    # A narrow, deterministic command ("turn on battery suggestions") only
+    # PROPOSES; the flip happens only on a spoken "yes". Ambiguous speech falls
+    # through to normal chat. Never enables a source silently.
+    try:
+        from core.proactive_voice import route_utterance
+        from core.proactive_signals import Consent
+        routed = route_utterance(transcript, Consent())
+    except Exception:
+        routed = {"handled": False}
+    if routed.get("handled"):
+        reply = routed["reply"]
+        audio_b64 = ""
+        voice = _get_piper_voice() if payload.speak else None
+        if voice is not None:
+            try:
+                buf = io.BytesIO()
+                with wave.open(buf, "wb") as wf:
+                    voice.synthesize_wav(reply, wf)
+                audio_b64 = base64.b64encode(buf.getvalue()).decode()
+
+                def _synth(sentence: str) -> bytes:
+                    b = io.BytesIO()
+                    with wave.open(b, "wb") as wf:
+                        voice.synthesize_wav(sentence, wf)
+                    return b.getvalue()
+
+                from core.voice_control import get_speech
+                get_speech().speak(reply, synth=_synth, background=True)
+            except Exception:
+                pass
+        return {"success": True, "transcript": transcript, "reply": reply,
+                "reply_audio_base64": audio_b64, "local": True, "cancelled": False,
+                "proactive": {k: routed[k] for k in ("kind", "source", "state") if k in routed},
+                "latency_ms": int((time.time() - t_start) * 1000)}
 
     # 2) Reason locally — a FAST direct Ollama chat (snappy voice replies).
     #    The full agent pipeline is too slow for turn-based voice; keep this

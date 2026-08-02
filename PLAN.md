@@ -303,6 +303,66 @@ POST /api/voice/local    → now STREAMS generation (abortable mid-thought), use
   speech) needs streaming+abort — noted, not done. Wake word + the voice loop
   calling `persona_prompt()` are the shared follow-ups.
 
+## Phone reach over Tailscale — SCOPE (design for review, NOT built yet)
+
+Goal: reach the laptop "brain" from a phone when you're out — the pragmatic v1 of
+the EV vision. **This is the single biggest security change in the project** (the
+backend goes from localhost-only/unreachable to reachable over a network), so it's
+OFF by default and designed defence-in-depth. The brain never moves to the cloud;
+the phone is a thin client and the laptop must be on + reachable.
+
+**Network model (the safe binding).**
+- **Tailscale** (WireGuard mesh): phone + laptop on the user's own tailnet. No
+  ports opened to the public internet; NAT traversal + encryption are Tailscale's.
+- New default-OFF flag **`JARVIS_REMOTE=1`**. Off ⇒ today's posture is unchanged
+  (bind `127.0.0.1` only). On ⇒ bind `0.0.0.0:8765` **plus a source-IP guard
+  middleware** that rejects any request whose peer IP isn't `127.0.0.1` or in the
+  Tailscale CGNAT range `100.64.0.0/10`. So even a misconfigured firewall can't
+  expose it beyond localhost + the tailnet. (Belt: OS firewall + Tailscale ACLs.)
+- CORS regex extended deliberately to the tailnet/MagicDNS origin — never `*`.
+
+**Per-device identity + pairing (initiated from the trusted desktop).**
+- Device registry `~/.jarvis/devices.json`: `[{id, name, token_hash (sha256),
+  created, last_seen, enabled, scope}]`. Tokens hashed at rest; the raw token is
+  shown to the phone exactly once.
+- Flow: desktop "Pair a phone" → `pair/start` mints a 6-digit code (5-min TTL) +
+  the tailnet URL (shown as a QR). Phone opens the URL over Tailscale, submits the
+  code → `pair/complete` verifies it, mints a **per-device token**, records the
+  device. Phone stores the token; sends it as `X-JARVIS-Device-Token` thereafter.
+  The phone can't self-pair — the code comes from the desktop.
+
+**Scoped access (critical — a phone is lost/stolen more easily).**
+- A device token reaches a SAFE ALLOWLIST only: chat, `status`/health, history,
+  memory read, voice, proactive status. It is **denied** the high-blast-radius
+  routes — `/api/desktop/*`, `/api/terminal`, `/api/self_modify/*`, `/api/edith/*`
+  writes, `/api/agent/execute`. Those stay desktop-only (the master token). The
+  phone can talk to JARVIS; it cannot drive the PC or modify JARVIS.
+
+**Revocation + honesty.**
+- `GET /api/devices` (desktop) lists paired devices; `POST /api/devices/revoke
+  {device_id}` disables one instantly (token rejected next request); a global kill
+  switch too. `GET /api/devices/network` reports the truthful state (Tailscale
+  installed/up, tailnet IP + MagicDNS name, remote_enabled, paired count) so the
+  UI never claims "reachable" when Tailscale is down.
+
+**Endpoint contract (Codex builds the desktop pairing/status UI + phone PWA shell to this):**
+```
+POST /api/devices/pair/start                 (desktop, master-token) → { code, expires_at, url, magicdns }
+POST /api/devices/pair/complete {code, device_name}   (phone, over tailnet)    → { device_id, device_token }   // token shown once
+GET  /api/devices                            (desktop) → { remote_enabled, devices:[{id,name,created,last_seen,enabled,scope}] }
+POST /api/devices/revoke {device_id}         (desktop) → { revoked }
+GET  /api/devices/network                    → { remote_enabled, tailscale:{installed,up,ip,magicdns}, paired:int }
+```
+
+**Three decisions to confirm before I build the backend:**
+1. Binding = `0.0.0.0` + `100.64.0.0/10` source-guard behind default-off
+   `JARVIS_REMOTE` (recommended) vs binding to the Tailscale IP directly.
+2. Phone scope = read/chat/voice only, NO desktop/terminal/self-mod (recommended, strong).
+3. Pairing desktop-initiated only (recommended).
+
+Phasing: v1 = registry + pairing + scoped tokens + source-guard + `/api/devices/*`
++ the phone-reachable subset. Later: wake-word on phone, health, handoff.
+
 ## Issues & pain points we hit (read this to save yourself hours)
 
 These are real problems from building the crew — most bite when running or
@@ -775,6 +835,14 @@ they are not part of this laptop slice.
   backend refresh. **Codex: you can also call `/api/proactive/voice` from a
   push-to-talk and speak back `reply`; the Settings toggles remain the source of
   truth either way.**
+- `2026-08-02 · Claude` — Refreshed the live backend; **verified the safe voice
+  flow end-to-end** (`/api/proactive/voice` "turn on battery" → `confirm`, wrote
+  nothing on disk; "yes" → `applied`), then reverted. **Scoped the Tailscale phone
+  phase** (design section above — network binding, per-device pairing, scoped
+  tokens, revocation, endpoint contract). NOT built yet — 3 decisions flagged for
+  Devansh to confirm first. **Codex: the pairing/status UI contract is the
+  `/api/devices/*` block above; hold until the backend lands.** (Also noted: the
+  real consent file had `screen_errors:true` — not set by me; asked Devansh.)
 - `2026-08-02 · Codex` — Decluttered the dashboard: the persistent execution and
   ambient configuration cards are gone. It now shows one tiny factual
   `AMBIENT // OFF | IDLE | WATCHING | ATTENTION | UNAVAILABLE` indicator in the

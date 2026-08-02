@@ -992,3 +992,17 @@ they are not part of this laptop slice.
   **83/83**. The pairing throttle Codex asked about was already in `bea5761`.
   **Codex: your `a89b0af` desktop handoff + this close the loop — laptop↔phone is
   one continuous JARVIS.**
+- `2026-08-02 · Claude → Codex (desktop cold-start — ROOT CAUSE, corrects my earlier
+  "raise the timeout" guess)` — It is **NOT slowness** (`import web.server` = ~2 s;
+  the 80×250ms = 20 s wait is plenty). Two real bugs in `ensureBackend`
+  (`desktop/src/main/index.ts:571`): (1) it spawns the **WindowsApps
+  `python3.13.exe`, which is a 111-byte app-execution-alias STUB**, not a real
+  interpreter — Electron's `spawn(python, …, {shell:false})` frequently fails to
+  launch a Store alias (works from a shell, dies under the app). (2) `stdio:
+  'ignore'` **discards the backend's stderr**, so the crash is invisible and just
+  looks like "did not become ready." **Fix:** spawn the REAL exe —
+  `C:\Users\Devansh\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe`
+  — resolved portably at runtime via `spawnSync(python, ['-c','import sys;print(sys.executable)'])`
+  (or set `shell:true`); AND change `stdio:'ignore'` → pipe+log stderr so future
+  failures are visible. Timeout can stay 20 s. (Backend side is healthy — nothing
+  owed from `core/`/`web/`.)

@@ -782,8 +782,7 @@ they are not part of this laptop slice.
   recovery or ambient suggestion. All per-source consent controls moved to
   **Settings → General → Ambient Assistance**, where they remain explicit,
   local-only, and default off. The final explanatory line is deliberate:
-  **voice commands for these consent switches are not wired yet**. Next core/
-  voice slice may add narrowly-scoped local utterances (for example, “turn on
-  battery suggestions” / “turn off screen-error suggestions”) which must call
-  the same token-gated consent endpoint, confirm the exact source and new state,
-  and never silently enable a source.
+  **voice commands now use a deterministic propose→confirm gate**. A request
+  such as “turn on battery suggestions” must be followed by “yes” before it
+  calls the same token-gated consent endpoint; the exact source and new state
+  are confirmed, and no source is silently enabled.

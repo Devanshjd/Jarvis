@@ -60,6 +60,7 @@
     <span class="dot" id="dot"></span>
     <span class="logo">JARVIS</span>
     <span class="status" id="stat">connecting…</span>
+    <button class="forget" id="tolaptop" style="display:none" onclick="continueOnLaptop()">→ Laptop</button>
     <button class="forget" id="forget" style="display:none" onclick="forgetDevice()">Forget</button>
   </header>
 
@@ -106,7 +107,16 @@ async function api(path, opts={}) {
 function show(view) {
   $('pair').classList.toggle('show', view === 'pair');
   $('chat').classList.toggle('show', view === 'chat');
-  $('forget').style.display = view === 'chat' ? '' : 'none';
+  const inChat = view === 'chat' ? '' : 'none';
+  $('forget').style.display = inChat;
+  $('tolaptop').style.display = inChat;
+}
+
+async function continueOnLaptop() {
+  try {
+    await api('/api/handoff/start', { method: 'POST', body: JSON.stringify({ to: 'laptop' }) });
+    addMsg('jv', 'Sent to your laptop — open JARVIS there to continue.');
+  } catch (e) { addMsg('jv', '⚠ could not reach JARVIS'); }
 }
 function forgetDevice() { localStorage.removeItem(TOK); show('pair'); setStatus(false, 'not paired'); }
 function setStatus(ok, txt) {
@@ -231,7 +241,11 @@ async function checkHandoff() {
 }
 function enterChat() { show('chat'); loadHistory().then(checkHandoff); refreshStatus(); }
 if (tok()) enterChat(); else { show('pair'); setStatus(false, 'not paired'); }
-setInterval(() => { if (tok() && $('chat').classList.contains('show')) refreshStatus(); }, 8000);
+// While the chat is open, keep status fresh AND pick up a laptop→phone handoff
+// live (no reload needed). checkHandoff acks what it shows, so it won't repeat.
+setInterval(() => {
+  if (tok() && $('chat').classList.contains('show')) { refreshStatus(); checkHandoff(); }
+}, 8000);
 </script>
 </body>
 </html>

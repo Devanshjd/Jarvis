@@ -982,3 +982,13 @@ they are not part of this laptop slice.
   `/phone/`, `/phone/`→200, `/api/status` no-token→403; local `/`→200). Serve is up
   (`desktop-kiu916g.tail678de1.ts.net`, tailnet-only). Devansh: open the bare URL
   on the phone → it lands on the pairing client → pair with the desktop code.
+- `2026-08-02 · Claude` — **Cross-device handoff backend + phone side done** (contract
+  section above). `core/handoff.py` + `/api/handoff/{start,latest,ack}`; the phone
+  PWA loads shared history on connect, **polls for a laptop→phone handoff live
+  (8s)**, has a **→ Laptop** button (`start {to:"laptop"}`), and acks what it shows.
+  Restarted the backend (remote still on) so the endpoints load; **verified live**:
+  start captured the real last exchange as the summary, latest→ack→null, and the
+  updated PWA serves over the tunnel. Tests `test_handoff.py` **4/4**; all suites
+  **83/83**. The pairing throttle Codex asked about was already in `bea5761`.
+  **Codex: your `a89b0af` desktop handoff + this close the loop — laptop↔phone is
+  one continuous JARVIS.**
